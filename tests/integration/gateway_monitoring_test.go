@@ -17,8 +17,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
-	"lsp-gateway/tests/shared"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/shared"
 )
 
 func TestGatewayMonitoringEndpoints(t *testing.T) {
@@ -72,11 +72,11 @@ func main() {
 	gateway, err := server.NewHTTPGateway(":0", gatewayConfig, false)
 	require.NoError(t, err)
 
-    ctx := context.Background()
-    require.NoError(t, gateway.Start(ctx))
+	ctx := context.Background()
+	require.NoError(t, gateway.Start(ctx))
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
-    readyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	readyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	require.NoError(t, shared.WaitForHTTPReady(readyCtx, baseURL+"/health"))
 
@@ -118,7 +118,7 @@ func main() {
 		require.NoError(t, err)
 		respInit.Body.Close()
 
-		resp, err := client.Get(baseURL+"/cache/stats")
+		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -142,7 +142,7 @@ func main() {
 	})
 
 	t.Run("CacheHealthEndpoint", func(t *testing.T) {
-		resp, err := client.Get(baseURL+"/cache/health")
+		resp, err := client.Get(baseURL + "/cache/health")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -170,7 +170,7 @@ func main() {
 
 	t.Run("CacheClearEndpoint", func(t *testing.T) {
 		// First get initial stats
-		resp, err := client.Get(baseURL+"/cache/stats")
+		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 
 		var statsBefore map[string]interface{}
@@ -203,7 +203,7 @@ func main() {
 			require.Equal(t, float64(0), ec)
 		}
 
-		respAfter, err := client.Get(baseURL+"/cache/stats")
+		respAfter, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 		defer respAfter.Body.Close()
 
@@ -269,7 +269,7 @@ func main() {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%s_%s", tc.method, tc.endpoint), func(t *testing.T) {
-			req, err := http.NewRequest(tc.method, baseURL+tc.endpoint, nil)
+				req, err := http.NewRequest(tc.method, baseURL+tc.endpoint, nil)
 				require.NoError(t, err)
 
 				resp, err := client.Do(req)
@@ -344,10 +344,10 @@ func main() {
 				},
 				"id": i + 100,
 			}
-			
+
 			jsonData, err := json.Marshal(jsonReq)
 			require.NoError(t, err)
-			
+
 			req, err := http.NewRequest(
 				http.MethodPost,
 				baseURL+"/jsonrpc",
@@ -355,12 +355,12 @@ func main() {
 			)
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			
+
 			respLoad, err := client.Do(req)
 			require.NoError(t, err)
 			respLoad.Body.Close()
 		}
-		
+
 		resp, err := client.Get(baseURL + "/cache/health")
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -388,7 +388,7 @@ func main() {
 		// Clear cache first
 		req, err := http.NewRequest(http.MethodPost, baseURL+"/cache/clear", nil)
 		require.NoError(t, err)
-		
+
 		respClear, err := client.Do(req)
 		require.NoError(t, err)
 		respClear.Body.Close()
@@ -412,7 +412,7 @@ func main() {
 
 			jsonData, err := json.Marshal(jsonReq)
 			require.NoError(t, err)
-			
+
 			req, err := http.NewRequest(
 				http.MethodPost,
 				baseURL+"/jsonrpc",
@@ -420,12 +420,12 @@ func main() {
 			)
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			
+
 			respDef, err := client.Do(req)
 			require.NoError(t, err)
 			respDef.Body.Close()
 		}
-		
+
 		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 		defer resp.Body.Close()

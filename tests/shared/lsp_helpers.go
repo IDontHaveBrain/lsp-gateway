@@ -87,7 +87,7 @@ func (setup *LSPManagerSetup) Start(t *testing.T) {
 
 	err := setup.Manager.Start(setup.Context)
 	require.NoError(t, err, "Failed to start LSP manager")
-	
+
 	setup.Started = true
 	// Poll for at least one active client or exit quickly if none configured
 	waitCtx, cancel := context.WithTimeout(setup.Context, 5*time.Second)
@@ -215,21 +215,21 @@ func (setup *LSPManagerSetup) IndexDocument(t *testing.T, uri string) interface{
 				}
 			}
 		}
-forceIndex:
-        // If automatic indexing didn't work, try forcing it by calling ProcessRequest again
-        t.Logf("IndexDocument: Automatic indexing didn't complete in initial window; trying to force indexing")
-		
+	forceIndex:
+		// If automatic indexing didn't work, try forcing it by calling ProcessRequest again
+		t.Logf("IndexDocument: Automatic indexing didn't complete in initial window; trying to force indexing")
+
 		// Try calling ProcessRequest again - sometimes the first call doesn't trigger indexing
 		t.Logf("IndexDocument: Calling ProcessRequest again to force indexing")
 		_, err2 := setup.Manager.ProcessRequest(setup.Context, "textDocument/documentSymbol", params)
 		if err2 != nil {
 			t.Logf("IndexDocument: Second ProcessRequest failed: %v", err2)
 		}
-		
+
 		// Poll again after forced request
 		pollCtx2, cancel2 := context.WithTimeout(setup.Context, 2*time.Second)
 		defer cancel2()
-		forcedPoll:
+	forcedPoll:
 		for {
 			select {
 			case <-pollCtx2.Done():
@@ -306,20 +306,20 @@ func CreateHTTPGateway(t *testing.T, port string, cfg *config.Config) *HTTPGatew
 	if cfg == nil {
 		cfg = CreateBasicConfig()
 	}
-	
+
 	if port == "" {
 		// Dynamic port binding
 		port = ":0"
 	}
-	
+
 	gateway, err := server.NewHTTPGateway(port, cfg, false)
 	require.NoError(t, err, "Failed to create HTTP gateway")
 	require.NotNil(t, gateway, "HTTP gateway should not be nil")
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	// ServerURL is initialized after Start when actual port is known
 	serverAddr := ""
-	
+
 	return &HTTPGatewaySetup{
 		Gateway:   gateway,
 		Config:    cfg,
@@ -334,7 +334,7 @@ func CreateHTTPGateway(t *testing.T, port string, cfg *config.Config) *HTTPGatew
 func (setup *HTTPGatewaySetup) Start(t *testing.T) {
 	err := setup.Gateway.Start(setup.Context)
 	require.NoError(t, err, "Failed to start HTTP gateway")
-	
+
 	setup.Started = true
 	// Determine actual bound port and set server URL
 	port := setup.Gateway.Port()
@@ -366,7 +366,7 @@ func (setup *HTTPGatewaySetup) GetJSONRPCURL() string {
 func (setup *HTTPGatewaySetup) GetHealthURL() string {
 	return fmt.Sprintf("http://%s/health", setup.ServerURL)
 }
- 
+
 // WaitForHTTPReady polls the given health URL until it returns HTTP 200 or the context is done.
 func WaitForHTTPReady(ctx context.Context, healthURL string) error {
 	client := &http.Client{Timeout: 2 * time.Second}

@@ -11,6 +11,12 @@ import (
 	"lsp-gateway/src/internal/common"
 )
 
+const (
+	langJava       = "java"
+	langJavaScript = "javascript"
+	langTypeScript = "typescript"
+)
+
 // PackageInfo represents package metadata extracted from project files
 type PackageInfo struct {
 	Name       string // package name or module path
@@ -38,9 +44,9 @@ func GetPackageInfo(workingDir, language string) (*PackageInfo, error) {
 		return getGoPackageInfo(workingDir)
 	case "python":
 		return getPythonPackageInfo(workingDir)
-	case "javascript", "typescript":
+	case langJavaScript, langTypeScript:
 		return getNodePackageInfo(workingDir, language)
-	case "java":
+	case langJava:
 		return getJavaPackageInfo(workingDir)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", language)
@@ -387,7 +393,7 @@ func tryMavenPom(workingDir string) *PackageInfo {
 		Name:       name,
 		Version:    pom.Version,
 		Repository: repository,
-		Language:   "java",
+		Language:   langJava,
 	}
 }
 
@@ -435,7 +441,7 @@ func tryGradleBuild(workingDir string) *PackageInfo {
 			return &PackageInfo{
 				Name:     name,
 				Version:  version,
-				Language: "java",
+				Language: langJava,
 			}
 		}
 	}

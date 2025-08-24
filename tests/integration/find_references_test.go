@@ -51,7 +51,7 @@ func main() {
 	// Request document symbols to populate cache
 	symbolResult := setup.IndexDocument(t, fileURI)
 	t.Logf("Document symbols indexed: %v", symbolResult != nil)
-	
+
 	// Indexing wait handled by IndexDocument; no extra sleep
 
 	// Test SearchSymbolReferences for "Router"

@@ -43,7 +43,6 @@ var (
 	version      string
 	installPath  string
 	verbose      bool
-	outPath      string
 	formatJSON   bool
 	targetFiles  []string
 	includeRefs  bool

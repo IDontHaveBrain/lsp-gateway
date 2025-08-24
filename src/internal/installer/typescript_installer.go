@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 )
 
 // TypeScriptInstaller handles TypeScript/JavaScript language server installation
@@ -49,7 +48,7 @@ func (t *TypeScriptInstaller) ValidateInstallation() error {
 	}
 
 	// Test that typescript-language-server can start
-	ctx, cancel := icommon.CreateContext(3 * time.Second)
+	ctx, cancel := common.CreateContext(3 * time.Second)
 	defer cancel()
 
 	if _, err := t.RunCommandWithOutput(ctx, "typescript-language-server", "--help"); err != nil {

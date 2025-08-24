@@ -1,7 +1,7 @@
 package config
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -118,7 +118,7 @@ func LoadConfig(path string) (*Config, error) {
 func SaveConfig(config *Config, path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -127,7 +127,7 @@ func SaveConfig(config *Config, path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -328,7 +328,7 @@ func GetProjectSpecificCachePath(workingDir string) string {
 	}
 
 	// Add a hash of the full path to handle duplicate project names in different locations
-	hasher := md5.New()
+	hasher := sha256.New()
 	hasher.Write([]byte(absPath))
 	pathHash := fmt.Sprintf("%x", hasher.Sum(nil))
 	if len(pathHash) > 8 {

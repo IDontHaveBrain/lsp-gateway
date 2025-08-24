@@ -7,7 +7,6 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 )
@@ -46,7 +45,7 @@ func NewCommandContextWithOptions(configPath string, opts CommandContextOptions)
 	cfg := LoadConfigForCLI(configPath)
 
 	// Create context with timeout
-	ctx, cancel := icommon.CreateContext(opts.Timeout)
+	ctx, cancel := common.CreateContext(opts.Timeout)
 
 	cmdCtx := &CommandContext{
 		Config:    cfg,
@@ -194,12 +193,12 @@ func (c *CommandContext) Cleanup() {
 
 	// Stop manager if it was started
 	if c.Manager != nil && c.managerStarted {
-		c.Manager.Stop()
+		_ = c.Manager.Stop()
 	}
 
 	// Stop cache if cache-only mode
 	if c.cacheOnly && c.Cache != nil {
-		c.Cache.Stop()
+		_ = c.Cache.Stop()
 	}
 }
 

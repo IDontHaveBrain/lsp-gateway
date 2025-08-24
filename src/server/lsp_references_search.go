@@ -762,7 +762,7 @@ func (m *LSPManager) detectLanguageFromURI(uri string) string {
 	case ".ts", ".tsx":
 		return "typescript"
 	case ".py":
-		return "python"
+		return langPython
 	case ".java":
 		return "java"
 	case ".kt", ".kts":

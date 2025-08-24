@@ -25,6 +25,19 @@ import (
 	"lsp-gateway/src/server/protocol"
 )
 
+const (
+	langJava             = "java"
+	langKotlin           = "kotlin"
+	langRust             = "rust"
+	langPython           = "python"
+	serverPyrightLS      = "pyright-langserver"
+	serverBasedPyrightLS = "basedpyright-langserver"
+	serverJediLS         = "jedi-language-server"
+	pmUVX                = "uvx"
+	namePyright          = "pyright"
+	nameBasedPyright     = "basedpyright"
+)
+
 type SocketClient struct {
 	config                types.ClientConfig
 	language              string
@@ -70,7 +83,7 @@ func NewSocketClient(config types.ClientConfig, language, addr string) (types.LS
 
 func (c *SocketClient) getRequestTimeout(method string) time.Duration {
 	baseTimeout := constants.GetRequestTimeout(c.language)
-	if c.language == "java" {
+	if c.language == langJava {
 		switch method {
 		case types.MethodTextDocumentReferences:
 			return baseTimeout * 2
@@ -128,7 +141,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
 	// Kotlin needs time to initialize before opening socket on Linux/macOS
 	// Windows uses stdio mode with fwcd/kotlin-language-server so doesn't need this
-	if c.language == "kotlin" && runtime.GOOS != "windows" {
+	if c.language == langKotlin && runtime.GOOS != osWindows {
 		initialDelay := 3 * time.Second
 		if common.IsCI() {
 			// Increase delay on CI to give Kotlin more time to bind the socket
@@ -142,7 +155,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 	// This ensures the socket connection timeout doesn't exceed the overall initialization timeout
 	timeout := constants.GetInitializeTimeout(c.language)
 	// For non-JVM languages, use a shorter timeout for connection establishment
-	if c.language != "kotlin" && c.language != "java" {
+	if c.language != langKotlin && c.language != langJava {
 		// Use the smaller of ProcessStartTimeout or InitializeTimeout
 		if constants.ProcessStartTimeout < timeout {
 			timeout = constants.ProcessStartTimeout
@@ -155,17 +168,14 @@ func (c *SocketClient) Start(ctx context.Context) error {
 	var conn net.Conn
 	var lastErr error
 	retryInterval := 200 * time.Millisecond
-	if c.language == "kotlin" && runtime.GOOS == "windows" && common.IsCI() {
+	if c.language == langKotlin && runtime.GOOS == osWindows && common.IsCI() {
 		// More frequent retries on Windows CI to catch when the server is ready
 		retryInterval = 300 * time.Millisecond
-	} else if c.language == "kotlin" {
+	} else if c.language == langKotlin {
 		retryInterval = 500 * time.Millisecond // Slower retry for Kotlin in other environments
 	}
 
-	for {
-		if dialCtx.Err() != nil {
-			break
-		}
+	for dialCtx.Err() == nil {
 		conn, lastErr = net.DialTimeout("tcp", c.addr, 2*time.Second)
 		if lastErr == nil {
 			break
@@ -180,7 +190,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
 	go func() {
 		if err := c.jsonrpcProtocol.HandleResponses(c.conn, c, c.processInfo.StopCh); err != nil {
-			if !c.processInfo.IntentionalStop && err != io.EOF {
+			if !c.processInfo.IntentionalStop && !stderrors.Is(err, io.EOF) {
 				common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
 			}
 		}
@@ -188,7 +198,9 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
 	if err := c.initializeLSP(ctx); err != nil {
 		c.processManager.CleanupProcess(c.processInfo)
-		c.conn.Close()
+		if c.conn != nil {
+			_ = c.conn.Close()
+		}
 		return fmt.Errorf("failed to initialize LSP server: %w", err)
 	}
 
@@ -203,7 +215,7 @@ func (c *SocketClient) Stop() error {
 	if !c.active {
 		c.mu.Unlock()
 		if c.conn != nil {
-			c.conn.Close()
+			_ = c.conn.Close()
 		}
 		return nil
 	}
@@ -211,7 +223,7 @@ func (c *SocketClient) Stop() error {
 
 	err := c.processManager.StopProcess(c.processInfo, c)
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 	}
 	c.mu.Lock()
 	c.active = false
@@ -264,7 +276,7 @@ func (c *SocketClient) SendRequest(ctx context.Context, method string, params in
 		}
 		var opErr *net.OpError
 		if stderrors.As(writeErr, &opErr) {
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				isConnectionError = true
 			}
 			if opErr.Timeout() {
@@ -370,7 +382,7 @@ func (c *SocketClient) HandleRequest(method string, id interface{}, params inter
 		defer c.writeMu.Unlock()
 		return c.jsonrpcProtocol.WriteMessage(c.conn, response)
 	} else {
-		var nullResult json.RawMessage = json.RawMessage("null")
+		var nullResult = json.RawMessage("null")
 		response := protocol.CreateResponse(id, nullResult, nil)
 		c.writeMu.Lock()
 		defer c.writeMu.Unlock()
@@ -397,7 +409,7 @@ func (c *SocketClient) initializeLSP(ctx context.Context) error {
 		var err error
 		wd, err = os.Getwd()
 		if err != nil {
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				wd = os.TempDir()
 			} else {
 				wd = "/tmp"
@@ -517,7 +529,7 @@ func (c *SocketClient) initializeLSP(ctx context.Context) error {
 		common.LSPLogger.Warn("Failed to parse server capabilities for %s: %v", c.config.Command, err)
 	}
 
-	if c.language == "rust" {
+	if c.language == langRust {
 		common.LSPLogger.Info("rust-analyzer capabilities: %s", string(result))
 	}
 
@@ -526,15 +538,15 @@ func (c *SocketClient) initializeLSP(ctx context.Context) error {
 		return err
 	}
 
-	isPyright := c.config.Command == "pyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "pyright-langserver")
-	isBasedPyright := c.config.Command == "basedpyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "basedpyright-langserver")
+	isPyright := c.config.Command == serverPyrightLS || (c.config.Command == pmUVX && len(c.config.Args) > 0 && c.config.Args[0] == serverPyrightLS)
+	isBasedPyright := c.config.Command == serverBasedPyrightLS || (c.config.Command == pmUVX && len(c.config.Args) > 0 && c.config.Args[0] == serverBasedPyrightLS)
 	if isPyright || isBasedPyright {
 		c.active = true
-		serverName := "pyright"
+		serverName := namePyright
 		configPrefix := "python"
 		if isBasedPyright {
-			serverName = "basedpyright"
-			configPrefix = "basedpyright"
+			serverName = nameBasedPyright
+			configPrefix = nameBasedPyright
 		}
 		common.LSPLogger.Debug("Sending workspace/didChangeConfiguration for %s", serverName)
 		configParams := map[string]interface{}{

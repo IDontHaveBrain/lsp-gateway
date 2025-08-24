@@ -108,11 +108,11 @@ func (pm *LSPProcessManager) sendShutdown(sender ShutdownSender) {
 	shutdownCtx, shutdownCancel := common.CreateContext(2 * time.Second)
 	defer shutdownCancel()
 
-	sender.SendShutdownRequest(shutdownCtx)
+	_ = sender.SendShutdownRequest(shutdownCtx)
 
 	// Send exit notification with its own timeout
 	exitCtx, exitCancel := common.CreateContext(1 * time.Second)
 	defer exitCancel()
 
-	sender.SendExitNotification(exitCtx)
+	_ = sender.SendExitNotification(exitCtx)
 }

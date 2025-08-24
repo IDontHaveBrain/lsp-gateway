@@ -45,7 +45,7 @@ func (c *CSharpInstaller) Install(ctx context.Context, options InstallOptions) e
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	filename := filepath.Base(url)
 	archivePath := filepath.Join(tmpDir, filename)
@@ -78,7 +78,7 @@ func (c *CSharpInstaller) IsInstalled() bool {
 	dllPath := filepath.Join(installBin, "OmniSharp.dll")
 	if _, err := os.Stat(dllPath); err == nil {
 		wrapper := "omnisharp"
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			wrapper = "omnisharp.cmd"
 		}
 		if _, err := os.Stat(filepath.Join(installBin, wrapper)); err == nil {
@@ -113,7 +113,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 	} else {
 		// Fallback to wrapper inside bin for dll layout
 		installBin := filepath.Join(c.GetInstallPath(), "bin")
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			if _, err := os.Stat(filepath.Join(installBin, "omnisharp.cmd")); err == nil {
 				executablePath = filepath.Join(installBin, "omnisharp.cmd")
 			}
@@ -150,7 +150,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 func (c *CSharpInstaller) Uninstall() error {
 	installBin := filepath.Join(c.GetInstallPath(), "bin")
 	bin := filepath.Join(installBin, "omnisharp")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		bin = bin + ".exe"
 	}
 	_ = os.Remove(bin)
@@ -168,13 +168,13 @@ func (c *CSharpInstaller) linkFromPath(installBin string) error {
 		}
 	}
 	target := filepath.Join(installBin, "omnisharp")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		target = target + ".exe"
 	}
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		if err := os.Symlink(found, target); err == nil {
 			return nil
 		}
@@ -188,17 +188,17 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 	plat := ""
 	ext := ""
 	switch platform {
-	case "linux":
+	case osLinux:
 		if isMusl() {
 			plat = "linux-musl"
 		} else {
 			plat = "linux"
 		}
 		ext = ".tar.gz"
-	case "darwin":
+	case osDarwin:
 		plat = "osx"
 		ext = ".zip"
-	case "windows":
+	case osWindows:
 		plat = "win"
 		ext = ".zip"
 	default:
@@ -227,7 +227,7 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("failed to fetch releases: %s", resp.Status)
 	}
@@ -266,13 +266,14 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 
 func (c *CSharpInstaller) findOmniSharpBinary(root string) (string, error) {
 	var candidates []string
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		candidates = []string{"omnisharp.exe", "OmniSharp.exe"}
 	} else {
 		candidates = []string{"omnisharp", "OmniSharp"}
 	}
 	var match string
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	found := errors.New("found")
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
@@ -280,11 +281,13 @@ func (c *CSharpInstaller) findOmniSharpBinary(root string) (string, error) {
 		for _, cnd := range candidates {
 			if strings.EqualFold(name, cnd) {
 				match = path
-				return errors.New("found")
+				return found
 			}
 		}
 		return nil
-	})
+	}); err != nil && !errors.Is(err, found) {
+		return "", err
+	}
 	if match == "" {
 		return "", errors.New("OmniSharp binary not found in archive")
 	}
@@ -306,10 +309,10 @@ func copyDirContents(srcDir, dstDir string) error {
 			if rel == "." {
 				return nil
 			}
-			return os.MkdirAll(target, 0755)
+			return os.MkdirAll(target, 0750)
 		}
 		// Ensure parent exists
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0750); err != nil {
 			return err
 		}
 		return copyFile(path, target)
@@ -321,7 +324,7 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 	var foundBinary string
 	var candidates []string
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		candidates = []string{"OmniSharp.exe", "omnisharp.exe", "OmniSharp.dll"}
 	} else {
 		candidates = []string{"OmniSharp", "omnisharp", "OmniSharp.dll"}
@@ -351,7 +354,7 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 			}
 			return nil
 		})
-		if err != nil && err != filepath.SkipAll {
+		if err != nil && !errors.Is(err, filepath.SkipAll) {
 			return fmt.Errorf("error searching for OmniSharp binary: %w", err)
 		}
 	}
@@ -368,8 +371,8 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 	}
 
 	// For native binaries, ensure they're executable
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(foundBinary, 0755); err != nil {
+	if runtime.GOOS != osWindows {
+		if err := os.Chmod(foundBinary, 0700); err != nil {
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
 
@@ -378,7 +381,9 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 		if baseName == "OmniSharp" {
 			symlinkPath := filepath.Join(installBin, "omnisharp")
 			// Remove existing symlink if it exists
-			os.Remove(symlinkPath)
+			if err := os.Remove(symlinkPath); err != nil && !os.IsNotExist(err) {
+				common.CLILogger.Warn("Failed to remove existing symlink: %v", err)
+			}
 			// Create relative symlink
 			if err := os.Symlink(baseName, symlinkPath); err != nil {
 				common.CLILogger.Warn("Failed to create omnisharp symlink: %v", err)
@@ -393,28 +398,36 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 func (c *CSharpInstaller) createDotNetWrapper(dllPath string, installBin string) error {
 	wrapperPath := filepath.Join(installBin, "omnisharp")
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		wrapperPath += ".cmd"
 		content := fmt.Sprintf(`@echo off
 dotnet "%s" %%*
 `, dllPath)
-		return os.WriteFile(wrapperPath, []byte(content), 0755)
+		if err := os.WriteFile(wrapperPath, []byte(content), 0600); err != nil {
+			return err
+		}
+		return nil
 	} else {
 		content := fmt.Sprintf(`#!/bin/sh
 exec dotnet "%s" "$@"
 `, dllPath)
-		if err := os.WriteFile(wrapperPath, []byte(content), 0755); err != nil {
+		if err := os.WriteFile(wrapperPath, []byte(content), 0600); err != nil {
+			return err
+		}
+		if err := os.Chmod(wrapperPath, 0700); err != nil {
 			return err
 		}
 		// Also create OmniSharp symlink
 		symlinkPath := filepath.Join(installBin, "OmniSharp")
-		os.Remove(symlinkPath)
+		if err := os.Remove(symlinkPath); err != nil && !os.IsNotExist(err) {
+			common.CLILogger.Warn("Failed to remove existing symlink: %v", err)
+		}
 		return os.Symlink("omnisharp", symlinkPath)
 	}
 }
 
 func isMusl() bool {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != osLinux {
 		return false
 	}
 	if _, err := os.Stat("/etc/alpine-release"); err == nil {

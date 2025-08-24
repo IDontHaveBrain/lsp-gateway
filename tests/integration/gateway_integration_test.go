@@ -21,7 +21,6 @@ func TestGatewayIntegration(t *testing.T) {
 	gatewaySetup := shared.CreateHTTPGateway(t, "", cfg)
 	gatewaySetup.Start(t)
 	defer gatewaySetup.Stop()
-	
 
 	client := shared.CreateHTTPClient(10 * time.Second)
 	testFile := workspace.GetFilePath("server.go")

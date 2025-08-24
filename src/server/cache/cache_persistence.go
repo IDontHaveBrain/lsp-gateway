@@ -22,8 +22,8 @@ func (m *SCIPCacheManager) SaveIndexToDisk() error {
 	}
 
 	// Create storage directory if it doesn't exist (already project-specific from config)
-	if err := os.MkdirAll(m.config.StoragePath, 0755); err != nil {
-		return fmt.Errorf("failed to create storage directory: %v", err)
+	if err := os.MkdirAll(m.config.StoragePath, 0750); err != nil {
+		return fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
 	m.indexMu.RLock()
@@ -37,10 +37,10 @@ func (m *SCIPCacheManager) SaveIndexToDisk() error {
 	// Persist by cycling storage (Stop triggers save; Start reloads metadata)
 	ctx := context.Background()
 	if err := m.scipStorage.Stop(ctx); err != nil {
-		return fmt.Errorf("failed to stop storage for save: %v", err)
+		return fmt.Errorf("failed to stop storage for save: %w", err)
 	}
 	if err := m.scipStorage.Start(ctx); err != nil {
-		return fmt.Errorf("failed to restart storage after save: %v", err)
+		return fmt.Errorf("failed to restart storage after save: %w", err)
 	}
 
 	return nil

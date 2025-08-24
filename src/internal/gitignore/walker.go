@@ -1,6 +1,7 @@
 package gitignore
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -52,14 +53,14 @@ func (w *Walker) walk(root string, fn WalkFunc, depth, maxDepth int) error {
 
 		err := fn(path, entry, nil)
 		if err != nil {
-			if err == filepath.SkipDir {
+			if errors.Is(err, filepath.SkipDir) {
 				continue
 			}
 			return err
 		}
 
 		if entry.IsDir() {
-			if err := w.walk(path, fn, depth+1, maxDepth); err != nil && err != filepath.SkipDir {
+			if err := w.walk(path, fn, depth+1, maxDepth); err != nil && !errors.Is(err, filepath.SkipDir) {
 				return err
 			}
 		}

@@ -129,7 +129,7 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 	if err := m.Start(); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
-	defer m.Stop()
+	defer func() { _ = m.Stop() }()
 
 	// Use line-based I/O as required by MCP STDIO transport spec
 	scanner := bufio.NewScanner(input)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"mime"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +17,13 @@ import (
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/protocol"
+)
+
+const (
+	cacheStatusDisabled = "disabled"
+	cacheStatusHit      = "hit"
+	cacheStatusMiss     = "miss"
+	cacheStatusUnknown  = "unknown"
 )
 
 // HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers with unified cache config
@@ -74,6 +81,9 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 		Handler:      mux,
 		ReadTimeout:  constants.DefaultRequestTimeout,
 		WriteTimeout: writeTimeout,
+		// Prevent slowloris: bound time to read headers and keep-alives
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	return gateway, nil
@@ -90,13 +100,13 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to listen on %s: %w", g.server.Addr, err)
 	}
 	g.listener = ln
-	
+
 	go func() {
 		if err := g.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			common.GatewayLogger.Error("HTTP server error: %v", err)
 		}
 	}()
-	
+
 	return nil
 }
 
@@ -123,7 +133,7 @@ func (g *HTTPGateway) Stop() error {
 
 	return lastErr
 }
- 
+
 // Address returns the bound address of the HTTP server (host:port). If not yet started, returns configured Addr.
 func (g *HTTPGateway) Address() string {
 	if g.listener != nil {
@@ -131,7 +141,7 @@ func (g *HTTPGateway) Address() string {
 	}
 	return g.server.Addr
 }
- 
+
 // Port returns the actual TCP port the server is listening on, or 0 if unavailable.
 func (g *HTTPGateway) Port() int {
 	if g.listener == nil {
@@ -297,15 +307,15 @@ func (g *HTTPGateway) getCacheMetricsSnapshot() *cache.CacheMetrics {
 // determineCacheStatus determines if the request was a cache hit or miss
 func (g *HTTPGateway) determineCacheStatus(before, after *cache.CacheMetrics) string {
 	if before == nil || after == nil {
-		return "disabled"
+		return cacheStatusDisabled
 	}
 
 	if after.HitCount > before.HitCount {
-		return "hit"
+		return cacheStatusHit
 	} else if after.MissCount > before.MissCount {
-		return "miss"
+		return cacheStatusMiss
 	}
-	return "unknown"
+	return cacheStatusUnknown
 }
 
 // addCacheHeaders adds cache-related HTTP headers to the response

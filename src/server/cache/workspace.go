@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -182,7 +183,7 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Starting scan of %s, looking for extensions: %v, maxFiles: %d", dir, extensions, maxFiles)
 
 	walker := gitignore.NewWalker(dir)
-	walker.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	if err := walker.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			// Skip hidden directories and common non-source directories
 			if d != nil && d.IsDir() {
@@ -218,7 +219,9 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 		}
 
 		return nil
-	})
+	}); err != nil && !errors.Is(err, filepath.SkipDir) {
+		common.LSPLogger.Debug("ScanWorkspaceSourceFiles: walker error: %v", err)
+	}
 
 	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Scan complete. Found %d files", len(files))
 	return files

@@ -152,7 +152,7 @@ func (u *ConfigUpdater) SaveUpdatedConfig(cfg *config.Config, configPath string)
 // copyFile copies a file from src to dst
 func copyFile(src, dst string) error {
 	// Create destination directory if needed
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
 		return err
 	}
 
@@ -163,23 +163,17 @@ func copyFile(src, dst string) error {
 	}
 
 	// Write to destination
-	return os.WriteFile(dst, data, 0644)
+	return os.WriteFile(dst, data, 0600)
 }
 
 // chooseBestPythonConfig selects the preferred Python LSP configuration based on availability
 // Priority: uvx basedpyright -> basedpyright-langserver -> pyright-langserver -> pylsp -> jedi-language-server
 func chooseBestPythonConfig() *config.ServerConfig {
 	// uvx/uv available -> prefer uvx basedpyright
-	if _, err := os.Stat("/dev/null"); err == nil {
-		// Use exec.LookPath to detect uvx/uv
-	}
 	if _, err := execLookPathSafe("uvx"); err == nil {
 		return &config.ServerConfig{Command: "uvx", Args: []string{"basedpyright-langserver", "--stdio"}}
 	}
-	if _, err := execLookPathSafe("uv"); err == nil {
-		// Still prefer uv (uv tool run) but for command config we keep uvx for consistency where available.
-		// If only uv is present, fall back to basedpyright directly if available; otherwise keep nil.
-	}
+	// If only uv is present, fall back later to direct servers
 	// direct basedpyright
 	if _, err := execLookPathSafe("basedpyright-langserver"); err == nil {
 		return &config.ServerConfig{Command: "basedpyright-langserver", Args: []string{"--stdio"}}

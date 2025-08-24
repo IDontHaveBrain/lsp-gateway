@@ -5,10 +5,15 @@ import (
 	"time"
 )
 
+const (
+	osWindows = "windows"
+	langJava  = "java"
+)
+
 // GetWorkspaceFolderSyncDelay returns an OS/language-specific delay for workspace folder sync
 func GetWorkspaceFolderSyncDelay(language string) time.Duration {
-	if runtime.GOOS == "windows" {
-		if language == "java" {
+	if runtime.GOOS == osWindows {
+		if language == langJava {
 			return 150 * time.Millisecond
 		}
 		return 700 * time.Millisecond
@@ -18,8 +23,8 @@ func GetWorkspaceFolderSyncDelay(language string) time.Duration {
 
 // GetDocumentAnalysisDelay returns an OS/language-specific delay after didOpen
 func GetDocumentAnalysisDelay(language string) time.Duration {
-	if runtime.GOOS == "windows" {
-		if language == "java" {
+	if runtime.GOOS == osWindows {
+		if language == langJava {
 			return 200 * time.Millisecond
 		}
 		return 1200 * time.Millisecond
@@ -29,7 +34,7 @@ func GetDocumentAnalysisDelay(language string) time.Duration {
 
 // GetBackgroundIndexingDelay returns an initial delay before background indexing to allow servers to settle
 func GetBackgroundIndexingDelay() time.Duration {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		if isCI() || isWindowsCI() {
 			return 20 * time.Second
 		}

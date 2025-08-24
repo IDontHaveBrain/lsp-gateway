@@ -3,6 +3,16 @@ package installer
 import (
 	"fmt"
 	"runtime"
+	"strings"
+)
+
+const (
+	osLinux   = "linux"
+	osDarwin  = "darwin"
+	osWindows = "windows"
+	archAMD64 = "amd64"
+	archARM64 = "arm64"
+	jdkTag    = "jdk-21.0.4+7"
 )
 
 // LSPPlatformInfo implements PlatformInfo interface
@@ -30,9 +40,9 @@ func (p *LSPPlatformInfo) GetPlatformString() string {
 
 	// Normalize architecture names
 	switch arch {
-	case "amd64":
+	case archAMD64:
 		arch = "x64"
-	case "arm64":
+	case archARM64:
 		arch = "arm64"
 	default:
 		arch = "x64" // Default fallback
@@ -40,11 +50,11 @@ func (p *LSPPlatformInfo) GetPlatformString() string {
 
 	// Normalize platform names
 	switch platform {
-	case "darwin":
+	case osDarwin:
 		return fmt.Sprintf("darwin-%s", arch)
-	case "linux":
+	case osLinux:
 		return fmt.Sprintf("linux-%s", arch)
-	case "windows":
+	case osWindows:
 		return fmt.Sprintf("win32-%s", arch)
 	default:
 		return fmt.Sprintf("%s-%s", platform, arch)
@@ -80,8 +90,7 @@ func (p *LSPPlatformInfo) GetJavaDownloadURL(version string) (string, string, er
 		return "", "", fmt.Errorf("platform %s-%s not supported for Java installation", p.GetPlatform(), p.GetArch())
 	}
 
-	// Use Eclipse Temurin Java 21 (required for current JDTLS)
-	baseURL := "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7"
+	baseURL := "https://github.com/adoptium/temurin21-binaries/releases/download/" + strings.ReplaceAll(jdkTag, "+", "%2B")
 
 	platform := p.GetPlatform()
 	arch := p.GetArch()
@@ -90,31 +99,34 @@ func (p *LSPPlatformInfo) GetJavaDownloadURL(version string) (string, string, er
 	var extractDir string
 
 	switch platform {
-	case "linux":
-		if arch == "amd64" {
+	case osLinux:
+		switch arch {
+		case archAMD64:
 			filename = "OpenJDK21U-jdk_x64_linux_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7"
-		} else if arch == "arm64" {
+			extractDir = jdkTag
+		case archARM64:
 			filename = "OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7"
-		} else {
+			extractDir = jdkTag
+		default:
 			return "", "", fmt.Errorf("unsupported architecture for Linux: %s", arch)
 		}
-	case "darwin":
-		if arch == "amd64" {
+	case osDarwin:
+		switch arch {
+		case archAMD64:
 			filename = "OpenJDK21U-jdk_x64_mac_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7/Contents/Home"
-		} else if arch == "arm64" {
+			extractDir = jdkTag + "/Contents/Home"
+		case archARM64:
 			filename = "OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7/Contents/Home"
-		} else {
+			extractDir = jdkTag + "/Contents/Home"
+		default:
 			return "", "", fmt.Errorf("unsupported architecture for macOS: %s", arch)
 		}
-	case "windows":
-		if arch == "amd64" {
+	case osWindows:
+		switch arch {
+		case archAMD64:
 			filename = "OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.zip"
-			extractDir = "jdk-21.0.4+7"
-		} else {
+			extractDir = jdkTag
+		default:
 			return "", "", fmt.Errorf("unsupported architecture for Windows: %s", arch)
 		}
 	default:

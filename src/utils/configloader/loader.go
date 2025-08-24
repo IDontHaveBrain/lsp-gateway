@@ -12,6 +12,8 @@ import (
 	"lsp-gateway/src/internal/project"
 )
 
+const osWindows = "windows"
+
 func LoadOrAuto(configPath string) *config.Config {
 	if configPath != "" {
 		if loaded, err := config.LoadConfig(configPath); err == nil {
@@ -164,7 +166,7 @@ func getInstalledJdtlsPath(homeDir string) string {
 	// Standard installation path: ~/.lsp-gateway/tools/java/bin/jdtls
 	var jdtlsPath string
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		jdtlsPath = common.GetLSPToolPath("java", "jdtls.bat")
 	} else {
 		jdtlsPath = common.GetLSPToolPath("java", "jdtls")
@@ -173,7 +175,7 @@ func getInstalledJdtlsPath(homeDir string) string {
 	// Check if the file exists and is executable
 	if fileInfo, err := os.Stat(jdtlsPath); err == nil {
 		// Check if it's executable (on Unix systems)
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != osWindows {
 			if fileInfo.Mode()&0111 == 0 {
 				return "" // Not executable
 			}
@@ -191,7 +193,7 @@ func getInstalledOmniSharpPath(homeDir string) string {
 
 	for _, name := range candidates {
 		var omnisharpPath string
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			omnisharpPath = common.GetLSPToolPath("csharp", name+".exe")
 		} else {
 			omnisharpPath = common.GetLSPToolPath("csharp", name)
@@ -200,7 +202,7 @@ func getInstalledOmniSharpPath(homeDir string) string {
 		// Check if the file exists and is executable
 		if fileInfo, err := os.Stat(omnisharpPath); err == nil {
 			// Check if it's executable (on Unix systems)
-			if runtime.GOOS != "windows" {
+			if runtime.GOOS != osWindows {
 				if fileInfo.Mode()&0111 == 0 {
 					continue // Not executable, try next candidate
 				}
@@ -217,7 +219,7 @@ func getInstalledKotlinLSPPath(homeDir string) string {
 	// Preferred installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-lsp(.cmd/.bat)
 	// Also support legacy layout without bin and .sh script
 	candidates := []string{}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		// Prefer native .exe if available (more reliable for stdio on Windows)
 		candidates = append(candidates,
 			common.GetLSPToolPath("kotlin", "kotlin-lsp.exe"),
@@ -247,7 +249,7 @@ func getInstalledKotlinLSPPath(homeDir string) string {
 
 	for _, p := range candidates {
 		if fileInfo, err := os.Stat(p); err == nil {
-			if runtime.GOOS != "windows" {
+			if runtime.GOOS != osWindows {
 				if fileInfo.Mode()&0111 == 0 {
 					continue
 				}

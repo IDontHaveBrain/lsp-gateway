@@ -214,7 +214,7 @@ func (setup *LSPManagerTestSetup) Start(t *testing.T) {
 	require.NoError(t, err, "Failed to start LSP manager")
 
 	setup.Started = true
-	
+
 	// Wait for active LSP client(s) if any
 	WaitForLSPManagerReady(t, setup.Manager, 10*time.Second)
 }
@@ -339,48 +339,48 @@ func WaitForIndexing(t *testing.T, manager *server.LSPManager, timeout time.Dura
 	if timeout == 0 {
 		timeout = 5 * time.Second
 	}
-	
+
 	// Poll for index stats to show ready or some activity
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-    for {
-        select {
-        case <-ctx.Done():
-            return
-        case <-ticker.C:
-            if stats := manager.GetIndexStats(); stats != nil {
-                switch s := stats.(type) {
-                case *cache.IndexStats:
-                    if s.Status == "ready" || s.SymbolCount > 0 {
-                        return
-                    }
-                case map[string]interface{}:
-                    if st, ok := s["status"].(string); ok && st == "ready" {
-                        return
-                    }
-                    // Optional numeric check if provided in map form
-                    if v, ok := s["symbol_count"]; ok {
-                        switch val := v.(type) {
-                        case int:
-                            if val > 0 {
-                                return
-                            }
-                        case int64:
-                            if val > 0 {
-                                return
-                            }
-                        case float64:
-                            if val > 0 {
-                                return
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if stats := manager.GetIndexStats(); stats != nil {
+				switch s := stats.(type) {
+				case *cache.IndexStats:
+					if s.Status == "ready" || s.SymbolCount > 0 {
+						return
+					}
+				case map[string]interface{}:
+					if st, ok := s["status"].(string); ok && st == "ready" {
+						return
+					}
+					// Optional numeric check if provided in map form
+					if v, ok := s["symbol_count"]; ok {
+						switch val := v.(type) {
+						case int:
+							if val > 0 {
+								return
+							}
+						case int64:
+							if val > 0 {
+								return
+							}
+						case float64:
+							if val > 0 {
+								return
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // CreateTestFile creates a test file with the given content and returns its URI

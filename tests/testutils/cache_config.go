@@ -246,7 +246,7 @@ func WaitForCacheManagerReady(t *testing.T, cacheManager cache.SCIPCache, timeou
 func ClearCacheAndWait(t *testing.T, cacheManager cache.SCIPCache) {
 	err := cacheManager.Clear()
 	require.NoError(t, err)
-	
+
 	// Wait for clear to take effect using polling
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -263,7 +263,7 @@ func ClearCacheAndWait(t *testing.T, cacheManager cache.SCIPCache) {
 			}
 		}
 	}
-	
+
 	// Verify cache is empty
 verified:
 	metrics := cacheManager.GetMetrics()
@@ -292,10 +292,10 @@ func ValidateCacheMetrics(t *testing.T, cacheManager cache.SCIPCache) {
 // IndexTestFiles indexes a list of test files in the cache
 func IndexTestFiles(t *testing.T, cacheManager cache.SCIPCache, files []string) {
 	ctx := context.Background()
-	
+
 	err := cacheManager.UpdateIndex(ctx, files)
 	require.NoError(t, err, "Failed to index test files")
-	
+
 	// Wait for indexing to complete via polling of index stats
 	ctxPoll, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -312,7 +312,7 @@ func IndexTestFiles(t *testing.T, cacheManager cache.SCIPCache, files []string) 
 			}
 		}
 	}
-	
+
 	// Verify index stats show some progress
 done:
 	stats := cacheManager.GetIndexStats()

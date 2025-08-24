@@ -1,6 +1,6 @@
 # LSP Gateway
 
-Language Server Protocol gateway with HTTP and MCP interfaces for 8 languages.
+HTTP and MCP gateway for Language Server Protocol with 8 languages.
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ lsp-gateway server           # Start HTTP Gateway on :8080
 ### Build from source
 
 ```bash
-# Prerequisites: Go 1.24+, Node.js 18+
+# Prerequisites: Go 1.23+, Node.js 18+
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally
@@ -33,10 +33,11 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 ## Features
 
 - **8 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust, C#, Kotlin
-- **Dual Protocols**: HTTP Gateway (:8080) + MCP Server (STDIO)
-- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml, Cargo.toml, *.csproj
-- **SCIP Cache**: Sub-millisecond symbol lookups with 512MB LRU cache
-- **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
+- **HTTP Gateway**: JSON-RPC endpoint on port 8080
+- **MCP Server**: STDIO protocol for AI assistants
+- **Auto-detection**: Language detection via project files
+- **SCIP Cache**: Fast symbol lookups with 512MB LRU cache
+- **LSP Methods**: definition, references, hover, symbols, completion
 
 ## Installation
 
@@ -63,11 +64,13 @@ lsp-gateway install kotlin     # Install kotlin-lsp (official JetBrains)
 lsp-gateway server          # HTTP Gateway at localhost:8080/jsonrpc
 lsp-gateway server --port 8081  # Alternative port
 lsp-gateway mcp             # MCP Server for AI assistants
+
+# Status & Info
 lsp-gateway status          # Check LSP server availability
 lsp-gateway test            # Test server connections
 lsp-gateway version         # Show version info
 
-# Cache Management
+# Cache
 lsp-gateway cache info      # Show cache statistics
 lsp-gateway cache clear     # Clear all cache
 lsp-gateway cache index     # Index workspace for faster lookups
@@ -88,24 +91,8 @@ curl -X POST localhost:8080/jsonrpc \
 ```
 
 Additional endpoints:
-
-- GET `/languages`: Supported language names and extensions
-
 ```bash
-curl -s localhost:8080/languages | jq
-# {
-#   "languages": ["go","python","javascript","typescript","java","rust","csharp","kotlin"],
-#   "extensions": {
-#     "go": [".go"],
-#     "python": [".py", ".pyi"],
-#     "javascript": [".js", ".jsx", ".mjs"],
-#     "typescript": [".ts", ".tsx", ".d.ts"],
-#     "java": [".java"],
-#     "rust": [".rs"],
-#     "csharp": [".cs"],
-#     "kotlin": [".kt", ".kts"]
-#   }
-# }
+curl localhost:8080/languages   # List supported languages and extensions
 ```
 
 ### MCP Server
@@ -122,9 +109,7 @@ Add to your AI assistant configuration:
 }
 ```
 
-**MCP Tools**: 
-- `findSymbols` - Search symbols with regex patterns
-- `findReferences` - Find all references to symbols
+MCP tools: `findSymbols`, `findReferences`
 
 ## Development
 
@@ -142,18 +127,11 @@ make macos-arm64           # Darwin arm64 (M1/M2)
 make windows               # Windows amd64
 ```
 
-### Test
+### Test & Quality
 
 ```bash
+make test-fast              # Unit + integration (8-10 min, recommended)
 make test                   # Complete suite (30+ min)
-make test-fast              # Unit + integration only (8-10 min)
-go test -v ./tests/unit/... # Unit tests only (2 min)
-go test -v -run TestName ./tests/... # Specific test
-```
-
-### Code Quality
-
-```bash
 make quality                # Format + vet
 make quality-full           # Format + vet + lint + security
 ```
@@ -177,19 +155,10 @@ servers:
 
 ## Architecture
 
-```
-src/
-├── server/         # Core services (LSP manager, HTTP gateway, MCP server)
-├── cli/            # Command implementations
-├── internal/       # Shared types and utilities
-└── tests/          # Test suites
-```
-
-Key components:
 - **LSP Manager**: Orchestrates language servers with SCIP cache
 - **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`  
 - **MCP Server**: STDIO protocol for AI assistants
-- **SCIP Cache**: Memory-efficient symbol indexing
+- **SCIP Cache**: Memory-efficient symbol indexing with 512MB LRU
 
 ## Troubleshooting
 

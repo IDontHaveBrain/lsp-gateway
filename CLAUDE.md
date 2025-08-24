@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 LSP Gateway development reference - v0.0.21
 
 ## Core Commands
@@ -20,19 +22,21 @@ lsp-gateway test                 # Test server connections
 lsp-gateway version              # Show version info
 
 # Cache Management
-lsp-gateway cache status         # Show cache configuration and status
+lsp-gateway cache info           # Show cache statistics and configuration
 lsp-gateway cache clear          # Clear SCIP cache
-lsp-gateway cache stats          # Performance statistics
-lsp-gateway cache health         # Cache health diagnostics
+lsp-gateway cache index          # Index workspace for faster lookups
 
 # Quality & Testing
-make quality                     # Format + vet (essential checks)
+make quality                     # Format + vet (essential checks, no external deps)
 make quality-full                # Format + vet + lint + security
-make test-fast                   # Unit + integration (8-10 min)
+make test-fast                   # Unit + integration (8-10 min, recommended for dev)
 make test                        # All tests including E2E (30+ min)
-go test -v ./tests/unit/...      # Unit tests only (2 min)
+make test-unit                   # Unit tests only (2 min)
+make test-integration            # Integration tests only
+make test-e2e                    # E2E tests only
 go test -v -run TestName ./...   # Run specific test
-make test-quick                  # Quick validation tests
+make cache-test                  # Cache-specific tests (5 min)
+make help                        # Show all available targets
 ```
 
 ## Architecture Overview
@@ -41,63 +45,51 @@ make test-quick                  # Quick validation tests
 ```
 src/
 ├── server/                      # Core server implementations
-│   ├── lsp_manager.go           # Central LSP orchestration
+│   ├── lsp_manager.go           # Central LSP orchestration (Manager of Managers pattern)
 │   ├── gateway.go               # HTTP JSON-RPC gateway
 │   ├── mcp_server.go            # MCP STDIO server
 │   ├── lsp_client_manager.go    # Language client lifecycle
-│   ├── cache/                   # SCIP cache (512MB LRU)
+│   ├── cache/                   # SCIP cache (512MB LRU, 30+ implementation files)
 │   ├── capabilities/            # Dynamic LSP capability detection
 │   ├── aggregators/             # Parallel workspace operations
-│   └── process/                 # LSP server process management
+│   ├── process/                 # LSP server process management
+│   ├── documents/               # Document lifecycle management
+│   ├── watcher/                 # Real-time file change detection
+│   ├── errors/                  # Unified error translation
+│   ├── scip/                    # SCIP protocol support
+│   └── protocol/                # JSON-RPC protocol layer
 ├── cli/                         # Command implementations
 ├── internal/                    # Shared components
 │   ├── registry/languages.go    # Language configurations
 │   ├── security/                # Command injection prevention
 │   └── common/logging.go        # STDIO-safe logging
-└── tests/                       # Test suites
+└── tests/                       # Test suites (unit, integration, e2e)
 ```
 
-### Key Components
-- **LSP Manager** (`src/server/lsp_manager.go`): Central orchestration for all language servers
-- **Gateway** (`src/server/gateway.go`): HTTP JSON-RPC server on port 8080
-- **MCP Server** (`src/server/mcp_server.go`): STDIO protocol for AI assistants
-- **SCIP Cache** (`src/server/cache/`): 512MB LRU cache for fast symbol lookups
-- **Parallel Aggregator** (`src/server/aggregators/`): Concurrent multi-language operations
+## Critical Architectural Patterns
 
-## Language Support
-
-8 languages with auto-detection:
-
-| Language | Extensions | LSP Server | Timeout | Detection |
-|----------|------------|------------|---------|-----------|
-| Go | .go | gopls | 15s | go.mod |
-| Python | .py, .pyi | basedpyright (default) | 30s/45s init | *.py |
-| JavaScript | .js, .jsx, .mjs | typescript-language-server | 15s/30s init | package.json |
-| TypeScript | .ts, .tsx, .d.ts | typescript-language-server | 15s/30s init | package.json |
-| Java | .java | jdtls | 90s | pom.xml, build.gradle |
-| Rust | .rs | rust-analyzer | 15s | Cargo.toml |
-| C# | .cs | omnisharp | 30s/45s init | *.csproj, *.sln |
-| Kotlin | .kt, .kts | kotlin-lsp (JetBrains/fwcd) | 15s | build.gradle.kts, *.kt |
-
-### Python LSP Server Options
-
-Default: **basedpyright** (enhanced pyright fork via pip)
-
-Alternatives available:
-```bash
-lsp-gateway install python --server pyright   # Microsoft's pyright via npm
-lsp-gateway install python --server jedi      # Jedi-language-server via pip
+### 1. Graceful Degradation (MOST IMPORTANT)
+**Everything fails safely** - the system continues functioning despite partial failures:
+```go
+// Always check availability before use
+if m.scipCache != nil {
+    // Cache operations
+}
+// Continue with LSP processing even if cache unavailable
 ```
 
-### Kotlin LSP Server
+### 2. Parallel Aggregation Framework
+Language-aware concurrent processing with sophisticated timeout management:
+```go
+aggregator := NewParallelAggregator[RequestType, ResponseType](
+    individualTimeout,  // Per-language timeout
+    overallTimeout,     // Total operation timeout
+)
+results, errors := aggregator.Execute(ctx, clients, request, executor)
+```
 
-Platform-specific selection:
-- macOS/Linux: JetBrains kotlin-lsp (official)
-- Windows: fwcd/kotlin-language-server (community)
-
-## Critical: STDIO-Safe Logging
-
-**MANDATORY for LSP/MCP protocols** - Use only stderr-based loggers:
+### 3. STDIO-Safe Logging (MANDATORY)
+**Critical for LSP/MCP protocols** - Use only stderr-based loggers:
 ```go
 import "lsp-gateway/src/internal/common"
 
@@ -108,40 +100,110 @@ common.CLILogger.Warn("warning")     // CLI commands
 // NEVER USE: fmt.Print*, log.Print*, log.New() - breaks protocol
 ```
 
-## Security Model
-
-Whitelist-based command validation (`src/internal/security/command_validation.go`):
+### 4. Security-First Validation
+Whitelist-based command validation at every execution point:
+```go
+if err := security.ValidateCommand(command, args); err != nil {
+    return fmt.Errorf("security validation failed: %w", err)
+}
+```
 - Only pre-approved LSP commands in registry
 - Blocks shell metacharacters (`|`, `&`, `;`, backticks, `$()`)
 - Rejects path traversal (`..`)
 
+## Language Support
+
+8 languages with auto-detection and language-specific timeouts:
+
+| Language | Extensions | LSP Server | Timeout | Detection |
+|----------|------------|------------|---------|-----------|
+| Go | .go | gopls | 15s | go.mod |
+| Python | .py, .pyi | basedpyright (default) | 30s/45s init | *.py |
+| JavaScript | .js, .jsx, .mjs | typescript-language-server | 15s/30s init | package.json |
+| TypeScript | .ts, .tsx, .d.ts | typescript-language-server | 15s/30s init | package.json |
+| Java | .java | jdtls | 90s | pom.xml, build.gradle |
+| Rust | .rs | rust-analyzer | 15s | Cargo.toml |
+| C# | .cs | omnisharp | 30s/45s init | *.csproj, *.sln |
+| Kotlin | .kt, .kts | kotlin-lsp (JetBrains/fwcd) | 30s/150s init | build.gradle.kts, *.kt |
+
+Python alternatives:
+```bash
+lsp-gateway install python --server pyright   # Microsoft's pyright via npm
+lsp-gateway install python --server jedi      # Jedi-language-server via pip
+```
+
 ## Development Patterns
 
-### Parallel Processing
+### Cache Integration Pattern
 ```go
-aggregator := NewParallelAggregator[RequestType, ResponseType](
-    individualTimeout,  // Per-language timeout
-    overallTimeout,     // Total operation timeout
-)
-results, errors := aggregator.Execute(ctx, clients, request, executor)
-```
-
-### Cache Integration
-```go
-// Always check availability before use
-if m.scipCache != nil {
-    // Cache operations
+// Cache is always optional - never assume availability
+if m.scipCache != nil && m.isCacheableMethod(method) {
+    if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
+        return result, nil
+    }
 }
-// Graceful degradation when unavailable
+// Graceful degradation to direct LSP
 ```
 
-## LSP Methods & MCP Tools
+### Error Handling Philosophy
+- **Fail-safe defaults**: Unknown capabilities assumed supported
+- **Progressive enhancement**: Core functionality works, cache/advanced features enhance
+- **Error isolation**: Component failures contained, don't cascade
+- **Comprehensive fallbacks**: Multiple strategies for every operation
 
-**LSP Methods**: definition, references, hover, documentSymbol, completion, workspace/symbol
+## Testing Strategy
 
-**MCP Tools** (SCIP-enhanced):
-- `findSymbols` - Regex pattern search across workspace
-- `findReferences` - Find all references with context
+### Development Workflow
+```bash
+make local          # Build + npm link (primary dev command)
+make test-fast      # Unit + integration (8-10 min, use during dev)
+make quality        # Essential checks (fast, no external deps)
+make deps           # Download Go dependencies
+```
+
+### Pre-commit Validation
+```bash
+make quality-full   # Complete quality suite including linting
+make test-fast      # Comprehensive but time-efficient testing
+make cache-test     # Verify cache functionality
+```
+
+### Full Validation (CI-equivalent)
+```bash
+make test           # All tests including E2E (30+ min)
+make quality-full   # Complete quality analysis
+```
+
+## Common Development Tasks
+
+### Adding New LSP Method
+1. Define types in `src/internal/models/lsp/protocol.go`
+2. Update capability detection in `src/server/capabilities/detector.go`
+3. Implement in `src/server/lsp_manager.go::ProcessRequest`
+4. Add MCP tool handler in `src/server/mcp_tools.go` if needed
+5. Add tests in `tests/e2e/`
+
+### Additional CLI Commands
+```bash
+lsp-gateway context map <file>       # Print referenced files code
+lsp-gateway context symbols [files]  # Extract symbol definitions
+```
+
+### Testing LSP Methods
+```bash
+# Definition request
+curl -X POST localhost:8080/jsonrpc -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///path/to/file.go"},"position":{"line":10,"character":5}}}'
+
+# Check supported languages
+curl localhost:8080/languages
+```
+
+### Debug Mode
+```bash
+export LSP_GATEWAY_DEBUG=true
+lsp-gateway server
+```
 
 ## Configuration
 
@@ -169,56 +231,6 @@ servers:
 }
 ```
 
-## Platform-Specific Tuning
-
-### Timeouts
-- Java: 90s (all operations)
-- Python: 30s standard, 45s initialization
-- Go/TypeScript: 15s init, 30s operations
-- CI multipliers: Windows 3x (Java), 1.5x (others)
-
-### Cache Configuration
-- Memory: 512MB LRU
-- TTL: 24h (1h MCP mode)
-- Query limit: 100 (5000 MCP symbols)
-
-## Testing Strategy
-
-### Test Execution
-```bash
-make test-fast      # Dev cycle (8-10 min)
-make test           # Full suite (30+ min)
-make cache-test     # Cache-specific tests
-make test-quick     # Quick validation tests
-```
-
-E2E tests use real repositories for validation.
-
-## Common Development Tasks
-
-### Adding New LSP Method
-1. Define types in `src/internal/models/lsp/protocol.go`
-2. Update capability detection in `src/server/capabilities/detector.go`
-3. Implement in `src/server/lsp_manager.go::ProcessRequest`
-4. Add MCP tool handler in `src/server/mcp_tools.go` if needed
-5. Add tests in `tests/e2e/`
-
-### Testing LSP Methods
-```bash
-# Definition request
-curl -X POST localhost:8080/jsonrpc -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///path/to/file.go"},"position":{"line":10,"character":5}}}'
-
-# Check supported languages
-curl localhost:8080/languages
-```
-
-### Debug Mode
-```bash
-export LSP_GATEWAY_DEBUG=true
-lsp-gateway server
-```
-
 ## Build System
 
 ### Platform Builds
@@ -243,13 +255,25 @@ make windows        # Windows amd64
 | Port 8080 busy | Use `--port 8081` |
 | Java slow init | Expected - 90s timeout |
 | Build cache issues | `make cache-clean && make local` |
+| View all commands | `make help` |
 
 ## Module & Import Paths
 - Go module: `lsp-gateway` (not github.com/...)
 - Import: `lsp-gateway/src/...`
 
-## Development Philosophy
+## Critical Development Guidelines
+
+### Must-Follow Patterns:
+1. **Always check for nil**: `if component != nil { /* use component */ }`
+2. **Use STDIO-safe logging**: Import `common` package loggers only
+3. **Validate all commands**: Use `security.ValidateCommand()` before execution
+4. **Handle partial failures**: Design for graceful degradation
+5. **Use parallel aggregation**: For multi-language operations
+6. **Cache is optional**: Never assume cache availability
+
+### Development Philosophy
 1. **Fail-Safe**: Graceful degradation on partial failures
 2. **Language-Aware**: Different timeouts per language
 3. **Cache-Optional**: Full functionality without cache
 4. **Security-First**: Whitelist-based validation
+5. **Performance-Conscious**: Parallel processing with language-specific optimizations

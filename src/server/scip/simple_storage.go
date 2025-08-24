@@ -104,12 +104,14 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 	common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Starting SCIP storage, disk file: %s", s.diskFile)
 
 	// Create directory
-	if err := os.MkdirAll(s.config.DiskCacheDir, 0755); err != nil {
+	if err := os.MkdirAll(s.config.DiskCacheDir, 0750); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// Load from disk if available
-	s.loadFromDisk()
+	if err := s.loadFromDisk(); err != nil {
+		common.LSPLogger.Warn("Failed to load SCIP cache from disk: %v", err)
+	}
 
 	s.started = true
 	common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Storage started successfully with %d symbols in symbolNameIndex", len(s.symbolNameIndex))
@@ -1060,14 +1062,14 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 	}
 
 	// Ensure parent directory exists in case it was removed
-	if err := os.MkdirAll(filepath.Dir(s.diskFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.diskFile), 0750); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 	file, err := os.Create(s.diskFile)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
@@ -1093,7 +1095,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var data struct {
 		Documents         map[string]*SCIPDocument           `json:"documents"`
@@ -1155,7 +1157,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	}
 
 	// Restore symbolNameIndex if present
-	if data.SymbolNameIndex != nil && len(data.SymbolNameIndex) > 0 {
+	if len(data.SymbolNameIndex) > 0 {
 		common.LSPLogger.Debug("[loadFromDisk] Loading symbolNameIndex from disk with %d entries", len(data.SymbolNameIndex))
 		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
 		for name, symbols := range data.SymbolNameIndex {

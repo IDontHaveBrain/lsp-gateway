@@ -1,25 +1,22 @@
 {
   "global": {
     "nosec": "enabled",
-    "audit": "enabled",
+    "audit": "disabled",
     "fmt": "json",
-    "severity": "low",
+    "severity": "medium",
     "confidence": "medium",
-    "ssa": false
+    "ssa": true
   },
   "exclude": [
-    "G304",
-    "G306",
     "G301",
     "G302",
-    "G112",
-    "G114",
+    "G306",
     "G108",
     "G104"
   ],
   "exclude-generated": [
     "*_test.go",
-    "*_benchmark_test.go", 
+    "*_benchmark_test.go",
     "testutil/*.go",
     "testdata/*.go",
     "mock_*.go",
@@ -71,12 +68,6 @@
         "jdtls"
       ]
     },
-    "G301": {
-      "mode": "0750"
-    },
-    "G302": {
-      "mode": "0600"
-    },
     "G404": {
       "ignore_nosec": false
     }
@@ -124,7 +115,7 @@
     },
     "G112": {
       "description": "Potential slowloris attack",
-      "enabled": false
+      "enabled": true
     },
     "G113": {
       "description": "Usage of Rat.SetString in math/big with an overflow (CVE-2022-23772)",
@@ -132,7 +123,7 @@
     },
     "G114": {
       "description": "Use of net/http serve function that has no support for setting timeouts",
-      "enabled": false
+      "enabled": true
     },
     "G115": {
       "description": "Potential integer overflow when converting between integer types",
@@ -168,7 +159,7 @@
     },
     "G304": {
       "description": "File path provided as taint input",
-      "enabled": false
+      "enabled": true
     },
     "G305": {
       "description": "File traversal when extracting zip archive",

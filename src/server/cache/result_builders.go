@@ -9,10 +9,7 @@ import (
 
 // buildEnhancedSymbolResult creates an enhanced symbol result from SCIP data
 func (m *SCIPCacheManager) buildEnhancedSymbolResult(symbolInfo *scip.SCIPSymbolInformation, occurrences []scip.SCIPOccurrence, query *EnhancedSymbolQuery) EnhancedSymbolResult {
-	includeDocs := false
-	if query != nil && query.IncludeDocumentation {
-		includeDocs = true
-	}
+	includeDocs := query != nil && query.IncludeDocumentation
 	// Cache manager path computes basic scoring to support relevance-based sorting
 	return search.BuildEnhancedSymbolResult(symbolInfo, occurrences, "", includeDocs, true)
 }

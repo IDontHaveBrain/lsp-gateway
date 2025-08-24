@@ -8,11 +8,15 @@ import (
 	"strings"
 )
 
+const (
+	defaultPackageName = "main"
+	defaultVersion     = "v1.0.0"
+)
+
 // detectPackageInfo detects package information from the document URI and language
 func (m *SCIPCacheManager) detectPackageInfo(uri string, language string) (packageName string, version string) {
 	// Default values for transition period
-	defaultPackage := "main"
-	defaultVersion := "v1.0.0"
+	defaultPackage := defaultPackageName
 
 	if uri == "" || language == "" {
 		return defaultPackage, defaultVersion
@@ -66,7 +70,7 @@ func (m *SCIPCacheManager) detectGoPackageInfo(dir string) (string, string) {
 					line = strings.TrimSpace(line)
 					if strings.HasPrefix(line, "module ") {
 						moduleName := strings.TrimSpace(strings.TrimPrefix(line, "module"))
-						return moduleName, "v1.0.0" // Default version for now
+						return moduleName, defaultVersion
 					}
 				}
 			}
@@ -107,7 +111,7 @@ func (m *SCIPCacheManager) detectNodePackageInfo(dir string) (string, string) {
 				var packageData map[string]interface{}
 				if json.Unmarshal(content, &packageData) == nil {
 					name := ""
-					version := "v1.0.0"
+					version := defaultVersion
 					if n, ok := packageData["name"].(string); ok {
 						name = n
 					}
@@ -144,7 +148,7 @@ func (m *SCIPCacheManager) detectJavaPackageInfo(dir string) (string, string) {
 					if end := strings.Index(contentStr[start:], "</artifactId>"); end != -1 {
 						artifactId := strings.TrimSpace(contentStr[start : start+end])
 						if artifactId != "" {
-							return artifactId, "v1.0.0"
+							return artifactId, defaultVersion
 						}
 					}
 				}
@@ -153,7 +157,7 @@ func (m *SCIPCacheManager) detectJavaPackageInfo(dir string) (string, string) {
 
 		// Check for build.gradle (Gradle)
 		if _, err := os.Stat(filepath.Join(currentDir, "build.gradle")); err == nil {
-			return filepath.Base(currentDir), "v1.0.0"
+			return filepath.Base(currentDir), defaultVersion
 		}
 
 		if currentDir == filepath.Dir(currentDir) { // Reached root

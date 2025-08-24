@@ -2,10 +2,13 @@ package errors
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
 )
+
+const ConnectionTypeUnknown = "unknown"
 
 // LSPError represents a standard LSP error with code and optional data
 type LSPError struct {
@@ -107,7 +110,7 @@ func NewValidationError(parameter, message string) *ValidationError {
 
 // NewConnectionError creates a new connection error with language context
 func NewConnectionError(language string, cause error) *ConnectionError {
-	errType := "unknown"
+	errType := ConnectionTypeUnknown
 	if cause != nil {
 		errType = classifyConnectionError(cause)
 	}
@@ -148,7 +151,8 @@ func IsConnectionError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*ConnectionError); ok {
+	var ce *ConnectionError
+	if stderrors.As(err, &ce) {
 		return true
 	}
 
@@ -169,7 +173,8 @@ func IsValidationError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*ValidationError); ok {
+	var ve *ValidationError
+	if stderrors.As(err, &ve) {
 		return true
 	}
 
@@ -185,11 +190,12 @@ func IsTimeoutError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*TimeoutError); ok {
+	var te *TimeoutError
+	if stderrors.As(err, &te) {
 		return true
 	}
 
-	if err == context.DeadlineExceeded {
+	if stderrors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
 
@@ -205,7 +211,7 @@ func IsCancellationError(err error) bool {
 		return false
 	}
 
-	if err == context.Canceled {
+	if stderrors.Is(err, context.Canceled) {
 		return true
 	}
 
@@ -221,7 +227,8 @@ func IsMethodNotSupportedError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*MethodNotSupportedError); ok {
+	var me *MethodNotSupportedError
+	if stderrors.As(err, &me) {
 		return true
 	}
 
@@ -240,7 +247,8 @@ func IsProcessError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*ProcessError); ok {
+	var pe *ProcessError
+	if stderrors.As(err, &pe) {
 		return true
 	}
 
@@ -256,7 +264,8 @@ func IsProtocolError(err error) bool {
 		return false
 	}
 
-	if _, ok := err.(*LSPError); ok {
+	var le *LSPError
+	if stderrors.As(err, &le) {
 		return true
 	}
 

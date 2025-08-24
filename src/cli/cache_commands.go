@@ -8,7 +8,6 @@ import (
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/server/scip"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
@@ -273,11 +272,9 @@ func ShowCacheInfo(configPath string) error {
 		}
 
 		if scipStorage := cmdCtx.Cache.GetSCIPStorage(); scipStorage != nil {
-			if sstats, ok := scipStorage.(scip.SCIPDocumentStorage); ok {
-				s := sstats.GetIndexStats()
-				if s.HitRate > 0 {
-					common.CLILogger.Info("  • Index Hit Rate: %.1f%%", s.HitRate*100)
-				}
+			s := scipStorage.GetIndexStats()
+			if s.HitRate > 0 {
+				common.CLILogger.Info("  • Index Hit Rate: %.1f%%", s.HitRate*100)
 			}
 		}
 	}

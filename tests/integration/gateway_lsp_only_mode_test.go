@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	
+
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
-	"lsp-gateway/tests/shared"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/shared"
 )
 
 func TestGatewayLSPOneAndCacheHeaders(t *testing.T) {
@@ -54,12 +54,12 @@ func Foo() int { return 42 }
 
 	gw, err := server.NewHTTPGateway(":0", cfg, true)
 	require.NoError(t, err)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	require.NoError(t, gw.Start(ctx))
 	defer gw.Stop()
-	
+
 	// Wait for /health
 	client := &http.Client{Timeout: 5 * time.Second}
 	baseURL := "http://127.0.0.1:" + strconv.Itoa(gw.Port())

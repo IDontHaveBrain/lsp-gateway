@@ -129,7 +129,7 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	go func() {
 		if err := c.jsonrpcProtocol.HandleResponses(c.processInfo.Stdout, c, c.processInfo.StopCh); err != nil {
 			// Only log errors if this wasn't an intentional stop
-			if !c.processInfo.IntentionalStop && err != io.EOF {
+			if !c.processInfo.IntentionalStop && !stderrors.Is(err, io.EOF) {
 				common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
 			}
 		}
@@ -267,8 +267,9 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		// Check for connection reset errors
 		var opErr *net.OpError
 		if stderrors.As(writeErr, &opErr) {
-			if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
-				if syscallErr.Err == syscall.ECONNRESET {
+			var syscallErr *os.SyscallError
+			if stderrors.As(opErr.Err, &syscallErr) {
+				if stderrors.Is(syscallErr.Err, syscall.ECONNRESET) {
 					isConnectionError = true
 				}
 			}
@@ -403,7 +404,7 @@ func (c *StdioClient) HandleRequest(method string, id interface{}, params interf
 		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
 	} else {
 		// For other server requests, send explicit null result (result: null)
-		var nullResult json.RawMessage = json.RawMessage("null")
+		var nullResult = json.RawMessage("null")
 		response := protocol.CreateResponse(id, nullResult, nil)
 		c.writeMu.Lock()
 		defer c.writeMu.Unlock()

@@ -136,47 +136,59 @@ func TestNewLSPManagerReferences(t *testing.T) {
 	})
 
 	// Poll for indexing progress
-    deadline := time.Now().Add(5 * time.Second)
-    for {
-        stats := manager.GetIndexStats()
-        ready := false
-        if stats != nil {
-            switch s := stats.(type) {
-            case *servercache.IndexStats:
-                if s.ReferenceCount > 0 || s.SymbolCount > 0 {
-                    ready = true
-                }
-            case map[string]interface{}:
-                if v, ok := s["reference_count"]; ok {
-                    switch val := v.(type) {
-                    case int:
-                        if val > 0 { ready = true }
-                    case int64:
-                        if val > 0 { ready = true }
-                    case float64:
-                        if val > 0 { ready = true }
-                    }
-                }
-                if v, ok := s["symbol_count"]; !ready && ok {
-                    switch val := v.(type) {
-                    case int:
-                        if val > 0 { ready = true }
-                    case int64:
-                        if val > 0 { ready = true }
-                    case float64:
-                        if val > 0 { ready = true }
-                    }
-                }
-            }
-        }
-        if ready {
-            break
-        }
-        if time.Now().After(deadline) {
-            break
-        }
-        time.Sleep(100 * time.Millisecond)
-    }
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		stats := manager.GetIndexStats()
+		ready := false
+		if stats != nil {
+			switch s := stats.(type) {
+			case *servercache.IndexStats:
+				if s.ReferenceCount > 0 || s.SymbolCount > 0 {
+					ready = true
+				}
+			case map[string]interface{}:
+				if v, ok := s["reference_count"]; ok {
+					switch val := v.(type) {
+					case int:
+						if val > 0 {
+							ready = true
+						}
+					case int64:
+						if val > 0 {
+							ready = true
+						}
+					case float64:
+						if val > 0 {
+							ready = true
+						}
+					}
+				}
+				if v, ok := s["symbol_count"]; !ready && ok {
+					switch val := v.(type) {
+					case int:
+						if val > 0 {
+							ready = true
+						}
+					case int64:
+						if val > 0 {
+							ready = true
+						}
+					case float64:
+						if val > 0 {
+							ready = true
+						}
+					}
+				}
+			}
+		}
+		if ready {
+			break
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Test findReferences - this is failing
 	t.Run("FindReferences", func(t *testing.T) {

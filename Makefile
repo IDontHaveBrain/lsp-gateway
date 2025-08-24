@@ -228,12 +228,12 @@ vet:
 lint:
 	@echo "Running linter..."
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run ./cmd/... ./simple/... || echo "Linting issues found - review above for code quality improvements"
+	golangci-lint run --tests=false ./src/... || echo "Linting issues found - review above for code quality improvements"
 
 security:
 	@echo "Running security analysis (optional)..."
 	@if command -v gosec >/dev/null 2>&1; then \
-		gosec ./cmd/... ./simple/... || echo "Security issues found - review above for production use"; \
+		gosec ./src/... || echo "Security issues found - review above for production use"; \
 	else \
 		echo "gosec not found - skipping security check (install: go install github.com/securego/gosec/v2/cmd/gosec@latest)"; \
 	fi

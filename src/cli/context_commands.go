@@ -69,6 +69,89 @@ type ExportSymbol struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
 }
+type fileRefSets struct {
+	refSet   map[string]bool
+	refBySet map[string]bool
+}
+
+func collectRelationsForFile(storage scip.SCIPDocumentStorage, file string, visited map[string]bool) (int, fileRefSets, []string) {
+	uri := utils.FilePathToURICached(file)
+	symbolCount := 0
+	refs := fileRefSets{refSet: make(map[string]bool), refBySet: make(map[string]bool)}
+	var newFiles []string
+	if storage == nil {
+		return 0, refs, newFiles
+	}
+	if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
+		symbolCount = len(doc.SymbolInformation)
+		defSymbols := make(map[string]bool)
+		for _, occ := range doc.Occurrences {
+			if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+				defSymbols[occ.Symbol] = true
+			}
+			if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleImport) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
+				if defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol); err == nil {
+					for _, d := range defs {
+						defURI := utils.URIToFilePathCached(d.DocumentURI)
+						if defURI != "" && defURI != file {
+							refs.refSet[defURI] = true
+						}
+					}
+				}
+			}
+		}
+		for sym := range defSymbols {
+			if theRefs, err := storage.GetReferencesWithDocuments(context.Background(), sym); err == nil {
+				for _, r := range theRefs {
+					refURI := utils.URIToFilePathCached(r.DocumentURI)
+					if refURI != "" && refURI != file {
+						refs.refBySet[refURI] = true
+						if !visited[refURI] {
+							newFiles = append(newFiles, refURI)
+							visited[refURI] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return symbolCount, refs, newFiles
+}
+func updateRelation(rel *FileRelation, symbolCount int, refs fileRefSets) {
+	rel.Symbols += symbolCount
+	for f := range refs.refSet {
+		rel.References = append(rel.References, f)
+	}
+	for f := range refs.refBySet {
+		rel.ReferencedBy = append(rel.ReferencedBy, f)
+	}
+}
+func printRelated(relatedFiles map[string]*FileRelation, formatJSON bool) error {
+	if formatJSON {
+		data, err := json.MarshalIndent(relatedFiles, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+	fmt.Println("# Related Files Analysis")
+	fmt.Printf("# Found %d related files\n\n", len(relatedFiles))
+	for _, rel := range relatedFiles {
+		fmt.Printf("File: %s\n", rel.File)
+		if rel.Symbols > 0 {
+			fmt.Printf("  Symbols: %d\n", rel.Symbols)
+		}
+		if len(rel.References) > 0 {
+			fmt.Printf("  References: %s\n", strings.Join(rel.References, ", "))
+		}
+		if len(rel.ReferencedBy) > 0 {
+			fmt.Printf("  Referenced by: %s\n", strings.Join(rel.ReferencedBy, ", "))
+		}
+		fmt.Println()
+	}
+	return nil
+}
 
 // GenerateContextSignatureMap creates a .txt signature map from indexed data
 func GenerateContextSignatureMap(configPath, outputPath string) error {
@@ -95,7 +178,7 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 	if outputPath == "" {
 		outputPath = "context-signature-map.txt"
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil && filepath.Dir(outputPath) != "." {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil && filepath.Dir(outputPath) != "." {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -179,20 +262,20 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	w := bufio.NewWriter(out)
-	defer w.Flush()
+	defer func() { _ = w.Flush() }()
 
 	// Header
-	fmt.Fprintf(w, "# context signature map\n")
-	fmt.Fprintf(w, "# generated: %s\n\n", time.Now().Format(time.RFC3339))
+	_, _ = fmt.Fprintf(w, "# context signature map\n")
+	_, _ = fmt.Fprintf(w, "# generated: %s\n\n", time.Now().Format(time.RFC3339))
 
 	for _, f := range files {
-		fmt.Fprintf(w, "FILE: %s\n", f)
+		_, _ = fmt.Fprintf(w, "FILE: %s\n", f)
 		roots := grouped[f]
 		writeNodes(w, roots, 0)
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
 
 	common.CLILogger.Info("Signature map written: %s (%d symbols)", outputPath, totalSymbols)
@@ -1033,9 +1116,9 @@ func writeNodes(w *bufio.Writer, nodes []*contextNode, depth int) {
 	for _, n := range nodes {
 		label := n.Name
 		if n.Signature != "" {
-			fmt.Fprintf(w, "%s- %s: %s\n", indent, label, n.Signature)
+			_, _ = fmt.Fprintf(w, "%s- %s: %s\n", indent, label, n.Signature)
 		} else {
-			fmt.Fprintf(w, "%s- %s\n", indent, label)
+			_, _ = fmt.Fprintf(w, "%s- %s\n", indent, label)
 		}
 		if len(n.Children) > 0 {
 			writeNodes(w, n.Children, depth+1)
@@ -1209,7 +1292,7 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
@@ -1245,94 +1328,24 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 	for depth := 0; depth < maxDepth; depth++ {
 		var newFiles []string
 		for _, file := range targetFiles {
-			uri := utils.FilePathToURICached(file)
-
-			symbolCount := 0
-			refSet := make(map[string]bool)
-			refBySet := make(map[string]bool)
-
-			if storage != nil {
-				if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
-					symbolCount = len(doc.SymbolInformation)
-
-					defSymbols := make(map[string]bool)
-					for _, occ := range doc.Occurrences {
-						if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-							defSymbols[occ.Symbol] = true
-						}
-						if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleImport) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
-							if defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol); err == nil {
-								for _, d := range defs {
-									defURI := utils.URIToFilePathCached(d.DocumentURI)
-									if defURI != "" && defURI != file {
-										refSet[defURI] = true
-									}
-								}
-							}
-						}
-					}
-
-					for sym := range defSymbols {
-						if refs, err := storage.GetReferencesWithDocuments(context.Background(), sym); err == nil {
-							for _, r := range refs {
-								refURI := utils.URIToFilePathCached(r.DocumentURI)
-								if refURI != "" && refURI != file {
-									refBySet[refURI] = true
-									if !visited[refURI] {
-										newFiles = append(newFiles, refURI)
-										visited[refURI] = true
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
+			symbolCount, refs, newly := collectRelationsForFile(storage, file, visited)
 			if relation, ok := relatedFiles[file]; ok {
 				relation.Symbols += symbolCount
 			} else {
 				relatedFiles[file] = &FileRelation{File: file, Symbols: symbolCount}
 			}
-
 			if rel := relatedFiles[file]; rel != nil {
-				for f := range refSet {
-					rel.References = append(rel.References, f)
-				}
-				for f := range refBySet {
-					rel.ReferencedBy = append(rel.ReferencedBy, f)
-				}
+				updateRelation(rel, symbolCount, refs)
 			}
+			newFiles = append(newFiles, newly...)
 		}
-
 		if len(newFiles) == 0 {
 			break
 		}
 		targetFiles = newFiles
 	}
-
-	if formatJSON {
-		data, err := json.MarshalIndent(relatedFiles, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON: %w", err)
-		}
-		fmt.Println(string(data))
-	} else {
-		fmt.Println("# Related Files Analysis")
-		fmt.Printf("# Found %d related files\n\n", len(relatedFiles))
-		for _, rel := range relatedFiles {
-			fmt.Printf("File: %s\n", rel.File)
-			if rel.Symbols > 0 {
-				fmt.Printf("  Symbols: %d\n", rel.Symbols)
-			}
-			if len(rel.References) > 0 {
-				fmt.Printf("  References: %s\n", strings.Join(rel.References, ", "))
-			}
-			if len(rel.ReferencedBy) > 0 {
-				fmt.Printf("  Referenced by: %s\n", strings.Join(rel.ReferencedBy, ", "))
-			}
-			fmt.Println()
-		}
+	if err := printRelated(relatedFiles, formatJSON); err != nil {
+		return err
 	}
 
 	return nil

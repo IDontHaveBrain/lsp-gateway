@@ -63,28 +63,13 @@ func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolN
 	// Convert search.SCIPOccurrenceInfo to SCIPOccurrenceInfo for backward compatibility
 	var references []SCIPOccurrenceInfo
 	for _, searchRef := range response.References {
-		references = append(references, SCIPOccurrenceInfo{
-			Occurrence:  searchRef.Occurrence,
-			DocumentURI: searchRef.DocumentURI,
-			SymbolRoles: searchRef.SymbolRoles,
-			SyntaxKind:  searchRef.SyntaxKind,
-			Context:     searchRef.Context,
-			LineNumber:  searchRef.LineNumber,
-			Score:       searchRef.Score,
-		})
+		references = append(references, SCIPOccurrenceInfo(searchRef))
 	}
 
 	var definition *SCIPOccurrenceInfo
 	if response.Definition != nil {
-		definition = &SCIPOccurrenceInfo{
-			Occurrence:  response.Definition.Occurrence,
-			DocumentURI: response.Definition.DocumentURI,
-			SymbolRoles: response.Definition.SymbolRoles,
-			SyntaxKind:  response.Definition.SyntaxKind,
-			Context:     response.Definition.Context,
-			LineNumber:  response.Definition.LineNumber,
-			Score:       response.Definition.Score,
-		}
+		tmp := SCIPOccurrenceInfo(*response.Definition)
+		definition = &tmp
 	}
 
 	// Convert search.ReferenceSearchOptions back to cache.ReferenceSearchOptions for backward compatibility

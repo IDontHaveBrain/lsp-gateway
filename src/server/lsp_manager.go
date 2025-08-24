@@ -29,6 +29,10 @@ import (
 	"strings"
 )
 
+const (
+	osWindows = "windows"
+)
+
 // ClientStatus represents the status of an LSP client
 type ClientStatus struct {
 	Active    bool
@@ -107,7 +111,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 	// Initialize indexing concurrency limiter (tighter on Windows)
 	limiterSize := 2
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		limiterSize = 1
 	}
 	manager.indexLimiter = make(chan struct{}, limiterSize)
@@ -400,8 +404,6 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	if m.scipCache != nil && m.isCacheableMethod(method) {
 		if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
 			return result, nil
-		} else if err != nil {
-			// Cache lookup failed, continue with LSP fallback
 		}
 	}
 
@@ -428,11 +430,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 				// Cache the result if cacheable
 				if m.isCacheableMethod(method) {
-					if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
-						// Cache store failed
-					} else {
-						// Cache stored successfully
-					}
+					_ = m.scipCache.Store(method, params, result)
 				}
 			}
 
@@ -482,7 +480,9 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 	// Cache the result and perform/schedule SCIP indexing if successful
 	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
-		m.scipCache.Store(method, params, result)
+		if sErr := m.scipCache.Store(method, params, result); sErr != nil {
+			common.LSPLogger.Warn("SCIP cache store failed for %s: %v", method, sErr)
+		}
 
 		// For document symbols, index synchronously to ensure workspace indexing correctness
 		if method == types.MethodTextDocumentDocumentSymbol {
@@ -531,7 +531,7 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPClient, method string, params interface{}, uri string, language string) (json.RawMessage, error) {
 	maxRetries := 3
 	baseDelay := 200 * time.Millisecond
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		baseDelay = 500 * time.Millisecond
 		maxRetries = 4 // Extra retry on Windows due to slower view establishment
 	}
@@ -693,100 +693,116 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 }
 
 // resolveCommandPath resolves the command path, checking custom installations first
+func (m *LSPManager) resolveCommandPath2(language, command string) string {
+	return m.resolveCommandPath(language, command)
+}
+
+// resolveCommandPath resolves the command path using simplified helpers
 func (m *LSPManager) resolveCommandPath(language, command string) string {
-	// Prefer custom installation under ~/.lsp-gateway/tools/{language}
 	if root := common.GetLSPToolRoot(language); root != "" {
 		if resolved := common.FirstExistingExecutable(root, []string{command}); resolved != "" {
 			common.LSPLogger.Debug("Using installed %s command at %s", language, resolved)
 			return resolved
 		}
 	}
-
-	// For Java, check if custom installation exists
-	if language == "java" && command == "jdtls" {
-		var customPath string
-		if runtime.GOOS == "windows" {
-			customPath = common.GetLSPToolPath("java", "jdtls.bat")
-		} else {
-			customPath = common.GetLSPToolPath("java", "jdtls")
+	if language == langJava {
+		if p := m.resolveJavaCustom(command); p != "" {
+			return p
 		}
-
-		// Check if the custom installation exists
-		if common.FileExists(customPath) {
-			common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
-			return customPath
+		if p := m.resolveWindowsJDTLS(command); p != "" {
+			return p
 		}
 	}
-
-	// Windows: if a full path to jdtls is provided without extension, prefer .bat/.cmd
-	if language == "java" && runtime.GOOS == "windows" {
-		lower := strings.ToLower(command)
-		if strings.HasSuffix(lower, "\\jdtls") || strings.HasSuffix(lower, "/jdtls") || lower == "jdtls" {
-			if common.FileExists(command + ".bat") {
-				return command + ".bat"
-			}
-			if common.FileExists(command + ".cmd") {
-				return command + ".cmd"
-			}
+	if p := m.resolveCustomLanguageMap(command); p != "" {
+		return p
+	}
+	return command
+}
+func (m *LSPManager) resolveJavaCustom(command string) string {
+	if command != "jdtls" {
+		return ""
+	}
+	var customPath string
+	if runtime.GOOS == osWindows {
+		customPath = common.GetLSPToolPath("java", "jdtls.bat")
+	} else {
+		customPath = common.GetLSPToolPath("java", "jdtls")
+	}
+	if common.FileExists(customPath) {
+		common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
+		return customPath
+	}
+	return ""
+}
+func (m *LSPManager) resolveWindowsJDTLS(command string) string {
+	if runtime.GOOS != osWindows {
+		return ""
+	}
+	lower := strings.ToLower(command)
+	if strings.HasSuffix(lower, "\\jdtls") || strings.HasSuffix(lower, "/jdtls") || lower == "jdtls" {
+		if common.FileExists(command + ".bat") {
+			return command + ".bat"
+		}
+		if common.FileExists(command + ".cmd") {
+			return command + ".cmd"
 		}
 	}
-
-	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" || command == "kotlin-language-server" {
-		// Map of commands to their languages for path construction
-		languageMap := map[string]string{
-			"gopls":                      "go",
-			"pylsp":                      "python",
-			"jedi-language-server":       "python",
-			"pyright-langserver":         "python",
-			"basedpyright-langserver":    "python",
-			"typescript-language-server": "typescript",
-			"omnisharp":                  "csharp",
-			"OmniSharp":                  "csharp",
-			"kotlin-lsp":                 "kotlin",
-			"kotlin-language-server":     "kotlin",
-		}
-		if lang, exists := languageMap[command]; exists {
-			customPath := common.GetLSPToolPath(lang, command)
-			if runtime.GOOS == "windows" {
-				// Add extension for platform-specific shims
-				if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
-					customPath = customPath + ".cmd"
-				} else if command == "omnisharp" || command == "OmniSharp" {
-					customPath = customPath + ".exe"
-				} else if command == "kotlin-lsp" {
-					// Prefer native .exe on Windows for reliable stdio
-					exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
-					if common.FileExists(exePath) {
-						customPath = exePath
-					} else {
-						// Fall back to .cmd if no .exe present
-						customPath = customPath + ".cmd"
-					}
-				} else if command == "kotlin-language-server" {
-					// fwcd provides .bat on Windows; prefer .bat then .exe if present
-					batPath := common.GetLSPToolPath("kotlin", "kotlin-language-server.bat")
-					if common.FileExists(batPath) {
-						customPath = batPath
-					} else {
-						exePath := common.GetLSPToolPath("kotlin", "kotlin-language-server.exe")
-						if common.FileExists(exePath) {
-							customPath = exePath
-						}
-					}
+	return ""
+}
+func (m *LSPManager) resolveCustomLanguageMap(command string) string {
+	switch command {
+	case "gopls", "pylsp", serverJediLS, serverPyrightLS, serverBasedPyrightLS,
+		"typescript-language-server", "omnisharp", "OmniSharp", "kotlin-lsp", "kotlin-language-server":
+	default:
+		return ""
+	}
+	languageMap := map[string]string{
+		"gopls":                      "go",
+		"pylsp":                      "python",
+		serverJediLS:                 "python",
+		serverPyrightLS:              "python",
+		serverBasedPyrightLS:         "python",
+		"typescript-language-server": "typescript",
+		"omnisharp":                  "csharp",
+		"OmniSharp":                  "csharp",
+		"kotlin-lsp":                 "kotlin",
+		"kotlin-language-server":     "kotlin",
+	}
+	lang, exists := languageMap[command]
+	if !exists {
+		return ""
+	}
+	customPath := common.GetLSPToolPath(lang, command)
+	if runtime.GOOS == osWindows {
+		switch command {
+		case "typescript-language-server", "pylsp", "jedi-language-server":
+			customPath = customPath + ".cmd"
+		case "omnisharp", "OmniSharp":
+			customPath = customPath + ".exe"
+		case "kotlin-lsp":
+			exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
+			if common.FileExists(exePath) {
+				customPath = exePath
+			} else {
+				customPath = customPath + ".cmd"
+			}
+		case "kotlin-language-server":
+			batPath := common.GetLSPToolPath("kotlin", "kotlin-language-server.bat")
+			if common.FileExists(batPath) {
+				customPath = batPath
+			} else {
+				exePath := common.GetLSPToolPath("kotlin", "kotlin-language-server.exe")
+				if common.FileExists(exePath) {
+					customPath = exePath
 				}
 			}
-
-			// Check if the custom installation exists
-			if common.FileExists(customPath) {
-				common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
-				return customPath
-			}
 		}
 	}
-
-	// Return the original command (will be resolved via PATH)
-	return command
+	if common.FileExists(customPath) {
+		common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
+		return customPath
+	}
+	return ""
 }
 
 // startClientWithTimeout starts a single LSP client with timeout
@@ -796,7 +812,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	argsToUse := cfg.Args
 
 	// Kotlin: use socket mode for JetBrains kotlin-lsp on Linux/macOS, stdio for fwcd on Windows
-	if language == "kotlin" && runtime.GOOS != "windows" {
+	if language == langKotlin && runtime.GOOS != osWindows {
 		// JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
 		addr := "127.0.0.1:9999"
 
@@ -846,7 +862,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	// Ensure executable exists; if not, try language-specific fallbacks
 	if _, err := exec.LookPath(resolvedCommand); err != nil {
 		// Python: attempt alternative servers if the configured one is missing
-		if language == "python" {
+		if language == langPython {
 			type candidate struct {
 				cmd  string
 				args []string
@@ -862,10 +878,10 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 				candidates = append(candidates, candidate{cmd: cmd, args: args})
 			}
 			add(cfg.Command, cfg.Args)
-			add("basedpyright-langserver", []string{"--stdio"})
-			add("pyright-langserver", []string{"--stdio"})
+			add(serverBasedPyrightLS, []string{"--stdio"})
+			add(serverPyrightLS, []string{"--stdio"})
 			add("pylsp", []string{})
-			add("jedi-language-server", []string{})
+			add(serverJediLS, []string{})
 
 			found := false
 			for _, c := range candidates {

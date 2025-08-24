@@ -18,146 +18,119 @@ import (
 // The matcher normalizes absolute paths to a relative path against the current
 // working directory when the pattern is relative, and also tests the basename.
 func Match(pathOrURI, pattern string) bool {
-	if pattern == "" || pattern == "**/*" || pattern == "*" {
+	if pattern == "" || pattern == "**/*" || pattern == "*" || pattern == "." || pattern == "./" {
 		return true
 	}
-
-	if pattern == "." || pattern == "./" {
-		return true
-	}
-
-	// Normalize potential file URI to filesystem path
-	filePath := utils.URIToFilePathCached(pathOrURI)
-
-	// Normalize Windows backslashes to forward slashes for consistent matching
-	// Note: filepath.ToSlash doesn't work on Linux for backslash paths, so we replace manually
-	filePath = strings.ReplaceAll(filePath, "\\", "/")
-	pattern = strings.ReplaceAll(pattern, "\\", "/")
-
-	// If the pattern ends with a slash, treat as directory prefix
+	filePath, pattern := normalizeForMatch(pathOrURI, pattern)
 	if strings.HasSuffix(pattern, "/") {
 		dir := strings.TrimSuffix(pattern, "/")
 		rel := normalizeRelative(filePath)
 		if strings.HasPrefix(filePath, pattern) || strings.HasPrefix(rel, pattern) {
 			return true
 		}
-		// Also match if the directory segment appears anywhere in the path
 		return strings.Contains("/"+filePath+"/", "/"+dir+"/") || strings.Contains("/"+rel+"/", "/"+dir+"/")
 	}
-
-	// If pattern is relative and path is absolute, also try relative to cwd
-	candidates := []string{filePath}
-	rel := normalizeRelative(filePath)
-	if rel != filePath {
-		candidates = append(candidates, rel)
-	}
-
+	candidates := enumerateCandidates(filePath)
 	for _, cand := range candidates {
-		// Direct full path match (using path package for consistent slash handling)
 		if ok, _ := path.Match(pattern, cand); ok {
 			return true
 		}
-
-		// Check if pattern contains directory separators
-		if strings.Contains(pattern, "/") {
-			// Handle patterns like "src/server/*.go" or "path/to/*.txt"
-			// Split pattern into directory and file pattern parts using path package
-			patternDir := path.Dir(pattern)
-			patternFile := path.Base(pattern)
-
-			// Check if the candidate's directory matches the pattern directory
-			// and the filename matches the file pattern
-			candDir := path.Dir(cand)
-			candFile := path.Base(cand)
-
-			// For patterns like "src/server/*.go", we need exact directory match
-			if patternDir != "." && !strings.Contains(patternDir, "*") {
-				// Check both absolute and relative paths
-				// candDir could be absolute: /home/user/project/src/server
-				// patternDir is relative: src/server
-				// We need to check if candDir ends with patternDir as a complete path segment
-				matched := false
-				if candDir == patternDir {
+		if matchPattern(cand, pattern) {
+			return true
+		}
+		if matchWithDoubleStar(cand, pattern) {
+			return true
+		}
+	}
+	return false
+}
+func normalizeForMatch(pathOrURI, pattern string) (string, string) {
+	fp := utils.URIToFilePathCached(pathOrURI)
+	fp = strings.ReplaceAll(fp, "\\", "/")
+	p := strings.ReplaceAll(pattern, "\\", "/")
+	return fp, p
+}
+func enumerateCandidates(filePath string) []string {
+	rel := normalizeRelative(filePath)
+	if rel != filePath {
+		return []string{filePath, rel}
+	}
+	return []string{filePath}
+}
+func matchPattern(cand, pattern string) bool {
+	if strings.Contains(pattern, "/") {
+		patternDir := path.Dir(pattern)
+		patternFile := path.Base(pattern)
+		candDir := path.Dir(cand)
+		candFile := path.Base(cand)
+		if patternDir != "." && !strings.Contains(patternDir, "*") {
+			matched := false
+			if candDir == patternDir || strings.HasSuffix(candDir, "/"+patternDir) {
+				matched = true
+			} else if strings.HasSuffix(candDir, patternDir) {
+				idx := strings.LastIndex(candDir, patternDir)
+				if idx > 0 && candDir[idx-1] == '/' || idx == 0 {
 					matched = true
-				} else if strings.HasSuffix(candDir, "/"+patternDir) {
-					matched = true
-				} else if strings.HasSuffix(candDir, patternDir) {
-					// Ensure it's a complete path segment, not partial match
-					idx := strings.LastIndex(candDir, patternDir)
-					if idx > 0 && candDir[idx-1] == '/' {
-						matched = true
-					} else if idx == 0 {
-						matched = true
-					}
-				}
-
-				if matched {
-					if ok, _ := path.Match(patternFile, candFile); ok {
-						return true
-					}
 				}
 			}
-		} else {
-			// Pattern without directory separator
-			// 1) glob against basename
-			if ok, _ := path.Match(pattern, path.Base(cand)); ok {
-				return true
-			}
-			// 2) if plain directory token (no wildcard, no dot), match directory segment anywhere
-			if !strings.ContainsAny(pattern, "*?[]") && !strings.Contains(pattern, "/") && !strings.Contains(pattern, ".") {
-				if strings.Contains("/"+cand+"/", "/"+pattern+"/") {
+			if matched {
+				if ok, _ := path.Match(patternFile, candFile); ok {
 					return true
 				}
 			}
 		}
-
-		// Handle ** split pattern: prefix**/suffix simplified check
-		if strings.Contains(pattern, "**") {
-			parts := strings.Split(pattern, "**")
-			if len(parts) == 2 {
-				prefix := strings.TrimSuffix(parts[0], "/")
-				suffix := strings.TrimPrefix(parts[1], "/")
-				matches := true
-				if prefix != "" && !strings.Contains(cand, prefix) {
-					matches = false
-				}
-				if matches && suffix != "" && suffix != "*" {
-					// Handle suffix with directory paths like "server/*.go"
-					if strings.Contains(suffix, "/") {
-						suffixDir := path.Dir(suffix)
-						suffixFile := path.Base(suffix)
-						candSuffix := cand
-						if prefix != "" {
-							idx := strings.LastIndex(cand, prefix)
-							if idx >= 0 {
-								candSuffix = cand[idx+len(prefix):]
-								candSuffix = strings.TrimPrefix(candSuffix, "/")
-							}
-						}
-						if suffixDir != "." {
-							if !strings.Contains(candSuffix, suffixDir) {
-								matches = false
-							}
-						}
-						if matches {
-							if ok, _ := path.Match(suffixFile, path.Base(cand)); !ok {
-								matches = false
-							}
-						}
-					} else {
-						// Simple file pattern suffix
-						if ok, _ := path.Match(suffix, path.Base(cand)); !ok {
-							matches = false
-						}
-					}
-				}
-				if matches {
-					return true
-				}
+	} else {
+		if ok, _ := path.Match(pattern, path.Base(cand)); ok {
+			return true
+		}
+		if !strings.ContainsAny(pattern, "*?[]") && !strings.Contains(pattern, "/") && !strings.Contains(pattern, ".") {
+			if strings.Contains("/"+cand+"/", "/"+pattern+"/") {
+				return true
 			}
 		}
 	}
 	return false
+}
+func matchWithDoubleStar(cand, pattern string) bool {
+	if !strings.Contains(pattern, "**") {
+		return false
+	}
+	parts := strings.Split(pattern, "**")
+	if len(parts) != 2 {
+		return false
+	}
+	prefix := strings.TrimSuffix(parts[0], "/")
+	suffix := strings.TrimPrefix(parts[1], "/")
+	matches := prefix == "" || strings.Contains(cand, prefix)
+	if matches && suffix != "" && suffix != "*" {
+		if strings.Contains(suffix, "/") {
+			suffixDir := path.Dir(suffix)
+			suffixFile := path.Base(suffix)
+			candSuffix := cand
+			if prefix != "" {
+				idx := strings.LastIndex(cand, prefix)
+				if idx >= 0 {
+					candSuffix = cand[idx+len(prefix):]
+					candSuffix = strings.TrimPrefix(candSuffix, "/")
+				}
+			}
+			if suffixDir != "." {
+				if !strings.Contains(candSuffix, suffixDir) {
+					matches = false
+				}
+			}
+			if matches {
+				if ok, _ := path.Match(suffixFile, path.Base(cand)); !ok {
+					matches = false
+				}
+			}
+		} else {
+			if ok, _ := path.Match(suffix, path.Base(cand)); !ok {
+				matches = false
+			}
+		}
+	}
+	return matches
 }
 
 func normalizeRelative(path string) string {

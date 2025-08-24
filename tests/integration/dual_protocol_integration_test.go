@@ -13,16 +13,16 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	
+
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/tests/shared"
 	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/src/utils"
-	
+	"lsp-gateway/tests/shared"
+
 	"runtime"
-	
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,24 +96,24 @@ func handleError(err error) {
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
 	lspManager.SetCache(scipCache)
-	
+
 	gateway, err := server.NewHTTPGateway(":0", cfg, false)
 	require.NoError(t, err)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	err = gateway.Start(ctx)
 	require.NoError(t, err)
 	defer gateway.Stop()
-	
+
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
 	require.NoError(t, shared.WaitForHTTPReady(ctx, baseURL+"/health"))
-	
+
 	mcpServer, err := server.NewMCPServer(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, mcpServer)
-	
+
 	var wg sync.WaitGroup
 	var httpErrors atomic.Int32
 	var mcpErrors atomic.Int32
@@ -141,14 +141,14 @@ func handleError(err error) {
 					},
 				},
 			}
-			
+
 			body, _ := json.Marshal(request)
 			resp, err := http.Post(
 				baseURL+"/jsonrpc",
 				"application/json",
 				bytes.NewReader(body),
 			)
-			
+
 			if err != nil {
 				httpErrors.Add(1)
 				return
@@ -216,10 +216,10 @@ func handleError(err error) {
 		"HTTP errors should be less than 50%")
 	assert.LessOrEqual(t, mcpErrors.Load(), int32(concurrentRequests/2),
 		"MCP errors should be less than 50%")
-	
+
 	cacheMetrics := scipCache.GetMetrics()
 	t.Logf("Cache metrics after concurrent operations - Entries: %d", cacheMetrics.EntryCount)
-	
+
 	finalRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "textDocument/hover",
@@ -234,7 +234,7 @@ func handleError(err error) {
 			},
 		},
 	}
-	
+
 	body, _ := json.Marshal(finalRequest)
 	resp, err := http.Post(
 		baseURL+"/jsonrpc",
@@ -262,19 +262,19 @@ func TestDualProtocolResourceContention(t *testing.T) {
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
 	lspManager.SetCache(scipCache)
-	
+
 	gateway, err := server.NewHTTPGateway(":0", cfg, false)
 	require.NoError(t, err)
-	
+
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel2()
-	
+
 	err = gateway.Start(ctx2)
 	require.NoError(t, err)
 	defer gateway.Stop()
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
 	require.NoError(t, shared.WaitForHTTPReady(ctx2, baseURL+"/health"))
-	
+
 	mcpServer, err := server.NewMCPServer(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, mcpServer)
@@ -306,7 +306,7 @@ func TestDualProtocolResourceContention(t *testing.T) {
 				"application/json",
 				bytes.NewReader(body),
 			)
-			
+
 			if err == nil {
 				resp.Body.Close()
 			}

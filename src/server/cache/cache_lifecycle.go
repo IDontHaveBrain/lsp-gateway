@@ -8,6 +8,8 @@ import (
 	"lsp-gateway/src/internal/common"
 )
 
+const errStorageAlreadyStarted = "storage already started"
+
 // Lifecycle Management Module
 // This module handles cache lifecycle operations including start/stop,
 // health monitoring, metrics reporting, and enabled state management.
@@ -26,15 +28,13 @@ func (m *SCIPCacheManager) Start(ctx context.Context) error {
 		return nil
 	}
 
-	if err := m.scipStorage.Start(ctx); err != nil && err.Error() != "storage already started" {
+	if err := m.scipStorage.Start(ctx); err != nil && err.Error() != errStorageAlreadyStarted {
 		common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
 	}
 
 	// Load index from disk if available
 	if m.config.DiskCache && m.config.StoragePath != "" {
-		if err := m.LoadIndexFromDisk(); err != nil {
-			// Index will be built as needed
-		}
+		_ = m.LoadIndexFromDisk()
 		// Load file tracker metadata
 		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
 		if err := m.fileTracker.LoadFromFile(metadataPath); err != nil {

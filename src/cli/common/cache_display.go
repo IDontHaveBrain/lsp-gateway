@@ -7,16 +7,22 @@ import (
 	"lsp-gateway/src/server/cache"
 )
 
+const (
+	modeGateway = "gateway"
+	modeMCP     = "mcp"
+	modeCLI     = "cli"
+)
+
 // DisplayCacheStatus displays cache status in different modes for various contexts
 // mode options: "gateway", "mcp", "cli"
 func DisplayCacheStatus(logger *common.SafeLogger, scipCache cache.SCIPCache, mode string) {
 	if scipCache == nil {
 		switch mode {
-		case "gateway":
+		case modeGateway:
 			logger.Warn("SCIP Cache: Not available")
-		case "mcp":
+		case modeMCP:
 			logger.Warn("SCIP Cache: Not available")
-		case "cli":
+		case modeCLI:
 			logger.Info("")
 			logger.Info("Cache Status:")
 			logger.Info("Cache: Manager not available")
@@ -27,11 +33,11 @@ func DisplayCacheStatus(logger *common.SafeLogger, scipCache cache.SCIPCache, mo
 	metrics, healthErr := scipCache.HealthCheck()
 	if healthErr != nil {
 		switch mode {
-		case "gateway":
+		case modeGateway:
 			logger.Error("SCIP Cache: Health check failed (%v)", healthErr)
-		case "mcp":
+		case modeMCP:
 			logger.Error("SCIP Cache: Health check failed (%v)", healthErr)
-		case "cli":
+		case modeCLI:
 			logger.Info("")
 			logger.Info("Cache Status:")
 			logger.Info("Cache: Unable to get metrics (%v)", healthErr)
@@ -40,11 +46,11 @@ func DisplayCacheStatus(logger *common.SafeLogger, scipCache cache.SCIPCache, mo
 	}
 
 	switch mode {
-	case "gateway":
+	case modeGateway:
 		displayGatewayCache(logger, metrics)
-	case "mcp":
+	case modeMCP:
 		displayMCPCache(logger, metrics)
-	case "cli":
+	case modeCLI:
 		displayCLICache(logger, metrics)
 	}
 }

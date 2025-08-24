@@ -13,8 +13,18 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/security"
+)
+
+const (
+	cmdPip        = "pip"
+	cmdPip3       = "pip3"
+	cmdPython     = "python"
+	cmdPython3    = "python3"
+	cmdNpm        = "npm"
+	pmUVX         = "uvx"
+	pmUV          = "uv"
+	versionLatest = "latest"
 )
 
 // BaseInstaller provides common functionality for language installers
@@ -118,7 +128,7 @@ func (b *BaseInstaller) ValidateInstallation() error {
 
 // CreateInstallDirectory creates the installation directory
 func (b *BaseInstaller) CreateInstallDirectory(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0750); err != nil {
 		return fmt.Errorf("failed to create install directory %s: %w", path, err)
 	}
 	return nil
@@ -179,7 +189,7 @@ func (b *BaseInstaller) DownloadFile(ctx context.Context, url, destPath string) 
 	common.CLILogger.Info("Downloading %s", url)
 
 	// Create destination directory
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -219,7 +229,7 @@ func (b *BaseInstaller) ExtractArchive(ctx context.Context, archivePath, destPat
 	common.CLILogger.Info("Extracting %s to %s", archivePath, destPath)
 
 	// Create destination directory
-	if err := os.MkdirAll(destPath, 0755); err != nil {
+	if err := os.MkdirAll(destPath, 0750); err != nil {
 		return fmt.Errorf("failed to create extraction directory: %w", err)
 	}
 
@@ -228,7 +238,7 @@ func (b *BaseInstaller) ExtractArchive(ctx context.Context, archivePath, destPat
 		return b.RunCommand(ctx, "tar", "-xzf", archivePath, "-C", destPath)
 	} else if strings.HasSuffix(archivePath, ".zip") {
 		// On Windows, use tar (available on Windows 10 1803+) or PowerShell
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			// Try tar first (faster and available on modern Windows)
 			if err := b.RunCommand(ctx, "tar", "-xf", archivePath, "-C", destPath); err == nil {
 				return nil
@@ -261,7 +271,7 @@ func (b *BaseInstaller) validateServerCommand(command string) bool {
 
 	// Additional check: try to execute the command with a quick timeout
 	// This ensures the binary is not corrupted
-	ctx, cancel := icommon.CreateContext(2 * time.Second)
+	ctx, cancel := common.CreateContext(2 * time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, command, "--version")
@@ -292,7 +302,7 @@ func (b *BaseInstaller) getExecutableCommand() string {
 
 // tryGetVersion attempts to get version using a specific flag
 func (b *BaseInstaller) tryGetVersion(command, flag string) string {
-	ctx, cancel := icommon.CreateContext(3 * time.Second)
+	ctx, cancel := common.CreateContext(3 * time.Second)
 	defer cancel()
 
 	output, err := b.RunCommandWithOutput(ctx, command, flag)
@@ -339,7 +349,7 @@ func (b *BaseInstaller) GetVersionByCommand(command string, versionFlag string) 
 		return "", fmt.Errorf("%s not installed", command)
 	}
 
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := common.CreateContext(5 * time.Second)
 	defer cancel()
 
 	output, err := b.RunCommandWithOutput(ctx, command, versionFlag)
@@ -378,7 +388,7 @@ func (b *BaseInstaller) ValidateWithPackageManager(command string, packageManage
 	switch packageManager {
 	case "go":
 		if !b.isGoInstalled() {
-			return fmt.Errorf("Go is not installed but %s is present - this may cause issues", command)
+			return fmt.Errorf("go is not installed but %s is present - this may cause issues", command)
 		}
 	case "pip", "pip3":
 		if !b.isPipInstalled() {
@@ -398,7 +408,7 @@ func (b *BaseInstaller) ValidateWithPackageManager(command string, packageManage
 
 // isCommandInstalled checks if a command is installed by running it with specified args
 func (b *BaseInstaller) isCommandInstalled(command string, args ...string) bool {
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := common.CreateContext(5 * time.Second)
 	defer cancel()
 
 	if _, err := b.RunCommandWithOutput(ctx, command, args...); err != nil {
@@ -415,18 +425,18 @@ func (b *BaseInstaller) isGoInstalled() bool {
 // isPipInstalled checks if pip is installed
 func (b *BaseInstaller) isPipInstalled() bool {
 	// Try pip3 first, then pip
-	if b.isCommandInstalled("pip3", "--version") {
+	if b.isCommandInstalled(cmdPip3, "--version") {
 		return true
 	}
-	if b.isCommandInstalled("pip", "--version") {
+	if b.isCommandInstalled(cmdPip, "--version") {
 		return true
 	}
 	// On Windows, pip might only be available through python -m pip
-	if runtime.GOOS == "windows" {
-		if b.isCommandInstalled("python", "-m", "pip", "--version") {
+	if runtime.GOOS == osWindows {
+		if b.isCommandInstalled(cmdPython, "-m", cmdPip, "--version") {
 			return true
 		}
-		if b.isCommandInstalled("python3", "-m", "pip", "--version") {
+		if b.isCommandInstalled(cmdPython3, "-m", cmdPip, "--version") {
 			return true
 		}
 	}
@@ -435,7 +445,7 @@ func (b *BaseInstaller) isPipInstalled() bool {
 
 // isNpmInstalled checks if npm is installed
 func (b *BaseInstaller) isNpmInstalled() bool {
-	return b.isCommandInstalled("npm", "--version")
+	return b.isCommandInstalled(cmdNpm, "--version")
 }
 
 // InstallWithPackageManager handles common package manager installation patterns
@@ -443,14 +453,14 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 	common.CLILogger.Info("Installing %s language server (%s)...", b.language, packageName)
 
 	switch packageManager {
-	case "uvx", "uv":
+	case pmUVX, pmUV:
 		// Prefer uvx/uv execution for Python CLIs when available
 		// Validate availability
 		runner := ""
-		if _, err := exec.LookPath("uvx"); err == nil {
-			runner = "uvx"
-		} else if _, err := exec.LookPath("uv"); err == nil {
-			runner = "uv"
+		if _, err := exec.LookPath(pmUVX); err == nil {
+			runner = pmUVX
+		} else if _, err := exec.LookPath(pmUV); err == nil {
+			runner = pmUV
 		}
 		if runner == "" {
 			return fmt.Errorf("uv/uvx is not installed. Please install uv from https://docs.astral.sh/uv/")
@@ -460,9 +470,9 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 		// We call the tool by its console script name (packageName for jedi-language-server/basedpyright)
 		target := packageName
 		// If a specific version was requested, pin it using --from syntax
-		if runner == "uvx" {
+		if runner == pmUVX {
 			args := []string{}
-			if version != "" && version != "latest" {
+			if version != "" && version != versionLatest {
 				args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version), target, "--version")
 			} else {
 				args = append(args, target, "--version")
@@ -471,38 +481,38 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 		}
 		// runner == "uv": emulate uvx via `uv tool run`
 		args := []string{"tool", "run"}
-		if version != "" && version != "latest" {
+		if version != "" && version != versionLatest {
 			args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version))
 		}
 		args = append(args, target, "--version")
-		return b.RunCommand(ctx, "uv", args...)
+		return b.RunCommand(ctx, pmUV, args...)
 	case "go":
 		if !b.isGoInstalled() {
-			return fmt.Errorf("Go is not installed. Please install Go first from https://golang.org/dl/")
+			return fmt.Errorf("go is not installed. please install Go first from https://golang.org/dl/")
 		}
 		installTarget := fmt.Sprintf("%s@%s", packageName, version)
-		if version == "" || version == "latest" {
+		if version == "" || version == versionLatest {
 			installTarget = fmt.Sprintf("%s@latest", packageName)
 		}
 		return b.RunCommand(ctx, "go", "install", installTarget)
 
-	case "pip", "pip3":
+	case cmdPip, cmdPip3:
 		if !b.isPipInstalled() {
 			return fmt.Errorf("pip is not installed. Please install Python and pip first")
 		}
 
 		// Determine the best way to run pip
 		var pipCmd []string
-		if _, err := exec.LookPath("pip3"); err == nil {
-			pipCmd = []string{"pip3"}
-		} else if _, err := exec.LookPath("pip"); err == nil {
-			pipCmd = []string{"pip"}
-		} else if runtime.GOOS == "windows" {
+		if _, err := exec.LookPath(cmdPip3); err == nil {
+			pipCmd = []string{cmdPip3}
+		} else if _, err := exec.LookPath(cmdPip); err == nil {
+			pipCmd = []string{cmdPip}
+		} else if runtime.GOOS == osWindows {
 			// On Windows, try python -m pip if pip is not in PATH
-			if _, err := exec.LookPath("python"); err == nil {
-				pipCmd = []string{"python", "-m", "pip"}
-			} else if _, err := exec.LookPath("python3"); err == nil {
-				pipCmd = []string{"python3", "-m", "pip"}
+			if _, err := exec.LookPath(cmdPython); err == nil {
+				pipCmd = []string{cmdPython, "-m", cmdPip}
+			} else if _, err := exec.LookPath(cmdPython3); err == nil {
+				pipCmd = []string{cmdPython3, "-m", cmdPip}
 			}
 		}
 
@@ -511,7 +521,7 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 		}
 
 		installPackage := packageName
-		if version != "" && version != "latest" {
+		if version != "" && version != versionLatest {
 			installPackage = fmt.Sprintf("%s==%s", packageName, version)
 		}
 
@@ -529,15 +539,15 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 		}
 		return nil
 
-	case "npm":
+	case cmdNpm:
 		if !b.isNpmInstalled() {
 			return fmt.Errorf("npm is not installed. Please install Node.js and npm first")
 		}
 		installPackage := packageName
-		if version != "" && version != "latest" {
+		if version != "" && version != versionLatest {
 			installPackage = fmt.Sprintf("%s@%s", packageName, version)
 		}
-		return b.RunCommand(ctx, "npm", "install", "-g", installPackage)
+		return b.RunCommand(ctx, cmdNpm, "install", "-g", installPackage)
 
 	default:
 		return fmt.Errorf("unsupported package manager: %s", packageManager)
@@ -548,28 +558,28 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 func (b *BaseInstaller) UninstallWithPackageManager(packageManager string, packageName string) error {
 	common.CLILogger.Info("Uninstalling %s language server...", b.language)
 
-	ctx, cancel := icommon.CreateContext(30 * time.Second)
+	ctx, cancel := common.CreateContext(30 * time.Second)
 	defer cancel()
 
 	switch packageManager {
 	case "go":
-		return fmt.Errorf("Go doesn't provide built-in uninstall for %s. Please manually remove $GOBIN/%s", packageName, b.serverConfig.Command)
+		return fmt.Errorf("go doesn't provide built-in uninstall for %s. please manually remove $GOBIN/%s", packageName, b.serverConfig.Command)
 
-	case "pip", "pip3":
+	case cmdPip, cmdPip3:
 		if !b.isPipInstalled() {
 			return fmt.Errorf("pip not available for uninstalling %s", packageName)
 		}
-		pip := "pip"
-		if _, err := exec.LookPath("pip3"); err == nil {
-			pip = "pip3"
+		pip := cmdPip
+		if _, err := exec.LookPath(cmdPip3); err == nil {
+			pip = cmdPip3
 		}
 		return b.RunCommand(ctx, pip, "uninstall", "-y", packageName)
 
-	case "npm":
+	case cmdNpm:
 		if !b.isNpmInstalled() {
 			return fmt.Errorf("npm not available for uninstalling %s", packageName)
 		}
-		return b.RunCommand(ctx, "npm", "uninstall", "-g", packageName)
+		return b.RunCommand(ctx, cmdNpm, "uninstall", "-g", packageName)
 
 	default:
 		return fmt.Errorf("unsupported package manager: %s", packageManager)

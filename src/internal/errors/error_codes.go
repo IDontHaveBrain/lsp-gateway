@@ -73,6 +73,7 @@ const (
 	CategoryCache       = "cache"       // Cache and indexing errors
 	CategoryAggregation = "aggregation" // Multi-server operation errors
 	CategoryConfig      = "config"      // Configuration errors
+	CategoryUnknown     = "unknown"
 )
 
 // GetErrorCodeCategory returns the category for a given error code
@@ -102,104 +103,54 @@ func GetErrorCodeCategory(code int) string {
 	case code >= -33069 && code <= -33060:
 		return CategoryConfig
 	default:
-		return "unknown"
+		return CategoryUnknown
 	}
+}
+
+var errorCodeMessages = map[int]string{
+	ParseError:            "Parse error",
+	InvalidRequest:        "Invalid Request",
+	MethodNotFound:        "Method not found",
+	InvalidParams:         "Invalid params",
+	InternalError:         "Internal error",
+	ServerNotInitialized:  "Server not initialized",
+	UnknownErrorCode:      "Unknown error code",
+	RequestCancelled:      "Request cancelled",
+	ContentModified:       "Content modified",
+	RequestFailed:         "Request failed",
+	ConnectionFailure:     "Connection failure",
+	ProcessStartFailure:   "Process start failure",
+	ProcessStopFailure:    "Process stop failure",
+	CommunicationError:    "Communication error",
+	InitializationTimeout: "Initialization timeout",
+	OperationTimeout:      "Operation timeout",
+	ShutdownTimeout:       "Shutdown timeout",
+	InvalidURI:            "Invalid URI",
+	InvalidPosition:       "Invalid position",
+	InvalidTextDocument:   "Invalid text document",
+	MissingParameter:      "Missing parameter",
+	InvalidParameterType:  "Invalid parameter type",
+	UnsupportedMethod:     "Unsupported method",
+	UnsupportedLanguage:   "Unsupported language",
+	CapabilityNotFound:    "Capability not found",
+	FeatureDisabled:       "Feature disabled",
+	CacheError:            "Cache error",
+	IndexingError:         "Indexing error",
+	SCIPError:             "SCIP error",
+	PartialFailure:        "Partial failure",
+	AggregationError:      "Aggregation error",
+	NoValidResults:        "No valid results",
+	ConfigurationError:    "Configuration error",
+	InstallationError:     "Installation error",
+	ServerNotFound:        "Server not found",
 }
 
 // GetErrorCodeMessage returns the standard message for a given error code
 func GetErrorCodeMessage(code int) string {
-	switch code {
-	// Standard JSON-RPC errors
-	case ParseError:
-		return "Parse error"
-	case InvalidRequest:
-		return "Invalid Request"
-	case MethodNotFound:
-		return "Method not found"
-	case InvalidParams:
-		return "Invalid params"
-	case InternalError:
-		return "Internal error"
-
-	// LSP errors
-	case ServerNotInitialized:
-		return "Server not initialized"
-	case UnknownErrorCode:
-		return "Unknown error code"
-	case RequestCancelled:
-		return "Request cancelled"
-	case ContentModified:
-		return "Content modified"
-	case RequestFailed:
-		return "Request failed"
-
-	// Connection errors
-	case ConnectionFailure:
-		return "Connection failure"
-	case ProcessStartFailure:
-		return "Process start failure"
-	case ProcessStopFailure:
-		return "Process stop failure"
-	case CommunicationError:
-		return "Communication error"
-
-	// Timeout errors
-	case InitializationTimeout:
-		return "Initialization timeout"
-	case OperationTimeout:
-		return "Operation timeout"
-	case ShutdownTimeout:
-		return "Shutdown timeout"
-
-	// Validation errors
-	case InvalidURI:
-		return "Invalid URI"
-	case InvalidPosition:
-		return "Invalid position"
-	case InvalidTextDocument:
-		return "Invalid text document"
-	case MissingParameter:
-		return "Missing parameter"
-	case InvalidParameterType:
-		return "Invalid parameter type"
-
-	// Feature errors
-	case UnsupportedMethod:
-		return "Unsupported method"
-	case UnsupportedLanguage:
-		return "Unsupported language"
-	case CapabilityNotFound:
-		return "Capability not found"
-	case FeatureDisabled:
-		return "Feature disabled"
-
-	// Cache errors
-	case CacheError:
-		return "Cache error"
-	case IndexingError:
-		return "Indexing error"
-	case SCIPError:
-		return "SCIP error"
-
-	// Aggregation errors
-	case PartialFailure:
-		return "Partial failure"
-	case AggregationError:
-		return "Aggregation error"
-	case NoValidResults:
-		return "No valid results"
-
-	// Configuration errors
-	case ConfigurationError:
-		return "Configuration error"
-	case InstallationError:
-		return "Installation error"
-	case ServerNotFound:
-		return "Server not found"
-
-	default:
-		return "Unknown error"
+	if msg, ok := errorCodeMessages[code]; ok {
+		return msg
 	}
+	return "Unknown error"
 }
 
 // IsRetryableError determines if an error code represents a retryable condition

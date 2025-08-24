@@ -110,7 +110,7 @@ func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) t
 	if err != nil {
 		return pos
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Robust line counting using scanner; last valid 0-based index = max(0, count-1)
 	var count int32 = 0

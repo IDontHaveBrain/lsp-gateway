@@ -10,10 +10,11 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/javautil"
 	"lsp-gateway/src/internal/security"
 )
+
+const exeSuffix = ".exe"
 
 // JavaInstaller handles Java language server (jdtls) and JDK installation
 type JavaInstaller struct {
@@ -111,8 +112,12 @@ func (j *JavaInstaller) installJDK(ctx context.Context, jdkPath string) error {
 	}
 
 	// Clean up temporary files
-	os.RemoveAll(archivePath)
-	os.RemoveAll(extractPath)
+	if err := os.RemoveAll(archivePath); err != nil && !os.IsNotExist(err) {
+		common.CLILogger.Warn("Failed to remove archive: %v", err)
+	}
+	if err := os.RemoveAll(extractPath); err != nil && !os.IsNotExist(err) {
+		common.CLILogger.Warn("Failed to remove extract path: %v", err)
+	}
 
 	common.CLILogger.Info("JDK installation completed at %s", finalJDKPath)
 	return nil
@@ -137,7 +142,9 @@ func (j *JavaInstaller) installJDTLS(ctx context.Context, jdtlsPath string) erro
 	}
 
 	// Clean up archive
-	os.Remove(archivePath)
+	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
+		common.CLILogger.Warn("Failed to remove archive: %v", err)
+	}
 
 	common.CLILogger.Info("Eclipse JDT Language Server installation completed at %s", jdtlsPath)
 	return nil
@@ -148,7 +155,7 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	common.CLILogger.Info("Creating JDTLS wrapper script...")
 
 	binDir := filepath.Join(installPath, "bin")
-	if err := os.MkdirAll(binDir, 0755); err != nil {
+	if err := os.MkdirAll(binDir, 0750); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
@@ -156,7 +163,7 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	var wrapperPath string
 	var wrapperContent string
 
-	if platform == "windows" {
+	if platform == osWindows {
 		wrapperPath = filepath.Join(binDir, "jdtls.bat")
 		wrapperContent = j.createWindowsWrapper(jdkPath, jdtlsPath)
 	} else {
@@ -165,14 +172,19 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	}
 
 	// Write wrapper script
-	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
+	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0600); err != nil {
 		return fmt.Errorf("failed to write wrapper script: %w", err)
+	}
+	if j.platform.GetPlatform() != osWindows {
+		if err := os.Chmod(wrapperPath, 0700); err != nil {
+			return fmt.Errorf("failed to set wrapper permissions: %w", err)
+		}
 	}
 
 	common.CLILogger.Info("JDTLS wrapper created at %s", wrapperPath)
 
 	// Ensure file is synced to disk on Windows
-	if j.platform.GetPlatform() == "windows" {
+	if j.platform.GetPlatform() == osWindows {
 		// Small delay to ensure file system sync on Windows
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -187,7 +199,7 @@ func (j *JavaInstaller) createUnixWrapper(jdkPath, jdtlsPath string) string {
 	configDir := filepath.Join(jdtlsPath, "config_linux")
 
 	// Adjust config directory for macOS
-	if j.platform.GetPlatform() == "darwin" {
+	if j.platform.GetPlatform() == osDarwin {
 		configDir = filepath.Join(jdtlsPath, "config_mac")
 	}
 
@@ -337,10 +349,10 @@ func (j *JavaInstaller) GetVersion() (string, error) {
 		installPath := j.GetInstallPath()
 		jdkPath := filepath.Join(installPath, "jdk", "current")
 		javaExe := filepath.Join(jdkPath, "bin", "java")
-		if j.platform.GetPlatform() == "windows" {
-			javaExe += ".exe"
+		if j.platform.GetPlatform() == osWindows {
+			javaExe += exeSuffix
 		}
-		ctx, cancel := icommon.CreateContext(5 * time.Second)
+		ctx, cancel := common.CreateContext(5 * time.Second)
 		defer cancel()
 		if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
 			return fmt.Sprintf("Java: %s, JDTLS: installed", strings.Split(javaVersion, "\n")[0]), nil
@@ -353,14 +365,14 @@ func (j *JavaInstaller) GetVersion() (string, error) {
 	base := filepath.Join(homeDir, ".lsp-gateway")
 	javaExe := javautil.FindLocalJavaExecutable(base)
 	if javaExe == "" {
-		return "", fmt.Errorf("Java development environment not installed")
+		return "", fmt.Errorf("java development environment not installed")
 	}
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := common.CreateContext(5 * time.Second)
 	defer cancel()
 	if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
 		return fmt.Sprintf("Java: %s, JDTLS: detected", strings.Split(javaVersion, "\n")[0]), nil
 	}
-	return "JDTLS detected (version unknown)", nil
+	return "jdtls detected (version unknown)", nil
 }
 
 // IsInstalled checks if Java development environment is installed
@@ -369,7 +381,7 @@ func (j *JavaInstaller) IsInstalled() bool {
 
 	binDir := filepath.Join(installPath, "bin")
 	var wrapperPath string
-	if j.platform.GetPlatform() == "windows" {
+	if j.platform.GetPlatform() == osWindows {
 		wrapperPath = filepath.Join(binDir, "jdtls.bat")
 	} else {
 		wrapperPath = filepath.Join(binDir, "jdtls")
@@ -377,8 +389,8 @@ func (j *JavaInstaller) IsInstalled() bool {
 
 	jdkPath := filepath.Join(installPath, "jdk", "current")
 	javaExe := filepath.Join(jdkPath, "bin", "java")
-	if j.platform.GetPlatform() == "windows" {
-		javaExe += ".exe"
+	if j.platform.GetPlatform() == osWindows {
+		javaExe += exeSuffix
 	}
 
 	jdtlsPath := filepath.Join(installPath, "jdtls")
@@ -409,7 +421,7 @@ func (j *JavaInstaller) GetServerConfig() *config.ServerConfig {
 	binDir := filepath.Join(installPath, "bin")
 
 	var command string
-	if j.platform.GetPlatform() == "windows" {
+	if j.platform.GetPlatform() == osWindows {
 		command = filepath.Join(binDir, "jdtls.bat")
 	} else {
 		command = filepath.Join(binDir, "jdtls")
@@ -435,11 +447,11 @@ func (j *JavaInstaller) ValidateInstallation() error {
 	// Validate JDK installation
 	jdkPath := filepath.Join(installPath, "jdk", "current")
 	javaExe := filepath.Join(jdkPath, "bin", "java")
-	if j.platform.GetPlatform() == "windows" {
-		javaExe += ".exe"
+	if j.platform.GetPlatform() == osWindows {
+		javaExe += exeSuffix
 	}
 
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := common.CreateContext(5 * time.Second)
 	defer cancel()
 
 	if _, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err != nil {
@@ -455,7 +467,7 @@ func (j *JavaInstaller) ValidateInstallation() error {
 	// Validate wrapper script security
 	binDir := filepath.Join(installPath, "bin")
 	var wrapperPath string
-	if j.platform.GetPlatform() == "windows" {
+	if j.platform.GetPlatform() == osWindows {
 		wrapperPath = filepath.Join(binDir, "jdtls.bat")
 	} else {
 		wrapperPath = filepath.Join(binDir, "jdtls")

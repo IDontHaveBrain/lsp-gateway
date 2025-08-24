@@ -354,8 +354,6 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 		totalIndexed += len(occurrences)
 	}
 
-	if totalIndexed > 0 {
-	}
 }
 
 // Helper methods for SCIP symbol generation and occurrence management

@@ -3,6 +3,7 @@ package protocol
 import (
 	"bufio"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -326,7 +327,8 @@ func NewUnifiedRPCError(err error) *RPCError {
 	}
 
 	// Handle unified error types
-	if lspErr, ok := err.(*errors.LSPError); ok {
+	var lspErr *errors.LSPError
+	if stdErrors.As(err, &lspErr) {
 		return &RPCError{
 			Code:    lspErr.Code,
 			Message: lspErr.Message,
@@ -334,27 +336,31 @@ func NewUnifiedRPCError(err error) *RPCError {
 		}
 	}
 
-	if valErr, ok := err.(*errors.ValidationError); ok {
+	var valErr *errors.ValidationError
+	if stdErrors.As(err, &valErr) {
 		return NewRPCError(InvalidParams, valErr.Error(), map[string]string{
 			"parameter": valErr.Parameter,
 		})
 	}
 
-	if connErr, ok := err.(*errors.ConnectionError); ok {
+	var connErr *errors.ConnectionError
+	if stdErrors.As(err, &connErr) {
 		return NewRPCError(errors.ConnectionFailure, connErr.Error(), map[string]string{
 			"language": connErr.Language,
 			"type":     connErr.Type,
 		})
 	}
 
-	if timeoutErr, ok := err.(*errors.TimeoutError); ok {
+	var timeoutErr *errors.TimeoutError
+	if stdErrors.As(err, &timeoutErr) {
 		return NewRPCError(errors.OperationTimeout, timeoutErr.Error(), map[string]string{
 			"operation": timeoutErr.Operation,
 			"language":  timeoutErr.Language,
 		})
 	}
 
-	if methodErr, ok := err.(*errors.MethodNotSupportedError); ok {
+	var methodErr *errors.MethodNotSupportedError
+	if stdErrors.As(err, &methodErr) {
 		return NewRPCError(MethodNotFound, methodErr.Error(), map[string]string{
 			"server":     methodErr.Server,
 			"method":     methodErr.Method,
@@ -362,7 +368,8 @@ func NewUnifiedRPCError(err error) *RPCError {
 		})
 	}
 
-	if procErr, ok := err.(*errors.ProcessError); ok {
+	var procErr *errors.ProcessError
+	if stdErrors.As(err, &procErr) {
 		var code int
 		switch procErr.Type {
 		case "start":

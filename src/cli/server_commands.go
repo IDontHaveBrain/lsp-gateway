@@ -11,7 +11,6 @@ import (
 
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server"
@@ -52,7 +51,7 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 	common.CLILogger.Info("Received shutdown signal, stopping gateway...")
 
 	// Graceful shutdown
-	shutdownCtx, shutdownCancel := icommon.CreateContext(30 * time.Second)
+	shutdownCtx, shutdownCancel := common.CreateContext(30 * time.Second)
 	defer shutdownCancel()
 
 	done := make(chan error, 1)

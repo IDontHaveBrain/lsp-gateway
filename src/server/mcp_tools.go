@@ -515,7 +515,7 @@ func extractCodeLines(filePath string, startLine, endLine int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	var lines []string

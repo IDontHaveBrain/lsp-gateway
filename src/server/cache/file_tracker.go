@@ -182,19 +182,21 @@ func (t *FileChangeTracker) SaveToFile(path string) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Write to temp file first for atomicity
 	tempFile := path + ".tmp"
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+	if err := os.WriteFile(tempFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
 	// Rename to final path
 	if err := os.Rename(tempFile, path); err != nil {
-		os.Remove(tempFile) // Clean up temp file
+		if rmErr := os.Remove(tempFile); rmErr != nil && !os.IsNotExist(rmErr) {
+			common.LSPLogger.Warn("Failed to remove temp metadata file: %v", rmErr)
+		}
 		return fmt.Errorf("failed to rename metadata file: %w", err)
 	}
 

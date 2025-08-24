@@ -7,10 +7,12 @@ import (
 	"runtime"
 )
 
+const osWindows = "windows"
+
 func PlatformExpand(names []string) []string {
 	out := make([]string, 0, len(names)*4)
 	for _, n := range names {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			ext := filepath.Ext(n)
 			if ext == ".cmd" || ext == ".bat" || ext == ".exe" {
 				out = append(out, n)
@@ -47,7 +49,7 @@ func FirstExistingExecutable(installRoot string, names []string) string {
 	for _, n := range cands {
 		p := filepath.Join(installRoot, n)
 		if info, err := os.Stat(p); err == nil {
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				return p
 			}
 			if info.Mode()&0111 != 0 {
@@ -58,7 +60,7 @@ func FirstExistingExecutable(installRoot string, names []string) string {
 	for _, n := range cands {
 		p := filepath.Join(installRoot, "bin", n)
 		if info, err := os.Stat(p); err == nil {
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				return p
 			}
 			if info.Mode()&0111 != 0 {

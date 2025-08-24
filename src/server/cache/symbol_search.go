@@ -83,6 +83,73 @@ func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *Enh
 	})
 }
 
+func (m *SCIPCacheManager) trySearchServiceSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, bool) {
+	request := &search.SearchRequest{
+		Context:     ctx,
+		Type:        search.SearchTypeSymbol,
+		SymbolName:  pattern,
+		FilePattern: filePattern,
+		MaxResults:  maxResults,
+	}
+	response, err := m.searchService.ExecuteSymbolSearch(request)
+	if err != nil || len(response.Results) == 0 {
+		return nil, false
+	}
+	converted := make([]interface{}, 0, len(response.Results))
+	for _, result := range response.Results {
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if _, hasFilePath := resultMap["filePath"]; !hasFilePath {
+				if docURI, hasURI := resultMap["documentURI"]; hasURI {
+					if uriStr, ok := docURI.(string); ok {
+						resultMap["filePath"] = utils.URIToFilePathCached(uriStr)
+					}
+				}
+			}
+			converted = append(converted, resultMap)
+		} else {
+			converted = append(converted, result)
+		}
+	}
+	return converted, true
+}
+
+func (m *SCIPCacheManager) tryFallbackScan(ctx context.Context, symbolInfo scip.SCIPSymbolInformation, filePattern string, maxResults int, results []interface{}) ([]interface{}, bool, bool) {
+	if uris, err := m.scipStorage.ListDocuments(ctx); err == nil {
+		found := false
+		for _, uri := range uris {
+			if doc, de := m.scipStorage.GetDocument(ctx, uri); de == nil && doc != nil {
+				for _, si := range doc.SymbolInformation {
+					if si.Symbol == symbolInfo.Symbol {
+						if filePattern != "" && !m.matchFilePattern(uri, filePattern) {
+							found = true
+							break
+						}
+						en := map[string]interface{}{
+							"symbolInfo":  symbolInfo,
+							"filePath":    utils.URIToFilePathCached(uri),
+							"documentURI": uri,
+							"range":       si.Range,
+						}
+						results = append(results, en)
+						found = true
+						if len(results) >= maxResults {
+							return results, true, true
+						}
+						break
+					}
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			return results, true, false
+		}
+	}
+	return results, false, false
+}
+
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools
 func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, error) {
 	common.LSPLogger.Debug("[SearchSymbols] Called with pattern='%s', filePattern='%s', maxResults=%d", pattern, filePattern, maxResults)
@@ -95,34 +162,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		maxResults = constants.DefaultMaxResults
 	}
 
-	// Try SearchService first
-	request := &search.SearchRequest{
-		Context:     ctx,
-		Type:        search.SearchTypeSymbol,
-		SymbolName:  pattern,
-		FilePattern: filePattern,
-		MaxResults:  maxResults,
-	}
-
-	response, err := m.searchService.ExecuteSymbolSearch(request)
-	if err == nil && len(response.Results) > 0 {
-		// Convert results to include filePath field for backward compatibility
-		convertedResults := make([]interface{}, 0, len(response.Results))
-		for _, result := range response.Results {
-			if resultMap, ok := result.(map[string]interface{}); ok {
-				// Add filePath field using utils.URIToFilePath if not present
-				if _, hasFilePath := resultMap["filePath"]; !hasFilePath {
-					if docURI, hasURI := resultMap["documentURI"]; hasURI {
-						if uriStr, ok := docURI.(string); ok {
-							resultMap["filePath"] = utils.URIToFilePathCached(uriStr)
-						}
-					}
-				}
-				convertedResults = append(convertedResults, resultMap)
-			} else {
-				convertedResults = append(convertedResults, result)
-			}
-		}
+	if convertedResults, ok := m.trySearchServiceSymbols(ctx, pattern, filePattern, maxResults); ok {
 		common.LSPLogger.Debug("[SearchSymbols] SearchService returned %d results", len(convertedResults))
 		return convertedResults, nil
 	}
@@ -169,48 +209,14 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 
 		if occWithDoc == nil {
 			common.LSPLogger.Debug("[SearchSymbols] No occurrences found, scanning documents")
-			// Fallback: scan documents' symbol information to resolve a document URI
-			if uris, err := m.scipStorage.ListDocuments(ctx); err == nil {
-				common.LSPLogger.Debug("[SearchSymbols] Scanning %d documents", len(uris))
-				found := false
-				for _, uri := range uris {
-					if doc, de := m.scipStorage.GetDocument(ctx, uri); de == nil && doc != nil {
-						for _, si := range doc.SymbolInformation {
-							if si.Symbol == symbolInfo.Symbol {
-								common.LSPLogger.Debug("[SearchSymbols] Found matching symbol in doc %s: %s == %s",
-									uri, si.Symbol, symbolInfo.Symbol)
-								// Apply file filter on document URI if provided
-								if filePattern != "" && !m.matchFilePattern(uri, filePattern) {
-									common.LSPLogger.Debug("[SearchSymbols] Symbol filtered out by filePattern: URI=%s, pattern=%s", uri, filePattern)
-									found = true // resolved but filtered out; skip symbol
-									break
-								}
-								enhanced := map[string]interface{}{
-									"symbolInfo":  symbolInfo,
-									"filePath":    utils.URIToFilePathCached(uri),
-									"documentURI": uri,
-									"range":       si.Range,
-								}
-								results = append(results, enhanced)
-								found = true
-								// Check if we have reached maxResults after filtering
-								if len(results) >= maxResults {
-									common.LSPLogger.Debug("[SearchSymbols] Reached maxResults limit (%d) in fallback, stopping", maxResults)
-									return results, nil
-								}
-								break
-							}
-						}
-					}
-					if found {
-						break
-					}
+			if updated, handled, limit := m.tryFallbackScan(ctx, symbolInfo, filePattern, maxResults, results); handled {
+				results = updated
+				if limit {
+					common.LSPLogger.Debug("[SearchSymbols] Reached maxResults limit (%d) in fallback, stopping", maxResults)
+					return results, nil
 				}
-				if found {
-					continue
-				}
+				continue
 			}
-			// If we cannot resolve a document URI, skip this symbol to avoid unknown locations
 			continue
 		}
 		// Apply file filter

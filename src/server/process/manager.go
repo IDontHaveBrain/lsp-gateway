@@ -110,14 +110,14 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 
 	info.Stdout, err = cmd.StdoutPipe()
 	if err != nil {
-		info.Stdin.Close()
+		_ = info.Stdin.Close()
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	info.Stderr, err = cmd.StderrPipe()
 	if err != nil {
-		info.Stdin.Close()
-		info.Stdout.Close()
+		_ = info.Stdin.Close()
+		_ = info.Stdout.Close()
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
@@ -199,15 +199,15 @@ func (pm *LSPProcessManager) CleanupProcess(info *ProcessInfo) {
 	}
 
 	if info.Stdin != nil {
-		info.Stdin.Close()
+		_ = info.Stdin.Close()
 		info.Stdin = nil
 	}
 	if info.Stdout != nil {
-		info.Stdout.Close()
+		_ = info.Stdout.Close()
 		info.Stdout = nil
 	}
 	if info.Stderr != nil {
-		info.Stderr.Close()
+		_ = info.Stderr.Close()
 		info.Stderr = nil
 	}
 }

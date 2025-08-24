@@ -8,6 +8,9 @@ run:
   skip-dirs:
     - vendor
     - tests/temp
+  tests: false
+  build-tags:
+    - cache_enabled
 
 linters:
   enable:
@@ -26,19 +29,12 @@ linters:
     
     # Useful quality checks (not too strict)
     - goconst         # Repeated strings as constants (helpful for maintenance)
+    - errorlint
+    - durationcheck
     
     # Note: Excluded gocognit, revive, unconvert for development speed
 
 linters-settings:
-  # Relaxed settings for solo open source development
-  unused:
-    field-writes-are-uses: true      # Mark struct fields written to as used
-    post-statements-are-reads: false  # Treat i++ as read+write vs just write
-    exported-fields-are-used: true   # Consider exported fields as used
-    exported-is-used: true          # Consider exported functions/vars as used
-    parameters-are-used: true        # Consider function parameters as used
-    local-variables-are-used: true   # Consider local variables as used
-
   staticcheck:
     checks: ["all", "-SA1019"]       # Enable all but deprecated usage warnings
 

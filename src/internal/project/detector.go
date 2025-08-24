@@ -2,6 +2,7 @@ package project
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -262,7 +263,7 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 	if _, err := os.Stat(srcDir); err == nil {
 		// Check if src/ contains .js files that aren't build files
 		hasAppJS := false
-		filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return nil
 			}
@@ -271,7 +272,9 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 				return filepath.SkipAll
 			}
 			return nil
-		})
+		}); err != nil && !errors.Is(err, filepath.SkipAll) {
+			return false
+		}
 		if hasAppJS {
 			return true
 		}

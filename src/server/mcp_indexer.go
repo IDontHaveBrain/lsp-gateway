@@ -81,7 +81,6 @@ func (m *MCPServer) performInitialIndexing() {
 	if cacheManager, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {
 		if err := cacheManager.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Error("MCP server: Failed to save index to disk: %v", err)
-		} else {
 		}
 	}
 }
