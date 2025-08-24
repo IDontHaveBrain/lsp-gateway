@@ -229,10 +229,11 @@ forceIndex:
 		// Poll again after forced request
 		pollCtx2, cancel2 := context.WithTimeout(setup.Context, 2*time.Second)
 		defer cancel2()
+		forcedPoll:
 		for {
 			select {
 			case <-pollCtx2.Done():
-				break
+				break forcedPoll
 			case <-ticker.C:
 				finalStats := setup.Cache.GetIndexStats()
 				if finalStats != nil && finalStats.SymbolCount > 0 {
