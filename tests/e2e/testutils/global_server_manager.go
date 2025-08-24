@@ -57,7 +57,7 @@ func InitGlobalServer() error {
 	} else {
 		baseDir, err = os.MkdirTemp("", "lsp-gateway-e2e-global")
 		if err != nil {
-			return fmt.Errorf("failed to create global base dir: %w")
+			return fmt.Errorf("failed to create global base dir: %w", err)
 		}
 	}
 	rm := NewRepoManager(baseDir)
@@ -70,6 +70,16 @@ func InitGlobalServer() error {
 			return fmt.Errorf("setup repo for %s: %w", lang, err)
 		}
 		repos[lang] = dir
+		
+		// Verify repository registration immediately after setup
+		if err := rm.VerifyRepositoryRegistration(lang); err != nil {
+			return fmt.Errorf("repository registration verification failed for %s: %w", lang, err)
+		}
+	}
+	
+	// Final validation of all repository registrations
+	if err := rm.ValidateAllRegistrations(); err != nil {
+		return fmt.Errorf("global repository validation failed: %w", err)
 	}
 	// Create cache isolation mgr
 	isoCfg := DefaultCacheIsolationConfig()
@@ -205,6 +215,12 @@ func InitGlobalServer() error {
 		started:           true,
 		persistentBase:    isCI,
 	}
+	
+	// Final verification that global manager has access to all repositories
+	if err := verifyGlobalRepositoryAccess(); err != nil {
+		return fmt.Errorf("global repository access verification failed: %w", err)
+	}
+	
 	return nil
 }
 
@@ -276,6 +292,67 @@ func GetGlobalReposBaseDir() string {
 		return ""
 	}
 	return globalMgr.baseDir
+}
+
+func GetGlobalRepoManager() *RepoManager {
+	globalMgrMu.RLock()
+	defer globalMgrMu.RUnlock()
+	if globalMgr == nil {
+		return nil
+	}
+	return globalMgr.rm
+}
+
+// verifyGlobalRepositoryAccess validates that all repositories are accessible through the global manager
+func verifyGlobalRepositoryAccess() error {
+	if globalMgr == nil {
+		return fmt.Errorf("global manager not initialized")
+	}
+	
+	if globalMgr.rm == nil {
+		return fmt.Errorf("repository manager not initialized in global manager")
+	}
+	
+	// Verify all repositories in the global repos map are accessible through RepoManager
+	expectedRepos := GetTestRepositories()
+	registeredLanguages := globalMgr.rm.GetRegisteredLanguages()
+	
+	if len(registeredLanguages) == 0 {
+		return fmt.Errorf("no repositories registered in global repository manager")
+	}
+	
+	// Check that all expected repositories are registered
+	for expectedLang := range expectedRepos {
+		if !globalMgr.rm.IsRepositoryRegistered(expectedLang) {
+			return fmt.Errorf("expected repository %s not registered in repository manager", expectedLang)
+		}
+		
+		// Verify global repos map consistency with RepoManager
+		globalDir, exists := globalMgr.repos[expectedLang]
+		if !exists {
+			return fmt.Errorf("repository %s missing from global repos map", expectedLang)
+		}
+		
+		rmDir, err := globalMgr.rm.GetRepositoryPath(expectedLang)
+		if err != nil {
+			return fmt.Errorf("repository %s path not accessible through repository manager: %w", expectedLang, err)
+		}
+		
+		if globalDir != rmDir {
+			return fmt.Errorf("repository %s path mismatch - global: %s, repository manager: %s", expectedLang, globalDir, rmDir)
+		}
+	}
+	
+	// Final comprehensive validation
+	if err := globalMgr.rm.ValidateAllRegistrations(); err != nil {
+		return fmt.Errorf("repository manager validation failed: %w", err)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		fmt.Printf("[INFO] Global repository access verification passed - Registered languages: %v\n", registeredLanguages)
+	}
+	
+	return nil
 }
 
 // ShutdownGlobalServer stops the global server and cleans up.

@@ -95,7 +95,16 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	}
 
 	// Initialize repository manager
-	suite.repoManager = testutils.NewRepoManager(suite.tempDir)
+	// Use global repository manager when global server is running to avoid creating empty RepoManager
+	if testutils.IsGlobalServerRunning() {
+		if globalRM := testutils.GetGlobalRepoManager(); globalRM != nil {
+			suite.repoManager = globalRM
+		} else {
+			suite.repoManager = testutils.NewRepoManager(suite.tempDir)
+		}
+	} else {
+		suite.repoManager = testutils.NewRepoManager(suite.tempDir)
+	}
 
 	// Basic project root setup
 	if cwd, err := os.Getwd(); err == nil {

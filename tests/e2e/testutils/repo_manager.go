@@ -2,11 +2,13 @@ package testutils
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"lsp-gateway/src/utils"
 )
@@ -184,45 +186,109 @@ func GetTestRepositories() map[string]*TestRepository {
 	}
 }
 
-// SetupRepository clones and prepares a test repository
+// SetupRepository clones and prepares a test repository with comprehensive error handling
 func (rm *RepoManager) SetupRepository(language string) (string, error) {
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Setting up repository for language: %s\n", language)
+	}
+	
 	repos := GetTestRepositories()
 	repo, exists := repos[language]
 	if !exists {
-		return "", fmt.Errorf("no test repository defined for language: %s", language)
+		availableLanguages := make([]string, 0, len(repos))
+		for lang := range repos {
+			availableLanguages = append(availableLanguages, lang)
+		}
+		return "", fmt.Errorf("no test repository defined for language: %s (available: %v)", language, availableLanguages)
 	}
 
 	repoDir := filepath.Join(rm.baseDir, fmt.Sprintf("%s-%s", language, repo.Name))
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Repository setup - Language: %s, Repo: %s, URL: %s, Commit: %s, Dir: %s\n", language, repo.Name, repo.URL, repo.CommitHash, repoDir)
+	}
 
 	// Check if already cloned
 	if _, err := os.Stat(repoDir); err == nil {
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[INFO] Repository already exists, updating to correct commit: %s\n", repoDir)
+		}
+		
 		// Repository already exists, just update to correct commit
 		if err := rm.checkoutCommit(repoDir, repo.CommitHash); err != nil {
-			return "", fmt.Errorf("failed to checkout commit: %w", err)
+			return "", fmt.Errorf("failed to checkout commit %s in existing repository %s for language %s: %w", repo.CommitHash, repo.URL, language, err)
 		}
-		rm.repos[language] = repo
-		return repoDir, nil
+		
+		// Verify repository health after checkout
+		if err := rm.verifyRepositoryHealth(language, repoDir, repo); err != nil {
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[WARN] Repository health check failed after checkout, will re-clone: %v\n", err)
+			}
+			// Remove corrupted repository and proceed with fresh clone
+			if removeErr := os.RemoveAll(repoDir); removeErr != nil {
+				if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+					log.Printf("[ERROR] Failed to remove corrupted repository: %v\n", removeErr)
+				}
+			}
+		} else {
+			rm.repos[language] = repo
+			
+			// Verify repository registration after existing repo checkout
+			if err := rm.verifyRepositoryRegistration(language, repoDir); err != nil {
+				if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+					log.Printf("[ERROR] Repository registration verification failed after checkout: %v\n", err)
+				}
+				return "", fmt.Errorf("repository registration verification failed for %s after checkout: %w", language, err)
+			}
+			
+			return repoDir, nil
+		}
 	}
 
 	// Clone repository
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Cloning repository - URL: %s, Dir: %s\n", repo.URL, repoDir)
+	}
 	if err := rm.cloneRepository(repo.URL, repoDir, repo.CommitHash); err != nil {
-		return "", fmt.Errorf("failed to clone repository: %w", err)
+		return "", fmt.Errorf("failed to clone repository %s for language %s to directory %s: %w", repo.URL, language, repoDir, err)
 	}
 
 	// Checkout specific commit
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Checking out specific commit: %s in %s\n", repo.CommitHash, repoDir)
+	}
 	if err := rm.checkoutCommit(repoDir, repo.CommitHash); err != nil {
-		return "", fmt.Errorf("failed to checkout commit: %w", err)
+		return "", fmt.Errorf("failed to checkout commit %s in repository %s for language %s: %w", repo.CommitHash, repo.URL, language, err)
+	}
+
+	// Verify repository health after setup
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Verifying repository health after setup - Language: %s, Dir: %s\n", language, repoDir)
+	}
+	if err := rm.verifyRepositoryHealth(language, repoDir, repo); err != nil {
+		return "", fmt.Errorf("repository health check failed for %s repository %s: %w", language, repo.URL, err)
 	}
 
 	// Language-specific preparation
 	switch language {
 	case "java":
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[INFO] Preparing Java project in %s\n", repoDir)
+		}
 		// Try to generate Eclipse project files for JDTLS to index reliably
 		// Prefer Gradle wrapper if present; fall back to Maven wrapper
 		rm.prepareJavaProject(repoDir)
 	}
 
 	rm.repos[language] = repo
+	
+	// Verify repository registration
+	if err := rm.verifyRepositoryRegistration(language, repoDir); err != nil {
+		return "", fmt.Errorf("repository registration verification failed for %s: %w", language, err)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Repository setup completed successfully - Language: %s, Dir: %s, Registered: %t\n", language, repoDir, rm.IsRepositoryRegistered(language))
+	}
 	return repoDir, nil
 }
 
@@ -264,52 +330,169 @@ func (rm *RepoManager) Cleanup() error {
 	return nil
 }
  
-// cloneRepository clones a git repository efficiently
+// GitOperationFunc represents a git operation that can be retried
+type GitOperationFunc func() ([]byte, error)
+
+// retryGitOperation retries a git operation up to 3 times with exponential backoff
+func (rm *RepoManager) retryGitOperation(operation GitOperationFunc, operationName string) error {
+	maxRetries := 3
+	baseDelay := 1 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[INFO] Attempting git operation: %s (attempt %d/%d)\n", operationName, attempt, maxRetries)
+		}
+		
+		output, err := operation()
+		if err == nil {
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[INFO] Git operation succeeded: %s (attempt %d)\n", operationName, attempt)
+			}
+			return nil
+		}
+
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[ERROR] Git operation failed: %s (attempt %d) - %v, output: %s\n", operationName, attempt, err, string(output))
+		}
+
+		if attempt < maxRetries {
+			delay := time.Duration(attempt) * baseDelay // exponential backoff: 1s, 2s, 3s
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[INFO] Retrying git operation after delay: %s (delay: %v)\n", operationName, delay)
+			}
+			time.Sleep(delay)
+		}
+	}
+
+	return fmt.Errorf("git operation failed after %d attempts: %s", maxRetries, operationName)
+}
+
+// cloneRepository clones a git repository efficiently with retry logic and robust fallback
 func (rm *RepoManager) cloneRepository(url, targetDir, commit string) error {
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Starting repository clone - URL: %s, Dir: %s, Commit: %s\n", url, targetDir, commit)
+	}
+
 	isSHA := regexp.MustCompile(`^[0-9a-f]{7,40}$`).MatchString(commit)
+	
+	// Strategy 1: Shallow clone for tags/branches
 	if !isSHA {
 		branch := strings.TrimSpace(commit)
 		if branch != "" {
-			cmd := exec.Command("git", "clone", "--depth", "1", "--filter=blob:none", "--branch", branch, url, targetDir)
-			if output, err := cmd.CombinedOutput(); err == nil {
-				_ = output
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[INFO] Attempting shallow clone for branch/tag: %s from %s\n", branch, url)
+			}
+			
+			err := rm.retryGitOperation(func() ([]byte, error) {
+				cmd := exec.Command("git", "clone", "--depth", "1", "--filter=blob:none", "--branch", branch, url, targetDir)
+				return cmd.CombinedOutput()
+			}, fmt.Sprintf("shallow clone branch %s from %s", branch, url))
+			
+			if err == nil {
+				if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+					log.Printf("[INFO] Shallow clone succeeded for branch: %s from %s\n", branch, url)
+				}
 				return nil
 			}
-			// fallthrough to full clone on failure
-		}
-	}
-	if isSHA {
-		if err := os.MkdirAll(targetDir, 0o755); err != nil {
-			return err
-		}
-		cmds := [][]string{
-			{"git", "init"},
-			{"git", "remote", "add", "origin", url},
-			{"git", "fetch", "--depth", "1", "--filter=blob:none", "origin", commit},
-			{"git", "checkout", "FETCH_HEAD"},
-		}
-		for _, args := range cmds {
-			cmd := exec.Command(args[0], args[1:]...)
-			cmd.Dir = targetDir
-			if output, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("%s failed: %w, output: %s", strings.Join(args, " "), err, string(output))
+			
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[WARN] Shallow clone failed for branch %s from %s, falling back to full clone: %v\n", branch, url, err)
 			}
 		}
-		return nil
 	}
-	cmd := exec.Command("git", "clone", url, targetDir)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git clone failed: %w, output: %s", err, string(output))
+
+	// Strategy 2: Optimized fetch for specific SHA commits
+	if isSHA {
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[INFO] Attempting optimized fetch for SHA commit: %s from %s\n", commit, url)
+		}
+		
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
+		}
+		
+		cmds := []struct {
+			args []string
+			desc string
+		}{
+			{[]string{"git", "init"}, "initialize git repository"},
+			{[]string{"git", "remote", "add", "origin", url}, "add remote origin"},
+			{[]string{"git", "fetch", "--depth", "1", "--filter=blob:none", "origin", commit}, "fetch specific commit"},
+			{[]string{"git", "checkout", "FETCH_HEAD"}, "checkout fetched commit"},
+		}
+		
+		for _, cmdInfo := range cmds {
+			err := rm.retryGitOperation(func() ([]byte, error) {
+				cmd := exec.Command(cmdInfo.args[0], cmdInfo.args[1:]...)
+				cmd.Dir = targetDir
+				return cmd.CombinedOutput()
+			}, fmt.Sprintf("%s for commit %s from %s", cmdInfo.desc, commit, url))
+			
+			if err != nil {
+				if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+					log.Printf("[WARN] Optimized fetch failed for commit %s from %s at step %s, falling back to full clone: %v\n", commit, url, cmdInfo.desc, err)
+				}
+				break
+			}
+		}
+		
+		// Check if optimized fetch succeeded
+		if _, err := os.Stat(filepath.Join(targetDir, ".git")); err == nil {
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[INFO] Optimized fetch succeeded for commit: %s from %s\n", commit, url)
+			}
+			return nil
+		}
+		
+		// Clean up failed attempt
+		if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+			log.Printf("[WARN] Cleaning up failed optimized fetch attempt: %s\n", targetDir)
+		}
+		if cleanupErr := os.RemoveAll(targetDir); cleanupErr != nil {
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[ERROR] Failed to cleanup after failed fetch: %v\n", cleanupErr)
+			}
+		}
+	}
+
+	// Strategy 3: Full clone as final fallback
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Attempting full clone as fallback: %s\n", url)
+	}
+	
+	err := rm.retryGitOperation(func() ([]byte, error) {
+		cmd := exec.Command("git", "clone", url, targetDir)
+		return cmd.CombinedOutput()
+	}, fmt.Sprintf("full clone from %s", url))
+	
+	if err != nil {
+		return fmt.Errorf("all clone strategies failed for repository %s: %w", url, err)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Full clone succeeded: %s\n", url)
 	}
 	return nil
 }
 
-// checkoutCommit checks out a specific commit or tag
+// checkoutCommit checks out a specific commit or tag with retry logic
 func (rm *RepoManager) checkoutCommit(repoDir, commitHash string) error {
-	cmd := exec.Command("git", "checkout", commitHash)
-	cmd.Dir = repoDir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git checkout failed: %w, output: %s", err, string(output))
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Checking out commit: %s in %s\n", commitHash, repoDir)
+	}
+	
+	err := rm.retryGitOperation(func() ([]byte, error) {
+		cmd := exec.Command("git", "checkout", commitHash)
+		cmd.Dir = repoDir
+		return cmd.CombinedOutput()
+	}, fmt.Sprintf("checkout commit %s in %s", commitHash, repoDir))
+	
+	if err != nil {
+		return fmt.Errorf("failed to checkout commit %s in repository %s: %w", commitHash, repoDir, err)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Successfully checked out commit: %s in %s\n", commitHash, repoDir)
 	}
 	return nil
 }
@@ -365,6 +548,247 @@ func (rm *RepoManager) GetFileURI(language string, testFileIndex int) (string, e
 	// Use the utils.FilePathToURI function which properly handles Windows paths
 	// Note: We need to import the utils package for this
 	return utils.FilePathToURI(absPath), nil
+}
+
+// verifyRepositoryHealth performs comprehensive health checks on a cloned repository
+func (rm *RepoManager) verifyRepositoryHealth(language, repoDir string, repo *TestRepository) error {
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Starting repository health check - Language: %s, Dir: %s\n", language, repoDir)
+	}
+	
+	// Check 1: Verify .git directory exists
+	gitDir := filepath.Join(repoDir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return fmt.Errorf("repository is not a valid git repository (missing .git directory): %s", repoDir)
+	}
+	
+	// Check 2: Verify repository is not empty
+	if isEmpty, err := rm.isDirectoryEmpty(repoDir); err != nil {
+		return fmt.Errorf("failed to check if repository directory is empty: %w", err)
+	} else if isEmpty {
+		return fmt.Errorf("repository directory is empty: %s", repoDir)
+	}
+	
+	// Check 3: Verify all expected test files exist
+	missingFiles := []string{}
+	for i, testFile := range repo.TestFiles {
+		fullPath := filepath.Join(repoDir, testFile.Path)
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			missingFiles = append(missingFiles, fmt.Sprintf("%s (test file %d)", testFile.Path, i))
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+				log.Printf("[WARN] Expected test file missing: %s (full path: %s, test index: %d)\n", testFile.Path, fullPath, i)
+			}
+		} else {
+			if os.Getenv("LSP_GATEWAY_DEBUG") == "true" && os.Getenv("LSP_GATEWAY_VERBOSE") == "true" {
+				log.Printf("[DEBUG] Test file found: %s (full path: %s, test index: %d)\n", testFile.Path, fullPath, i)
+			}
+		}
+	}
+	
+	if len(missingFiles) > 0 {
+		return fmt.Errorf("repository %s for language %s is missing %d expected test files: %v", repoDir, language, len(missingFiles), missingFiles)
+	}
+	
+	// Check 4: Language-specific health checks
+	switch language {
+	case "go":
+		if err := rm.verifyGoRepository(repoDir); err != nil {
+			return fmt.Errorf("Go repository health check failed: %w", err)
+		}
+	case "python":
+		if err := rm.verifyPythonRepository(repoDir); err != nil {
+			return fmt.Errorf("Python repository health check failed: %w", err)
+		}
+	case "java":
+		if err := rm.verifyJavaRepository(repoDir); err != nil {
+			return fmt.Errorf("Java repository health check failed: %w", err)
+		}
+	case "typescript", "javascript":
+		if err := rm.verifyNodeRepository(repoDir); err != nil {
+			return fmt.Errorf("%s repository health check failed: %w", language, err)
+		}
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Repository health check passed - Language: %s, Dir: %s, Test files: %d\n", language, repoDir, len(repo.TestFiles))
+	}
+	return nil
+}
+
+// isDirectoryEmpty checks if a directory is empty (excluding .git)
+func (rm *RepoManager) isDirectoryEmpty(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false, err
+	}
+	
+	// Consider directory empty if it only contains .git
+	for _, entry := range entries {
+		if entry.Name() != ".git" {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// verifyGoRepository performs Go-specific health checks
+func (rm *RepoManager) verifyGoRepository(repoDir string) error {
+	goModPath := filepath.Join(repoDir, "go.mod")
+	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+		return fmt.Errorf("Go repository missing go.mod file")
+	}
+	return nil
+}
+
+// verifyPythonRepository performs Python-specific health checks
+func (rm *RepoManager) verifyPythonRepository(repoDir string) error {
+	// Check for common Python project indicators
+	pythonIndicators := []string{"setup.py", "pyproject.toml", "requirements.txt", "Pipfile"}
+	for _, indicator := range pythonIndicators {
+		if _, err := os.Stat(filepath.Join(repoDir, indicator)); err == nil {
+			return nil // Found at least one Python project indicator
+		}
+	}
+	// If no standard indicators, just check for .py files
+	if hasExtension, err := rm.hasFilesWithExtension(repoDir, ".py"); err != nil {
+		return fmt.Errorf("failed to check for Python files: %w", err)
+	} else if !hasExtension {
+		return fmt.Errorf("Python repository contains no .py files")
+	}
+	return nil
+}
+
+// verifyJavaRepository performs Java-specific health checks
+func (rm *RepoManager) verifyJavaRepository(repoDir string) error {
+	// Check for Java build files
+	javaIndicators := []string{"pom.xml", "build.gradle", "build.gradle.kts"}
+	for _, indicator := range javaIndicators {
+		if _, err := os.Stat(filepath.Join(repoDir, indicator)); err == nil {
+			return nil // Found Java build file
+		}
+	}
+	return fmt.Errorf("Java repository missing build configuration (pom.xml, build.gradle, etc.)")
+}
+
+// verifyNodeRepository performs Node.js/TypeScript-specific health checks
+func (rm *RepoManager) verifyNodeRepository(repoDir string) error {
+	packageJsonPath := filepath.Join(repoDir, "package.json")
+	if _, err := os.Stat(packageJsonPath); os.IsNotExist(err) {
+		return fmt.Errorf("Node.js/TypeScript repository missing package.json file")
+	}
+	return nil
+}
+
+// hasFilesWithExtension checks if the directory contains files with the given extension
+func (rm *RepoManager) hasFilesWithExtension(dir, ext string) (bool, error) {
+	return rm.walkDirForExtension(dir, ext)
+}
+
+// walkDirForExtension recursively walks directory looking for files with extension
+func (rm *RepoManager) walkDirForExtension(dir, ext string) (bool, error) {
+	found := false
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ext) {
+			found = true
+			return filepath.SkipAll // Stop walking once we find a match
+		}
+		return nil
+	})
+	return found, err
+}
+
+// VerifyRepositoryRegistration checks if a repository is properly registered and accessible
+func (rm *RepoManager) VerifyRepositoryRegistration(language string) error {
+	repoPath, err := rm.GetRepositoryPath(language)
+	if err != nil {
+		return fmt.Errorf("repository path not accessible: %w", err)
+	}
+	return rm.verifyRepositoryRegistration(language, repoPath)
+}
+
+// verifyRepositoryRegistration performs comprehensive verification of repository registration
+func (rm *RepoManager) verifyRepositoryRegistration(language, expectedPath string) error {
+	// Check 1: Repository is stored in the repos map
+	if !rm.IsRepositoryRegistered(language) {
+		return fmt.Errorf("repository not found in internal registry for language: %s", language)
+	}
+	
+	// Check 2: Repository path matches expected path
+	actualPath, err := rm.GetRepositoryPath(language)
+	if err != nil {
+		return fmt.Errorf("repository path retrieval failed: %w", err)
+	}
+	
+	if actualPath != expectedPath {
+		return fmt.Errorf("repository path mismatch - expected: %s, actual: %s", expectedPath, actualPath)
+	}
+	
+	// Check 3: Repository is accessible via GetTestFile
+	testFile, err := rm.GetTestFile(language, 0)
+	if err != nil {
+		return fmt.Errorf("test file access failed: %w", err)
+	}
+	
+	// Check 4: File URI generation works
+	_, err = rm.GetFileURI(language, 0)
+	if err != nil {
+		return fmt.Errorf("file URI generation failed: %w", err)
+	}
+	
+	// Check 5: File existence verification works
+	err = rm.VerifyFileExists(language, 0)
+	if err != nil {
+		return fmt.Errorf("file existence verification failed: %w", err)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] Repository registration verification passed - Language: %s, Path: %s, TestFile: %s\n", language, actualPath, testFile.Path)
+	}
+	
+	return nil
+}
+
+// IsRepositoryRegistered checks if a repository is registered in the internal map
+func (rm *RepoManager) IsRepositoryRegistered(language string) bool {
+	_, exists := rm.repos[language]
+	return exists
+}
+
+// GetRegisteredLanguages returns all currently registered languages
+func (rm *RepoManager) GetRegisteredLanguages() []string {
+	languages := make([]string, 0, len(rm.repos))
+	for lang := range rm.repos {
+		languages = append(languages, lang)
+	}
+	return languages
+}
+
+// ValidateAllRegistrations verifies that all registered repositories are accessible
+func (rm *RepoManager) ValidateAllRegistrations() error {
+	languages := rm.GetRegisteredLanguages()
+	if len(languages) == 0 {
+		return fmt.Errorf("no repositories registered")
+	}
+	
+	var errors []string
+	for _, lang := range languages {
+		if err := rm.VerifyRepositoryRegistration(lang); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", lang, err))
+		}
+	}
+	
+	if len(errors) > 0 {
+		return fmt.Errorf("repository validation failed for %d languages: %v", len(errors), errors)
+	}
+	
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		log.Printf("[INFO] All repository registrations validated successfully - Languages: %v\n", languages)
+	}
+	
+	return nil
 }
 
 // VerifyFileExists checks if a test file exists
