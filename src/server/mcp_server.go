@@ -1,11 +1,11 @@
 package server
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
+    "bufio"
+    "context"
+    "encoding/json"
+    "fmt"
+    "io"
 	"os"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	versionpkg "lsp-gateway/src/internal/version"
-	"lsp-gateway/src/server/protocol"
+    "lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/utils/configloader"
 )
 
@@ -132,7 +132,7 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 	defer func() { _ = m.Stop() }()
 
 	// Use line-based I/O as required by MCP STDIO transport spec
-	scanner := bufio.NewScanner(input)
+    scanner := bufio.NewScanner(input)
 	// Configure scanner buffer: 64KB initial, 4MB max - prevents large request failures
 	// This matches LSP buffer configuration approach but with larger limits for MCP payloads
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 64KB initial, 4MB max
@@ -149,26 +149,26 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 			continue
 		}
 
-		var req MCPRequest
+        var req protocol.JSONRPCRequest
 		if err := json.Unmarshal([]byte(line), &req); err != nil {
 			common.LSPLogger.Error("decode error: %v", err)
 			continue
 		}
 
-		response := m.handleRequest(&req)
+        response := m.handleRequest(&req)
 
 		// Encode response as single line JSON (no embedded newlines)
-		responseBytes, err := json.Marshal(response)
+        responseBytes, err := json.Marshal(response)
 		if err != nil {
 			common.LSPLogger.Error("encode error: %v", err)
 			continue
 		}
 
 		// Write response followed by newline as required by spec
-		if _, err := fmt.Fprintf(output, "%s\n", string(responseBytes)); err != nil {
-			common.LSPLogger.Error("write error: %v", err)
-			continue
-		}
+            if _, err := fmt.Fprintf(output, "%s\n", string(responseBytes)); err != nil {
+                common.LSPLogger.Error("write error: %v", err)
+                continue
+            }
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -179,28 +179,28 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 }
 
 // handleRequest processes MCP requests
-func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
+func (m *MCPServer) handleRequest(req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
 	// Validate JSON-RPC version to match HTTP gateway behavior
 	if req.JSONRPC != "2.0" {
-		response := m.responseFactory.CreateInvalidRequest(req.ID, "jsonrpc must be 2.0")
-		return &response
+        response := m.responseFactory.CreateInvalidRequest(req.ID, "jsonrpc must be 2.0")
+        return &response
 	}
 
 	switch req.Method {
 	case "initialize":
-		return m.handleInitialize(req)
+        return m.handleInitialize(req)
 	case "tools/list":
-		return m.handleToolsList(req)
+        return m.handleToolsList(req)
 	case "tools/call":
 		return m.delegateToolCall(req)
 	default:
-		response := m.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("method not found: %s", req.Method))
-		return &response
-	}
+        response := m.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("method not found: %s", req.Method))
+        return &response
+}
 }
 
 // handleInitialize handles MCP initialize request with cache performance info
-func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
+func (m *MCPServer) handleInitialize(req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
 	// Get current cache metrics (with graceful handling)
 	cacheInfo := map[string]interface{}{
 		"optimization": "LLM_queries",
@@ -244,12 +244,12 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 		},
 	}
 
-	response := m.responseFactory.CreateSuccess(req.ID, result)
-	return &response
+    response := m.responseFactory.CreateSuccess(req.ID, result)
+    return &response
 }
 
 // handleToolsList returns available enhanced tools (no basic LSP tools)
-func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
+func (m *MCPServer) handleToolsList(req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
 	// MCP server provides enhanced SCIP-based tools with occurrence metadata and role filtering
 	// Ensure required parameters appear first by using ordered JSON via json.RawMessage
 	findSymbolsSchema := json.RawMessage(`{

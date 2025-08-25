@@ -1,11 +1,11 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"mime"
-	"net"
+    "context"
+    "encoding/json"
+    "fmt"
+    "mime"
+    "net"
 	"net/http"
 	"strconv"
 	"time"
@@ -35,15 +35,6 @@ type HTTPGateway struct {
 	lspOnly         bool
 	responseFactory *protocol.ResponseFactory
 }
-
-// JSONRPCRequest is an alias to protocol.JSONRPCRequest for backward compatibility.
-type JSONRPCRequest = protocol.JSONRPCRequest
-
-// JSONRPCResponse is an alias to protocol.JSONRPCResponse for backward compatibility.
-type JSONRPCResponse = protocol.JSONRPCResponse
-
-// RPCError is an alias to protocol.RPCError for backward compatibility.
-type RPCError = protocol.RPCError
 
 // NewHTTPGateway creates a new simple HTTP gateway with mandatory cache
 func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway, error) {
@@ -176,7 +167,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req JSONRPCRequest
+    var req protocol.JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.writeResponse(w, g.responseFactory.CreateParseError(nil))
 		return
@@ -291,7 +282,7 @@ func (g *HTTPGateway) handleLanguages(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeResponse writes a JSON-RPC response (success or error) to the HTTP response writer
-func (g *HTTPGateway) writeResponse(w http.ResponseWriter, response JSONRPCResponse) {
+func (g *HTTPGateway) writeResponse(w http.ResponseWriter, response protocol.JSONRPCResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK) // JSON-RPC errors still return 200
 	if err := json.NewEncoder(w).Encode(response); err != nil {

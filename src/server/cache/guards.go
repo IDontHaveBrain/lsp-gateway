@@ -40,58 +40,7 @@ func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexRe
 	return fn()
 }
 
-// WithEnhancedSymbolResult executes the function if cache is enabled, otherwise returns a default
-// EnhancedSymbolSearchResult with cache_disabled metadata.
-func (m *SCIPCacheManager) WithEnhancedSymbolResult(query *EnhancedSymbolQuery, fn func() (*EnhancedSymbolSearchResult, error)) (*EnhancedSymbolSearchResult, error) {
-	if !m.enabled {
-		return &EnhancedSymbolSearchResult{
-			Symbols:   []EnhancedSymbolResult{},
-			Total:     0,
-			Truncated: false,
-			Query:     query,
-			Metadata:  map[string]interface{}{"cache_disabled": true},
-			Timestamp: time.Now(),
-		}, nil
-	}
-	return fn()
-}
-
-// WithReferenceResult executes the function if cache is enabled, otherwise returns a default
-// ReferenceSearchResult with cache_disabled metadata.
-func (m *SCIPCacheManager) WithReferenceResult(symbolName string, options *ReferenceSearchOptions, fn func() (*ReferenceSearchResult, error)) (*ReferenceSearchResult, error) {
-	if !m.enabled {
-		return &ReferenceSearchResult{
-			SymbolName: symbolName,
-			References: []SCIPOccurrenceInfo{},
-			TotalCount: 0,
-			FileCount:  0,
-			Options:    options,
-			Metadata:   map[string]interface{}{"cache_disabled": true},
-			Timestamp:  time.Now(),
-		}, nil
-	}
-	return fn()
-}
-
-// WithSymbolInfoResult executes the function if cache is enabled, otherwise returns a default
-// SymbolInfoResult with cache_disabled metadata.
-func (m *SCIPCacheManager) WithSymbolInfoResult(symbolName string, fn func() (*SymbolInfoResult, error)) (*SymbolInfoResult, error) {
-	if !m.enabled {
-		return &SymbolInfoResult{
-			SymbolName:      symbolName,
-			Kind:            0, // SCIPSymbolKindUnknown
-			Documentation:   []string{},
-			Occurrences:     []SCIPOccurrenceInfo{},
-			OccurrenceCount: 0,
-			DefinitionCount: 0,
-			ReferenceCount:  0,
-			FileCount:       0,
-			Metadata:        map[string]interface{}{"cache_disabled": true},
-			Timestamp:       time.Now(),
-		}, nil
-	}
-	return fn()
-}
+// Removed: Enhanced/Symbol/Reference typed guard wrappers; search service guard handles disabled cases.
 
 // WithSliceResult executes the function if cache is enabled, otherwise returns an empty slice.
 // Useful for methods that return []interface{} when cache is disabled.

@@ -119,20 +119,3 @@ func (g *SearchGuard) WithSymbolInfoResult(symbolName string, fn func() (*Symbol
 	return fn()
 }
 
-// CreateDisabledSearchResponse creates a disabled SearchResponse for the given search type.
-// Deprecated: disabled response helpers are provided by DefaultResultBuilder.
-
-// CreateDisabledSymbolInfoResult creates a disabled SymbolInfoResponse for the given symbol name.
-// Deprecated: CreateDisabledSymbolInfoResult – inline construction in guards instead.
-
-// CreateDisabledReferenceResult creates a disabled ReferenceSearchResponse for the given parameters.
-// Deprecated: CreateDisabledReferenceResult – inline construction in guards instead.
-
-// CreateDisabledEnhancedSymbolResult creates a disabled EnhancedSymbolSearchResponse for the given query.
-// Deprecated: CreateDisabledEnhancedSymbolResult – inline construction in guards instead.
-
-// CreateEmptySliceResult creates an empty slice result for disabled operations.
-// Deprecated: CreateEmptySliceResult – use a zero-value slice literal at call sites.
-
-// CreateDisabledError creates a standard error for disabled operations.
-// Deprecated: CreateDisabledError – use MustBeEnabled for erroring paths.

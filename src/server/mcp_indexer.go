@@ -1,14 +1,15 @@
 package server
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
-	"lsp-gateway/src/server/cache"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    "lsp-gateway/src/server/cache"
+    cachesearch "lsp-gateway/src/server/cache/search"
 )
 
 // performInitialIndexing performs initial workspace symbol indexing for enhanced MCP performance
@@ -34,13 +35,13 @@ func (m *MCPServer) performInitialIndexing() {
 		// Prefer cache search service when available
 		if m.lspManager != nil && m.lspManager.scipCache != nil {
 			// Try enhanced symbols via concrete manager if possible
-			if cm, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {
-				if res, err := cm.SearchSymbolsEnhanced(ctx, &cache.EnhancedSymbolQuery{Pattern: pattern, MaxResults: constants.MCPMaxSymbolResults}); err == nil && res != nil {
-					for _, s := range res.Symbols {
-						key := fmt.Sprintf("%s:%s", s.SymbolID, s.DisplayName)
-						allSymbols[key] = true
-						found++
-					}
+            if cm, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {
+                if res, err := cm.SearchSymbolsEnhanced(ctx, &cachesearch.EnhancedSymbolQuery{Pattern: pattern, MaxResults: constants.MCPMaxSymbolResults}); err == nil && res != nil {
+                    for _, s := range res.Symbols {
+                        key := fmt.Sprintf("%s:%s", s.SymbolID, s.DisplayName)
+                        allSymbols[key] = true
+                        found++
+                    }
 					common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols (enhanced)", pattern, found)
 					continue
 				}
