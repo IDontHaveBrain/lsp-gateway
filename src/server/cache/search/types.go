@@ -49,9 +49,9 @@ type SearchRequest struct {
 
 // SearchResponse represents a unified search response wrapper
 type SearchResponse struct {
-	// Request identification
-	Type      SearchType `json:"type"`
-	RequestID string     `json:"request_id,omitempty"`
+    // Request identification
+    Type      string `json:"type"`
+    RequestID string     `json:"request_id,omitempty"`
 
 	// Results
 	Results   []interface{} `json:"results"`

@@ -22,49 +22,49 @@ func (b *DefaultResultBuilder) BuildSearchResponse(searchType SearchType, data i
 		}
 	}
 
-	return &SearchResponse{
-		Type:      searchType,
-		Results:   results,
-		Total:     len(results),
-		Truncated: false,
-		Metadata:  metadata,
-		Timestamp: time.Now(),
-		Success:   true,
-	}
+    return &SearchResponse{
+        Type:      string(searchType),
+        Results:   results,
+        Total:     len(results),
+        Truncated: false,
+        Metadata:  metadata,
+        Timestamp: time.Now(),
+        Success:   true,
+    }
 }
 
 // BuildErrorResponse creates an error SearchResponse
 func (b *DefaultResultBuilder) BuildErrorResponse(searchType SearchType, err error) *SearchResponse {
-	return &SearchResponse{
-		Type:      searchType,
-		Results:   []interface{}{},
-		Total:     0,
-		Truncated: false,
-		Metadata: &SearchMetadata{
-			CacheEnabled: true,
-			SCIPEnabled:  true,
-			Errors:       []string{err.Error()},
-		},
-		Timestamp: time.Now(),
-		Success:   false,
-		Error:     err.Error(),
-	}
+    return &SearchResponse{
+        Type:      string(searchType),
+        Results:   []interface{}{},
+        Total:     0,
+        Truncated: false,
+        Metadata: &SearchMetadata{
+            CacheEnabled: true,
+            SCIPEnabled:  true,
+            Errors:       []string{err.Error()},
+        },
+        Timestamp: time.Now(),
+        Success:   false,
+        Error:     err.Error(),
+    }
 }
 
 // BuildDisabledResponse creates a response for when cache is disabled
 func (b *DefaultResultBuilder) BuildDisabledResponse(searchType SearchType) *SearchResponse {
-	return &SearchResponse{
-		Type:      searchType,
-		Results:   []interface{}{},
-		Total:     0,
-		Truncated: false,
-		Metadata: &SearchMetadata{
-			CacheEnabled: false,
-			SCIPEnabled:  false,
-		},
-		Timestamp: time.Now(),
-		Success:   true,
-	}
+    return &SearchResponse{
+        Type:      string(searchType),
+        Results:   []interface{}{},
+        Total:     0,
+        Truncated: false,
+        Metadata: &SearchMetadata{
+            CacheEnabled: false,
+            SCIPEnabled:  false,
+        },
+        Timestamp: time.Now(),
+        Success:   true,
+    }
 }
 
 // SearchRequestBuilder provides a fluent interface for building search requests

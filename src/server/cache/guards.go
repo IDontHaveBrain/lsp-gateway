@@ -33,7 +33,7 @@ func (m *SCIPCacheManager) MustBeEnabled() error {
 func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexResult, error)) (*IndexResult, error) {
     if !m.enabled {
         return &search.SearchResponse{
-            Type:      search.SearchType(queryType),
+            Type:      queryType,
             Results:   []interface{}{},
             Total:     0,
             Truncated: false,

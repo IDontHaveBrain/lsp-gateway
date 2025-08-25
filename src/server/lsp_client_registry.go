@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "net"
     "os"
     "os/exec"
     "path/filepath"
@@ -317,32 +318,84 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
             }
         }
         if runtime.GOOS == osWindows || isFWCD {
+            // Use stdio path below
         } else if isJetBrains || runtime.GOOS != osWindows {
+            // Prefer socket mode for JetBrains server on non-Windows
+            // Choose an available port; default to 9999 when free, otherwise random
             addr := "127.0.0.1:9999"
-            argsToUse = []string{}
+            if ln, e := net.Listen("tcp", addr); e == nil {
+                _ = ln.Close()
+            } else {
+                if ln2, e2 := net.Listen("tcp", "127.0.0.1:0"); e2 == nil {
+                    if tcp, ok := ln2.Addr().(*net.TCPAddr); ok {
+                        addr = fmt.Sprintf("127.0.0.1:%d", tcp.Port)
+                    }
+                    _ = ln2.Close()
+                }
+            }
+            // Pass explicit socket to server to avoid ambiguity
+            argsToUse = []string{"--socket", addr}
             common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
             clientConfig := types.ClientConfig{Command: resolvedCommand, Args: argsToUse, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
             if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
                 return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
             }
-            client, err := NewSocketClient(clientConfig, language, addr)
-            if err != nil {
-                return fmt.Errorf("failed to create client: %w", err)
+            socketClient, err := NewSocketClient(clientConfig, language, addr)
+            if err == nil {
+                if errStart := socketClient.Start(ctx); errStart == nil {
+                    m.mu.Lock(); m.clients[language] = socketClient; m.mu.Unlock()
+                    if activeClient, ok := socketClient.(interface{ IsActive() bool }); ok {
+                        maxWaitIterations := m.getClientActiveWaitIterations(language)
+                        for i := 0; i < maxWaitIterations; i++ {
+                            if activeClient.IsActive() { break }
+                            time.Sleep(100 * time.Millisecond)
+                        }
+                    }
+                    return nil
+                } else {
+                    common.LSPLogger.Warn("Kotlin socket mode failed to start: %v; falling back to stdio", errStart)
+                    _ = socketClient.Stop()
+                }
+            } else {
+                common.LSPLogger.Warn("Failed to create Kotlin socket client: %v; falling back to stdio", err)
             }
-            if err := client.Start(ctx); err != nil {
-                return fmt.Errorf("failed to start client: %w", err)
-            }
-            m.mu.Lock()
-            m.clients[language] = client
-            m.mu.Unlock()
-            if activeClient, ok := client.(interface{ IsActive() bool }); ok {
-                maxWaitIterations := m.getClientActiveWaitIterations(language)
-                for i := 0; i < maxWaitIterations; i++ {
-                    if activeClient.IsActive() { break }
-                    time.Sleep(100 * time.Millisecond)
+
+            // Fallback 1: Try JetBrains kotlin-lsp via stdio
+            common.LSPLogger.Info("Attempting Kotlin LSP stdio mode as fallback")
+            stdioArgs := []string{"--stdio"}
+            stdioCfg := types.ClientConfig{Command: resolvedCommand, Args: stdioArgs, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
+            if err := security.ValidateCommand(resolvedCommand, stdioArgs); err == nil {
+                if stdClient, e2 := NewStdioClient(stdioCfg, language); e2 == nil {
+                    if e3 := stdClient.Start(ctx); e3 == nil {
+                        m.mu.Lock(); m.clients[language] = stdClient; m.mu.Unlock()
+                        return nil
+                    } else {
+                        common.LSPLogger.Warn("Kotlin stdio mode (JetBrains) failed to start: %v", e3)
+                    }
+                } else {
+                    common.LSPLogger.Warn("Failed to create Kotlin stdio client (JetBrains): %v", e2)
                 }
             }
-            return nil
+
+            // Fallback 2: Try fwcd kotlin-language-server via stdio if available
+            if p2, e2 := exec.LookPath("kotlin-language-server"); e2 == nil {
+                altCfg := types.ClientConfig{Command: p2, Args: []string{}, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
+                if err := security.ValidateCommand(p2, nil); err == nil {
+                    if fwcdClient, e3 := NewStdioClient(altCfg, language); e3 == nil {
+                        if e4 := fwcdClient.Start(ctx); e4 == nil {
+                            common.LSPLogger.Info("Using fwcd kotlin-language-server via stdio as fallback")
+                            m.mu.Lock(); m.clients[language] = fwcdClient; m.mu.Unlock()
+                            return nil
+                        } else {
+                            common.LSPLogger.Error("Failed to start fwcd kotlin-language-server: %v", e4)
+                        }
+                    } else {
+                        common.LSPLogger.Error("Failed to create fwcd kotlin-language-server client: %v", e3)
+                    }
+                }
+            }
+
+            return fmt.Errorf("failed to start Kotlin LSP in socket or stdio mode")
         }
     }
 

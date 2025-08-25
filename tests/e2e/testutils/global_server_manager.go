@@ -1,17 +1,19 @@
 package testutils
 
 import (
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
-	"lsp-gateway/src/tests/shared/testconfig"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"time"
+    "context"
+    "crypto/md5"
+    "encoding/json"
+    "fmt"
+    "lsp-gateway/src/tests/shared/testconfig"
+    "net/http"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "sync"
+    "time"
 )
 
 type MultiServerManager struct {
@@ -201,8 +203,8 @@ func InitGlobalServer() error {
 		_, _ = cmd.Process.Wait()
 		return fmt.Errorf("server ready: %w", err)
 	}
-	// HTTP client
-	httpClient := NewHttpClient(HttpClientConfig{BaseURL: baseURL, Timeout: 120 * time.Second})
+    // HTTP client
+    httpClient := NewHttpClient(HttpClientConfig{BaseURL: baseURL, Timeout: 120 * time.Second})
 	globalMgr = &MultiServerManager{
 		baseDir:           baseDir,
 		repos:             repos,
@@ -216,12 +218,20 @@ func InitGlobalServer() error {
 		persistentBase:    isCI,
 	}
 	
-	// Final verification that global manager has access to all repositories
-	if err := verifyGlobalRepositoryAccess(); err != nil {
-		return fmt.Errorf("global repository access verification failed: %w", err)
-	}
-	
-	return nil
+    // Final verification that global manager has access to all repositories
+    if err := verifyGlobalRepositoryAccess(); err != nil {
+        return fmt.Errorf("global repository access verification failed: %w", err)
+    }
+
+    // Kick off background pre-warm for heavy JVM languages to reduce latency later
+    go func() {
+        langs := []string{"java", "kotlin"}
+        for _, lang := range langs {
+            go prewarmLanguage(globalMgr, lang)
+        }
+    }()
+
+    return nil
 }
 
 // waitAllOrHealthy waits until the health endpoint is reachable and at least one LSP client is active.
@@ -254,9 +264,102 @@ func waitAllOrHealthy(healthURL string, timeout time.Duration) error {
 	return fmt.Errorf("timeout waiting for server health")
 }
 func IsGlobalServerRunning() bool {
-	globalMgrMu.RLock()
-	defer globalMgrMu.RUnlock()
-	return globalMgr != nil && globalMgr.started
+    globalMgrMu.RLock()
+    defer globalMgrMu.RUnlock()
+    return globalMgr != nil && globalMgr.started
+}
+
+// prewarmLanguage issues a few non-invasive LSP requests for the given language
+// to trigger server initialization and indexing while other tests run.
+func prewarmLanguage(mgr *MultiServerManager, language string) {
+    if mgr == nil || mgr.httpClient == nil || mgr.rm == nil {
+        return
+    }
+    if _, ok := mgr.repos[language]; !ok {
+        return
+    }
+
+    fileURI, err := mgr.rm.GetFileURI(language, 0)
+    if err != nil || fileURI == "" {
+        return
+    }
+    tf, err := mgr.rm.GetTestFile(language, 0)
+    if err != nil {
+        return
+    }
+
+    // Use generous timeout for JVM-based languages
+    timeout := 90 * time.Second
+    if language == "java" || language == "kotlin" {
+        timeout = 120 * time.Second
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), timeout)
+    defer cancel()
+
+    // 1) Warm via textDocument/documentSymbol (opens doc and primes analysis)
+    _ = tryJSONRPC(mgr.httpClient, ctx, map[string]interface{}{
+        "jsonrpc": "2.0",
+        "id":      1,
+        "method":  "textDocument/documentSymbol",
+        "params": map[string]interface{}{
+            "textDocument": map[string]interface{}{"uri": fileURI},
+        },
+    })
+
+    // 2) Optionally warm via definition request
+    if tf.DefinitionPos.Line >= 0 {
+        _ = tryJSONRPC(mgr.httpClient, ctx, map[string]interface{}{
+            "jsonrpc": "2.0",
+            "id":      2,
+            "method":  "textDocument/definition",
+            "params": map[string]interface{}{
+                "textDocument": map[string]interface{}{"uri": fileURI},
+                "position": map[string]interface{}{
+                    "line":      tf.DefinitionPos.Line,
+                    "character": tf.DefinitionPos.Character,
+                },
+            },
+        })
+    }
+
+    // 3) Light workspace/symbol warm-up scoped by query
+    if q := strings.TrimSpace(tf.SymbolQuery); q != "" {
+        // Shorter context for workspace symbol to avoid over-warming
+        wctx, wcancel := context.WithTimeout(context.Background(), 30*time.Second)
+        _ = tryJSONRPC(mgr.httpClient, wctx, map[string]interface{}{
+            "jsonrpc": "2.0",
+            "id":      3,
+            "method":  "workspace/symbol",
+            "params":  map[string]interface{}{"query": q},
+        })
+        wcancel()
+    }
+}
+
+// tryJSONRPC best-effort JSON-RPC call with minimal retries
+func tryJSONRPC(client *HttpClient, ctx context.Context, req map[string]interface{}) error {
+    if client == nil {
+        return fmt.Errorf("nil client")
+    }
+    // up to 3 attempts with small backoff
+    delays := []time.Duration{300 * time.Millisecond, 600 * time.Millisecond, 1 * time.Second}
+    var lastErr error
+    for i := 0; i < 3; i++ {
+        _, err := client.MakeRawJSONRPCRequest(ctx, req)
+        if err == nil {
+            return nil
+        }
+        lastErr = err
+        if i < len(delays) {
+            select {
+            case <-ctx.Done():
+                return ctx.Err()
+            case <-time.After(delays[i]):
+            }
+        }
+    }
+    return lastErr
 }
 func GetGlobalHTTPClient() *HttpClient {
 	globalMgrMu.RLock()

@@ -60,14 +60,14 @@ func (s *SearchService) ExecuteSearch(request *SearchRequest) (*SearchResponse, 
 		return s.ExecuteSymbolSearch(request)
 	case SearchTypeWorkspace:
 		return s.ExecuteWorkspaceSearch(request)
-	default:
-		return &SearchResponse{
-			Type:      request.Type,
-			Results:   []interface{}{},
-			Total:     0,
-			Truncated: false,
-			Metadata:  &SearchMetadata{CacheEnabled: s.guard.enabled, SCIPEnabled: s.guard.enabled},
-			Timestamp: time.Now(),
+    default:
+        return &SearchResponse{
+            Type:      string(request.Type),
+            Results:   []interface{}{},
+            Total:     0,
+            Truncated: false,
+            Metadata:  &SearchMetadata{CacheEnabled: s.guard.enabled, SCIPEnabled: s.guard.enabled},
+            Timestamp: time.Now(),
 			Success:   false,
 			Error:     fmt.Sprintf("unsupported search type: %s", request.Type),
 		}, fmt.Errorf("unsupported search type: %s", request.Type)
@@ -334,13 +334,13 @@ func (s *SearchService) normalizeMaxResults(maxResults int) int {
 
 // buildSearchResponse constructs a standardized SearchResponse
 func (s *SearchService) buildSearchResponse(searchType SearchType, results []interface{}, metadata *SearchMetadata, request *SearchRequest) *SearchResponse {
-	return &SearchResponse{
-		Type:      searchType,
-		RequestID: request.RequestID,
-		Results:   results,
-		Total:     len(results),
-		Truncated: false,
-		Metadata:  metadata,
+    return &SearchResponse{
+        Type:      string(searchType),
+        RequestID: request.RequestID,
+        Results:   results,
+        Total:     len(results),
+        Truncated: false,
+        Metadata:  metadata,
 		Timestamp: time.Now(),
 		Success:   true,
 	}

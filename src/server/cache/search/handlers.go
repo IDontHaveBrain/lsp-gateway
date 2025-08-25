@@ -34,13 +34,13 @@ func (h *DefinitionSearchHandler) Handle(request *SearchRequest) (*SearchRespons
 
 	symbolInfos, err := h.storage.SearchSymbols(request.Context, request.SymbolName, 10)
 	if err != nil || len(symbolInfos) == 0 {
-		return &SearchResponse{
-			Type:      SearchTypeDefinition,
-			Results:   []interface{}{},
-			Metadata:  &SearchMetadata{SymbolsFound: 0, CacheEnabled: true, SCIPEnabled: true},
-			Timestamp: time.Now(),
-			Success:   true,
-		}, nil
+    return &SearchResponse{
+        Type:      string(SearchTypeDefinition),
+        Results:   []interface{}{},
+        Metadata:  &SearchMetadata{SymbolsFound: 0, CacheEnabled: true, SCIPEnabled: true},
+        Timestamp: time.Now(),
+        Success:   true,
+    }, nil
 	}
 
 	var allDefinitions []interface{}
@@ -68,13 +68,13 @@ func (h *DefinitionSearchHandler) Handle(request *SearchRequest) (*SearchRespons
 		}
 	}
 
-	return &SearchResponse{
-		Type:      SearchTypeDefinition,
-		Results:   allDefinitions,
-		Total:     len(allDefinitions),
-		Truncated: false,
-		Metadata: &SearchMetadata{
-			SCIPEnabled:  true,
+    return &SearchResponse{
+        Type:      string(SearchTypeDefinition),
+        Results:   allDefinitions,
+        Total:     len(allDefinitions),
+        Truncated: false,
+        Metadata: &SearchMetadata{
+            SCIPEnabled:  true,
 			SymbolsFound: len(symbolInfos),
 			FilePattern:  request.FilePattern,
 			FilesMatched: len(fileSet),
@@ -104,13 +104,13 @@ func (h *ReferenceSearchHandler) Handle(request *SearchRequest) (*SearchResponse
 
 	symbolInfos, err := h.storage.SearchSymbols(request.Context, request.SymbolName, 10)
 	if err != nil || len(symbolInfos) == 0 {
-		return &SearchResponse{
-			Type:      SearchTypeReference,
-			Results:   []interface{}{},
-			Metadata:  &SearchMetadata{SymbolsFound: 0, CacheEnabled: true, SCIPEnabled: true},
-			Timestamp: time.Now(),
-			Success:   true,
-		}, nil
+    return &SearchResponse{
+        Type:      string(SearchTypeReference),
+        Results:   []interface{}{},
+        Metadata:  &SearchMetadata{SymbolsFound: 0, CacheEnabled: true, SCIPEnabled: true},
+        Timestamp: time.Now(),
+        Success:   true,
+    }, nil
 	}
 
 	var allReferences []interface{}
@@ -139,13 +139,13 @@ func (h *ReferenceSearchHandler) Handle(request *SearchRequest) (*SearchResponse
 	}
 
 done:
-	return &SearchResponse{
-		Type:      SearchTypeReference,
-		Results:   allReferences,
-		Total:     len(allReferences),
-		Truncated: len(allReferences) >= maxResults,
-		Metadata: &SearchMetadata{
-			SCIPEnabled:  true,
+    return &SearchResponse{
+        Type:      string(SearchTypeReference),
+        Results:   allReferences,
+        Total:     len(allReferences),
+        Truncated: len(allReferences) >= maxResults,
+        Metadata: &SearchMetadata{
+            SCIPEnabled:  true,
 			SymbolsFound: len(symbolInfos),
 			FilePattern:  request.FilePattern,
 			FilesMatched: len(fileSet),
@@ -182,16 +182,16 @@ func (h *SymbolSearchHandler) Handle(request *SearchRequest) (*SearchResponse, e
 	}
 
 	symbolInfos, err := h.storage.SearchSymbols(request.Context, request.SymbolName, searchLimit)
-	if err != nil {
-		return &SearchResponse{
-			Type:      SearchTypeSymbol,
-			Results:   []interface{}{},
-			Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{err.Error()}},
-			Timestamp: time.Now(),
-			Success:   false,
-			Error:     err.Error(),
-		}, nil
-	}
+    if err != nil {
+        return &SearchResponse{
+            Type:      string(SearchTypeSymbol),
+            Results:   []interface{}{},
+            Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{err.Error()}},
+            Timestamp: time.Now(),
+            Success:   false,
+            Error:     err.Error(),
+        }, nil
+    }
 
 	var results []interface{}
 	for _, symbolInfo := range symbolInfos {
@@ -230,13 +230,13 @@ func (h *SymbolSearchHandler) Handle(request *SearchRequest) (*SearchResponse, e
 		}
 	}
 
-	return &SearchResponse{
-		Type:      SearchTypeSymbol,
-		Results:   results,
-		Total:     len(results),
-		Truncated: len(symbolInfos) > maxResults,
-		Metadata: &SearchMetadata{
-			SCIPEnabled:     true,
+    return &SearchResponse{
+        Type:      string(SearchTypeSymbol),
+        Results:   results,
+        Total:     len(results),
+        Truncated: len(symbolInfos) > maxResults,
+        Metadata: &SearchMetadata{
+            SCIPEnabled:     true,
 			TotalCandidates: len(symbolInfos),
 			FilePattern:     request.FilePattern,
 			CacheEnabled:    true,
@@ -265,14 +265,14 @@ func (h *WorkspaceSearchHandler) Handle(request *SearchRequest) (*SearchResponse
 
 	symbolInfos, err := h.storage.SearchSymbols(request.Context, request.SymbolName, maxResults)
 	if err != nil {
-		return &SearchResponse{
-			Type:      SearchTypeWorkspace,
-			Results:   []interface{}{},
-			Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{err.Error()}},
-			Timestamp: time.Now(),
-			Success:   false,
-			Error:     err.Error(),
-		}, nil
+    return &SearchResponse{
+        Type:      string(SearchTypeWorkspace),
+        Results:   []interface{}{},
+        Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{err.Error()}},
+        Timestamp: time.Now(),
+        Success:   false,
+        Error:     err.Error(),
+    }, nil
 	}
 
 	results := make([]interface{}, len(symbolInfos))
@@ -282,13 +282,13 @@ func (h *WorkspaceSearchHandler) Handle(request *SearchRequest) (*SearchResponse
 
 	stats := h.storage.GetIndexStats()
 
-	return &SearchResponse{
-		Type:      SearchTypeWorkspace,
-		Results:   results,
-		Total:     len(results),
-		Truncated: false,
-		Metadata: &SearchMetadata{
-			SCIPEnabled:  true,
+    return &SearchResponse{
+        Type:      string(SearchTypeWorkspace),
+        Results:   results,
+        Total:     len(results),
+        Truncated: false,
+        Metadata: &SearchMetadata{
+            SCIPEnabled:  true,
 			CacheEnabled: true,
 			IndexStats:   stats,
 		},
@@ -310,14 +310,14 @@ func (h *UnsupportedSearchHandler) CanHandle(searchType SearchType) bool {
 
 // Handle returns an error result for unsupported search operations
 func (h *UnsupportedSearchHandler) Handle(request *SearchRequest) (*SearchResponse, error) {
-	return &SearchResponse{
-		Type:      h.searchType,
-		Results:   []interface{}{},
-		Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{fmt.Sprintf("unsupported search type: %s", h.searchType)}},
-		Timestamp: time.Now(),
-		Success:   false,
-		Error:     fmt.Sprintf("unsupported search type: %s", h.searchType),
-	}, fmt.Errorf("unsupported search type: %s", h.searchType)
+    return &SearchResponse{
+        Type:      string(h.searchType),
+        Results:   []interface{}{},
+        Metadata:  &SearchMetadata{CacheEnabled: true, SCIPEnabled: true, Errors: []string{fmt.Sprintf("unsupported search type: %s", h.searchType)}},
+        Timestamp: time.Now(),
+        Success:   false,
+        Error:     fmt.Sprintf("unsupported search type: %s", h.searchType),
+    }, fmt.Errorf("unsupported search type: %s", h.searchType)
 }
 
 // HandlerRegistry manages search handlers
