@@ -1,16 +1,16 @@
 package e2e_test
- 
+
 import (
-    "os"
-    "strings"
-    "testing"
-    "os/exec"
-    "runtime"
-    "path/filepath"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
 
-    "lsp-gateway/tests/e2e/base"
+	"lsp-gateway/tests/e2e/base"
 
-    "github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/suite"
 )
 
 type LanguageTestConfig struct {
@@ -19,30 +19,30 @@ type LanguageTestConfig struct {
 }
 
 func getLanguageConfigs() []LanguageTestConfig {
-    all := []LanguageTestConfig{
-        {name: "go", displayName: "Go"},
-        {name: "python", displayName: "Python"},
-        {name: "javascript", displayName: "JavaScript"},
-        {name: "typescript", displayName: "TypeScript"},
-        {name: "java", displayName: "Java"},
-        {name: "rust", displayName: "Rust"},
-        {name: "csharp", displayName: "CSharp"}, // Always include C# in tests
-        {name: "kotlin", displayName: "Kotlin"},
-    }
-    langs := os.Getenv("E2E_LANGS")
-    if strings.TrimSpace(langs) == "" {
-        // When no explicit filter is provided, only include languages with available servers
-        filtered := make([]LanguageTestConfig, 0, len(all))
-        for _, c := range all {
-            if isLanguageAvailable(c.name) {
-                filtered = append(filtered, c)
-            }
-        }
-        if len(filtered) == 0 {
-            return []LanguageTestConfig{}
-        }
-        return filtered
-    }
+	all := []LanguageTestConfig{
+		{name: "go", displayName: "Go"},
+		{name: "python", displayName: "Python"},
+		{name: "javascript", displayName: "JavaScript"},
+		{name: "typescript", displayName: "TypeScript"},
+		{name: "java", displayName: "Java"},
+		{name: "rust", displayName: "Rust"},
+		{name: "csharp", displayName: "CSharp"}, // Always include C# in tests
+		{name: "kotlin", displayName: "Kotlin"},
+	}
+	langs := os.Getenv("E2E_LANGS")
+	if strings.TrimSpace(langs) == "" {
+		// When no explicit filter is provided, only include languages with available servers
+		filtered := make([]LanguageTestConfig, 0, len(all))
+		for _, c := range all {
+			if isLanguageAvailable(c.name) {
+				filtered = append(filtered, c)
+			}
+		}
+		if len(filtered) == 0 {
+			return []LanguageTestConfig{}
+		}
+		return filtered
+	}
 	allow := map[string]bool{}
 	for _, raw := range strings.Split(langs, ",") {
 		k := strings.TrimSpace(strings.ToLower(raw))
@@ -56,67 +56,67 @@ func getLanguageConfigs() []LanguageTestConfig {
 			allow[k] = true
 		}
 	}
-    var filtered []LanguageTestConfig
-    for _, c := range all {
-        if allow[strings.ToLower(c.name)] && isLanguageAvailable(c.name) {
-            filtered = append(filtered, c)
-        }
-    }
+	var filtered []LanguageTestConfig
+	for _, c := range all {
+		if allow[strings.ToLower(c.name)] && isLanguageAvailable(c.name) {
+			filtered = append(filtered, c)
+		}
+	}
 	// If filter produced empty, fall back to all
 	if len(filtered) == 0 {
 		return all
 	}
-    return filtered
+	return filtered
 }
 
 // isLanguageAvailable performs a fast PATH check for the required language server
 func isLanguageAvailable(lang string) bool {
-    has := func(names ...string) bool {
-        for _, n := range names {
-            if p, err := exec.LookPath(n); err == nil && p != "" {
-                return true
-            }
-        }
-        return false
-    }
-    hasTool := func(language string, tools ...string) bool {
-        for _, tool := range tools {
-            home, _ := os.UserHomeDir()
-            p := filepath.Join(home, ".lsp-gateway", "tools", language, "bin", tool)
-            // On Windows, allow .exe/.bat/.cmd variants
-            if runtime.GOOS == "windows" {
-                for _, ext := range []string{"", ".exe", ".bat", ".cmd"} {
-                    if _, err := os.Stat(p + ext); err == nil {
-                        return true
-                    }
-                }
-            } else {
-                if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-    switch lang {
-    case "go":
-        return has("gopls") || hasTool("go", "gopls")
-    case "python":
-        return has("basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server") ||
-            hasTool("python", "basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server")
-    case "javascript", "typescript":
-        return has("typescript-language-server") || hasTool("typescript", "typescript-language-server")
-    case "java":
-        return has("jdtls") || hasTool("java", "jdtls")
-    case "rust":
-        return has("rust-analyzer") || hasTool("rust", "rust-analyzer")
-    case "csharp":
-        return has("omnisharp", "OmniSharp") || hasTool("csharp", "omnisharp", "OmniSharp")
-    case "kotlin":
-        return has("kotlin-lsp", "kotlin-language-server") || hasTool("kotlin", "kotlin-lsp", "kotlin-language-server")
-    default:
-        return false
-    }
+	has := func(names ...string) bool {
+		for _, n := range names {
+			if p, err := exec.LookPath(n); err == nil && p != "" {
+				return true
+			}
+		}
+		return false
+	}
+	hasTool := func(language string, tools ...string) bool {
+		for _, tool := range tools {
+			home, _ := os.UserHomeDir()
+			p := filepath.Join(home, ".lsp-gateway", "tools", language, "bin", tool)
+			// On Windows, allow .exe/.bat/.cmd variants
+			if runtime.GOOS == "windows" {
+				for _, ext := range []string{"", ".exe", ".bat", ".cmd"} {
+					if _, err := os.Stat(p + ext); err == nil {
+						return true
+					}
+				}
+			} else {
+				if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	switch lang {
+	case "go":
+		return has("gopls") || hasTool("go", "gopls")
+	case "python":
+		return has("basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server") ||
+			hasTool("python", "basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server")
+	case "javascript", "typescript":
+		return has("typescript-language-server") || hasTool("typescript", "typescript-language-server")
+	case "java":
+		return has("jdtls") || hasTool("java", "jdtls")
+	case "rust":
+		return has("rust-analyzer") || hasTool("rust", "rust-analyzer")
+	case "csharp":
+		return has("omnisharp", "OmniSharp") || hasTool("csharp", "omnisharp", "OmniSharp")
+	case "kotlin":
+		return has("kotlin-lsp", "kotlin-language-server") || hasTool("kotlin", "kotlin-lsp", "kotlin-language-server")
+	default:
+		return false
+	}
 }
 
 // ComprehensiveE2ETestSuite tests all supported LSP methods for all languages

@@ -1,9 +1,9 @@
 package cache
 
 import (
-    "context"
+	"context"
 
-    "lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/cache/search"
 )
 
 // Definition search operations - handles definition searching and symbol info retrieval
@@ -26,5 +26,5 @@ func (m *SCIPCacheManager) SearchDefinitions(ctx context.Context, symbolName str
 
 // GetSymbolInfo performs direct SCIP symbol information retrieval with occurrence details
 func (m *SCIPCacheManager) GetSymbolInfo(ctx context.Context, symbolName, filePattern string) (interface{}, error) {
-    return m.searchService.ExecuteSymbolInfoSearch(symbolName, filePattern)
+	return m.searchService.ExecuteSymbolInfoSearch(symbolName, filePattern)
 }

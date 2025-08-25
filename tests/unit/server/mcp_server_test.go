@@ -1,14 +1,14 @@
 package server
 
 import (
-    "encoding/json"
-    "fmt"
-    "strings"
-    "testing"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"testing"
 
-    "lsp-gateway/src/config"
-    "lsp-gateway/src/server"
-    "lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/server"
+	"lsp-gateway/src/server/protocol"
 )
 
 func TestNewMCPServer(t *testing.T) {
@@ -60,7 +60,7 @@ func TestMCPServerInitialize(t *testing.T) {
 	}
 
 	// Create a mock MCP request for initialize
-    request := &protocol.JSONRPCRequest{
+	request := &protocol.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "initialize",
@@ -95,7 +95,7 @@ func TestMCPServerToolsList(t *testing.T) {
 	}
 
 	// Create a mock MCP request for tools/list
-    request := &protocol.JSONRPCRequest{
+	request := &protocol.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      2,
 		Method:  "tools/list",
@@ -175,7 +175,7 @@ func TestMCPServerToolsCall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a mock MCP request for tools/call
-            request := &protocol.JSONRPCRequest{
+			request := &protocol.JSONRPCRequest{
 				JSONRPC: "2.0",
 				ID:      3,
 				Method:  "tools/call",
@@ -236,7 +236,7 @@ func TestMCPJSONRPCStructures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-            var req protocol.JSONRPCRequest
+			var req protocol.JSONRPCRequest
 			err := json.Unmarshal([]byte(tt.request), &req)
 
 			if tt.expectValid {
@@ -291,7 +291,7 @@ func TestMCPJSONRPCVersionValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-            request := &protocol.JSONRPCRequest{
+			request := &protocol.JSONRPCRequest{
 				JSONRPC: tt.jsonrpcVersion,
 				ID:      1,
 				Method:  "initialize",
@@ -351,7 +351,7 @@ func TestMCPErrorCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("code_%d", tt.code), func(t *testing.T) {
-        err := &protocol.RPCError{
+			err := &protocol.RPCError{
 				Code:    tt.code,
 				Message: tt.expected,
 			}

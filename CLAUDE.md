@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-LSP Gateway development reference - v0.0.21
+LSP Gateway development reference - v0.0.22
 
 ## Core Commands
 

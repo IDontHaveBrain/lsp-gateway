@@ -21,7 +21,7 @@ import (
 // SharedServerManager manages a single LSP gateway server instance across multiple tests
 type SharedServerManager struct {
 	mu sync.RWMutex
- 
+
 	// Server process management
 	gatewayCmd    *exec.Cmd
 	gatewayPort   int
@@ -47,11 +47,11 @@ type SharedServerManager struct {
 	// Process exit notification
 	procExitedCh chan struct{}
 }
- 
+
 // NewSharedServerManager creates a new shared server manager
 func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager, language string) *SharedServerManager {
 	ctx, cancel := context.WithCancel(context.Background())
- 
+
 	return &SharedServerManager{
 		repoDir:           repoDir,
 		language:          language,

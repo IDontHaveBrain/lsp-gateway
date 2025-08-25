@@ -1,9 +1,9 @@
 package cache
 
 import (
-    "context"
+	"context"
 
-    "lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/cache/search"
 )
 
 // Reference search operations - handles reference searching with standard and enhanced results
@@ -38,5 +38,5 @@ func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolN
 		}
 	}
 
-    return m.searchService.ExecuteReferenceSearchEnhanced(symbolName, filePattern, searchOptions)
+	return m.searchService.ExecuteReferenceSearchEnhanced(symbolName, filePattern, searchOptions)
 }

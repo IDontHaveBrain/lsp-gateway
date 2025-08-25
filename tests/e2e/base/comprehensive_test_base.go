@@ -34,7 +34,7 @@ type LanguageConfig struct {
 // ComprehensiveTestBaseSuite provides base functionality for comprehensive E2E tests
 type ComprehensiveTestBaseSuite struct {
 	suite.Suite
- 
+
 	// Language configuration
 	Config LanguageConfig
 
@@ -119,7 +119,7 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.cacheIsolationLevel = testutils.BasicIsolation // Use basic isolation for shared server
 	cacheIsolationConfig := testutils.DefaultCacheIsolationConfig()
 	cacheIsolationConfig.IsolationLevel = suite.cacheIsolationLevel
- 
+
 	suite.cacheIsolationMgr, err = testutils.NewCacheIsolationManager(suite.tempDir, cacheIsolationConfig)
 	require.NoError(suite.T(), err, "Failed to create cache isolation manager")
 
@@ -129,11 +129,11 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	// Initialize shared server manager if enabled
 	if suite.useSharedServer && !testutils.IsGlobalServerRunning() {
 		suite.sharedServerManager = testutils.NewSharedServerManager(suite.repoDir, suite.cacheIsolationMgr, suite.Config.Language)
- 
+
 		// Start the shared server once for all tests in this suite
 		err = suite.sharedServerManager.StartSharedServer(suite.T())
 		require.NoError(suite.T(), err, "Failed to start shared LSP server")
- 
+
 		suite.T().Logf("🚀 Shared server mode enabled for %s tests", suite.Config.DisplayName)
 	} else if testutils.IsGlobalServerRunning() {
 		suite.T().Logf("🚀 Using global shared server for %s tests", suite.Config.DisplayName)
@@ -143,7 +143,7 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 // SetupTest prepares each test with isolated cache
 func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	testName := suite.T().Name()
- 
+
 	// In shared server mode, register with the shared server
 	if testutils.IsGlobalServerRunning() {
 		suite.httpClient = testutils.GetGlobalHTTPClient()
@@ -153,7 +153,7 @@ func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	}
 	if suite.useSharedServer && suite.sharedServerManager != nil {
 		suite.sharedServerManager.RegisterTest(testName, suite.T())
- 
+
 		// Update HTTP client and port from shared server
 		suite.httpClient = suite.sharedServerManager.GetHTTPClient()
 		suite.gatewayPort = suite.sharedServerManager.GetServerPort()
@@ -178,7 +178,7 @@ func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 // TearDownTest cleans up after each test with cache isolation validation
 func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 	testName := suite.T().Name()
- 
+
 	// In shared server mode, just unregister from shared server
 	if testutils.IsGlobalServerRunning() {
 		suite.T().Logf("🔗 Test '%s' disconnected from global shared server", testName)
@@ -230,12 +230,12 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 		if err := suite.sharedServerManager.StopSharedServer(suite.T()); err != nil {
 			suite.T().Logf("Warning: Failed to stop shared server: %v", err)
 		}
- 
+
 		// Log shared server statistics
 		serverInfo := suite.sharedServerManager.GetServerInfo()
 		suite.T().Logf("📊 Shared server served %v total tests for %s", serverInfo["total_tests"], suite.Config.DisplayName)
 	}
- 
+
 	if suite.repoManager != nil && !suite.preserveRepos && !testutils.IsGlobalServerRunning() {
 		_ = suite.repoManager.Cleanup()
 	}

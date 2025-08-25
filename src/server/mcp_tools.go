@@ -26,14 +26,14 @@ import (
 func (m *MCPServer) delegateToolCall(req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
 	params, ok := req.Params.(map[string]interface{})
 	if !ok {
-        response := m.responseFactory.CreateInvalidParams(req.ID, fmt.Sprintf("expected object, got %T", req.Params))
-        return &response
+		response := m.responseFactory.CreateInvalidParams(req.ID, fmt.Sprintf("expected object, got %T", req.Params))
+		return &response
 	}
 
 	name, ok := params["name"].(string)
 	if !ok {
-        response := m.responseFactory.CreateInvalidParams(req.ID, "missing required parameter: name")
-        return &response
+		response := m.responseFactory.CreateInvalidParams(req.ID, "missing required parameter: name")
+		return &response
 	}
 
 	// MCP server only handles enhanced tools, not basic LSP methods
@@ -47,17 +47,17 @@ func (m *MCPServer) delegateToolCall(req *protocol.JSONRPCRequest) *protocol.JSO
 	case "findReferences":
 		result, err = m.handleFindSymbolReferences(params)
 	default:
-        response := m.responseFactory.CreateError(req.ID, protocol.MethodNotFound, fmt.Sprintf("tool not found: %s", name))
-        return &response
+		response := m.responseFactory.CreateError(req.ID, protocol.MethodNotFound, fmt.Sprintf("tool not found: %s", name))
+		return &response
 	}
 
 	if err != nil {
-        response := m.responseFactory.CreateInternalError(req.ID, err)
-        return &response
+		response := m.responseFactory.CreateInternalError(req.ID, err)
+		return &response
 	}
 
-    response := m.responseFactory.CreateSuccess(req.ID, result)
-    return &response
+	response := m.responseFactory.CreateSuccess(req.ID, result)
+	return &response
 }
 
 // =============================================================================

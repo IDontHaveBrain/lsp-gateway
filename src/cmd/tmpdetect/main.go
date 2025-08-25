@@ -1,9 +1,11 @@
 package main
+
 import (
 	"fmt"
-	"os"
 	"lsp-gateway/src/internal/project"
+	"os"
 )
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("usage: tmpdetect <dir>")

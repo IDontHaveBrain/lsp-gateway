@@ -1,11 +1,11 @@
 package server
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "mime"
-    "net"
+	"context"
+	"encoding/json"
+	"fmt"
+	"mime"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -167,7 +167,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    var req protocol.JSONRPCRequest
+	var req protocol.JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		g.writeResponse(w, g.responseFactory.CreateParseError(nil))
 		return

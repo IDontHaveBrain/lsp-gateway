@@ -1,7 +1,7 @@
 package cache
 
 import (
-    "lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/cache/search"
 )
 
 type EnhancedSymbolQuery = search.EnhancedSymbolQuery

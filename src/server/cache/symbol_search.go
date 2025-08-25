@@ -1,14 +1,14 @@
 package cache
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"fmt"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    "lsp-gateway/src/server/cache/search"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
 )
 
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
@@ -21,28 +21,28 @@ func convertEnhancedSymbolResults(searchResults []search.EnhancedSymbolResult) [
 
 // QueryIndex queries the SCIP storage for symbols and relationships
 func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
-    return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
-        request := &search.SearchRequest{
-            Context:    ctx,
-            Type:       search.SearchType(query.Type),
-            SymbolName: query.Symbol,
-            MaxResults: constants.DefaultMaxResults,
-        }
+	return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
+		request := &search.SearchRequest{
+			Context:    ctx,
+			Type:       search.SearchType(query.Type),
+			SymbolName: query.Symbol,
+			MaxResults: constants.DefaultMaxResults,
+		}
 
-        response, err := m.searchService.ExecuteSearch(request)
-        if err != nil {
-            return nil, err
-        }
-        if response.Metadata != nil && query.Language != "" {
-            response.Metadata.Language = query.Language
-        }
-        return response, nil
-    })
+		response, err := m.searchService.ExecuteSearch(request)
+		if err != nil {
+			return nil, err
+		}
+		if response.Metadata != nil && query.Language != "" {
+			response.Metadata.Language = query.Language
+		}
+		return response, nil
+	})
 }
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
 func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*search.EnhancedSymbolSearchResponse, error) {
-    return m.searchService.ExecuteEnhancedSymbolSearch(query)
+	return m.searchService.ExecuteEnhancedSymbolSearch(query)
 }
 
 func (m *SCIPCacheManager) trySearchServiceSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, bool) {

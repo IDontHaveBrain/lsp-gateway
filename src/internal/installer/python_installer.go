@@ -24,20 +24,20 @@ type PythonInstaller struct {
 }
 
 func NewPythonInstaller(platform PlatformInfo) *PythonInstaller {
-    generic, err := NewGenericInstaller("python", platform)
-    if err != nil {
-        // Default to jedi-language-server if no configuration found
-        base := CreateSimpleInstaller("python", serverJediLS, []string{}, platform)
-        return &PythonInstaller{
-            GenericPackageInstaller: &GenericPackageInstaller{
-                BaseInstaller: base,
-                config: PackageConfig{
-                    Manager:  cmdPip,
-                    Packages: []string{pkgJedi},
-                },
-            },
-        }
-    }
+	generic, err := NewGenericInstaller("python", platform)
+	if err != nil {
+		// Default to jedi-language-server if no configuration found
+		base := CreateSimpleInstaller("python", serverJediLS, []string{}, platform)
+		return &PythonInstaller{
+			GenericPackageInstaller: &GenericPackageInstaller{
+				BaseInstaller: base,
+				config: PackageConfig{
+					Manager:  cmdPip,
+					Packages: []string{pkgJedi},
+				},
+			},
+		}
+	}
 
 	return &PythonInstaller{
 		GenericPackageInstaller: generic,
@@ -46,19 +46,19 @@ func NewPythonInstaller(platform PlatformInfo) *PythonInstaller {
 
 // Install allows selecting python LSP variant via options.Server
 func (p *PythonInstaller) Install(ctx context.Context, options InstallOptions) error {
-    // Support basedpyright, pyright, and jedi-language-server
-    switch options.Server {
-    case "":
-        // Default to jedi-language-server
-        p.serverConfig.Command = serverJediLS
-        p.serverConfig.Args = []string{}
-        p.config.Manager = cmdPip
-        p.config.Packages = []string{pkgJedi}
-    case "basedpyright", serverBasedPyrightLS:
-        p.serverConfig.Command = serverBasedPyrightLS
-        p.serverConfig.Args = []string{"--stdio"}
-        p.config.Manager = cmdPip
-        p.config.Packages = []string{pkgBasedPyright}
+	// Support basedpyright, pyright, and jedi-language-server
+	switch options.Server {
+	case "":
+		// Default to jedi-language-server
+		p.serverConfig.Command = serverJediLS
+		p.serverConfig.Args = []string{}
+		p.config.Manager = cmdPip
+		p.config.Packages = []string{pkgJedi}
+	case "basedpyright", serverBasedPyrightLS:
+		p.serverConfig.Command = serverBasedPyrightLS
+		p.serverConfig.Args = []string{"--stdio"}
+		p.config.Manager = cmdPip
+		p.config.Packages = []string{pkgBasedPyright}
 
 	case "jedi", serverJediLS:
 		// Use jedi-language-server
@@ -78,9 +78,9 @@ func (p *PythonInstaller) Install(ctx context.Context, options InstallOptions) e
 		return fmt.Errorf("unsupported python server variant: %s (supported: basedpyright, jedi, pyright)", options.Server)
 	}
 
-    // Do not auto-switch to uv/uvx in tests or default installs; tests expect pip+jedi defaults
+	// Do not auto-switch to uv/uvx in tests or default installs; tests expect pip+jedi defaults
 
-    return p.GenericPackageInstaller.Install(ctx, options)
+	return p.GenericPackageInstaller.Install(ctx, options)
 }
 
 // IsInstalled checks if any Python language server is installed

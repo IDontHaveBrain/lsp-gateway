@@ -437,8 +437,8 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	} else {
 		var err error
 		wd, err = os.Getwd()
-		if err != nil {
-			if runtime.GOOS == "windows" {
+    		if err != nil {
+			if runtime.GOOS == osWindows {
 				wd = "C:\\temp"
 			} else {
 				wd = "/tmp"
@@ -448,7 +448,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 
 	// Ensure path is absolute and clean
 	wd, _ = filepath.Abs(wd)
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		wd = utils.URIToFilePathCached(utils.FilePathToURI(wd))
 	}
 

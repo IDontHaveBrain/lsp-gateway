@@ -1,16 +1,16 @@
 package search
 
 import (
-    "fmt"
-    "time"
+	"fmt"
+	"time"
 
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/server/scip"
 )
 
 // SearchGuard provides centralized guard logic for SearchService operations.
 // It handles enabled/disabled state checks and generates appropriate default responses.
 type SearchGuard struct {
-    enabled bool
+	enabled bool
 }
 
 // NewSearchGuard creates a new search guard with the specified enabled state.
@@ -21,10 +21,10 @@ func NewSearchGuard(enabled bool) *SearchGuard {
 // WithEnabledGuard executes the provided function only if the service is enabled.
 // Returns the function result if enabled, otherwise returns nil and no error.
 func (g *SearchGuard) WithEnabledGuard(fn func() (interface{}, error)) (interface{}, error) {
-    if !g.enabled {
-        return nil, nil
-    }
-    return fn()
+	if !g.enabled {
+		return nil, nil
+	}
+	return fn()
 }
 
 // NOTE: Use internal/common.WithEnabledGuard for typed guards to avoid duplication.
@@ -59,11 +59,11 @@ func (g *SearchGuard) WithErrorResult(fn func() ([]interface{}, error)) ([]inter
 // WithSearchResponse executes the function if enabled, otherwise returns a default SearchResponse
 // with cache_disabled metadata.
 func (g *SearchGuard) WithSearchResponse(searchType SearchType, fn func() (*SearchResponse, error)) (*SearchResponse, error) {
-    if !g.enabled {
-        builder := &DefaultResultBuilder{}
-        return builder.BuildDisabledResponse(searchType), nil
-    }
-    return fn()
+	if !g.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(searchType), nil
+	}
+	return fn()
 }
 
 // WithEnhancedSymbolResult executes the function if enabled, otherwise returns a default
@@ -118,4 +118,3 @@ func (g *SearchGuard) WithSymbolInfoResult(symbolName string, fn func() (*Symbol
 	}
 	return fn()
 }
-

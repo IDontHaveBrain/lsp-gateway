@@ -1,12 +1,12 @@
 package cache
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/cache/search"
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
 )
 
 // IndexQuery represents a query to the SCIP index

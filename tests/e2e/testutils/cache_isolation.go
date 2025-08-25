@@ -483,32 +483,32 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 				}
 				configContent += fmt.Sprintf("    command: \"%s\"\n", expandedCommand)
 			}
-        if args, hasArgs := server["args"]; hasArgs {
-            if argsList, ok := args.([]string); ok {
-                configContent += "    args: ["
-                for i, arg := range argsList {
-                    if i > 0 {
-                        configContent += ", "
-                    }
-                    configContent += fmt.Sprintf("\"%s\"", arg)
-                }
-                configContent += "]\n"
-            }
-        }
-            // working_dir
-            if wd, hasWD := server["working_dir"]; hasWD {
-                if s, ok := wd.(string); ok {
-                    expandedWD := s
-                    if ex, err := expandPath(s); err == nil {
-                        expandedWD = ex
-                    }
-                    configContent += fmt.Sprintf("    working_dir: \"%s\"\n", expandedWD)
-                } else {
-                    configContent += "    working_dir: \"\"\n"
-                }
-            } else {
-                configContent += "    working_dir: \"\"\n"
-            }
+			if args, hasArgs := server["args"]; hasArgs {
+				if argsList, ok := args.([]string); ok {
+					configContent += "    args: ["
+					for i, arg := range argsList {
+						if i > 0 {
+							configContent += ", "
+						}
+						configContent += fmt.Sprintf("\"%s\"", arg)
+					}
+					configContent += "]\n"
+				}
+			}
+			// working_dir
+			if wd, hasWD := server["working_dir"]; hasWD {
+				if s, ok := wd.(string); ok {
+					expandedWD := s
+					if ex, err := expandPath(s); err == nil {
+						expandedWD = ex
+					}
+					configContent += fmt.Sprintf("    working_dir: \"%s\"\n", expandedWD)
+				} else {
+					configContent += "    working_dir: \"\"\n"
+				}
+			} else {
+				configContent += "    working_dir: \"\"\n"
+			}
 
 			// Add initialization_options if present
 			if initOpts, hasInitOpts := server["initialization_options"]; hasInitOpts {

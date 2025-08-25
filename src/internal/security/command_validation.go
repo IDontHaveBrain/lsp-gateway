@@ -2,27 +2,27 @@
 package security
 
 import (
-    "fmt"
-    "lsp-gateway/src/internal/registry"
-    "path/filepath"
-    "strings"
-    "os"
+	"fmt"
+	"lsp-gateway/src/internal/registry"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func ValidateCommand(command string, args []string) error {
-    // Convert registry commands slice to map for efficient lookup
-    allowedCommands := make(map[string]bool)
-    for _, cmd := range registry.GetAllowedCommands() {
-        allowedCommands[cmd] = true
-    }
+	// Convert registry commands slice to map for efficient lookup
+	allowedCommands := make(map[string]bool)
+	for _, cmd := range registry.GetAllowedCommands() {
+		allowedCommands[cmd] = true
+	}
 
-    // In test environments, allow a small set of benign utilities used by tests
-    if os.Getenv("ALLOW_TEST_COMMANDS") == "1" || os.Getenv("GO_TEST") == "true" {
-        for _, extra := range []string{"sleep", "sh", "bash"} {
-            allowedCommands[extra] = true
-            // also allow .exe no-op mapping via nameNoExt logic below
-        }
-    }
+	// In test environments, allow a small set of benign utilities used by tests
+	if os.Getenv("ALLOW_TEST_COMMANDS") == "1" || os.Getenv("GO_TEST") == "true" {
+		for _, extra := range []string{"sleep", "sh", "bash"} {
+			allowedCommands[extra] = true
+			// also allow .exe no-op mapping via nameNoExt logic below
+		}
+	}
 
 	baseName := filepath.Base(command)
 	// Also allow extensionless comparison (e.g., gopls vs gopls.exe)

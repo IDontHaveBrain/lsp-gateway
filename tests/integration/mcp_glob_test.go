@@ -1,16 +1,16 @@
 package integration
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "testing"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-    "lsp-gateway/src/config"
-    "lsp-gateway/src/server"
-    "lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/server"
+	"lsp-gateway/src/server/protocol"
 )
 
 func TestMCPGlobPatterns(t *testing.T) {
@@ -175,8 +175,8 @@ func ExternalFunc() {}`,
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-            // Build the request
-            req := &protocol.JSONRPCRequest{
+			// Build the request
+			req := &protocol.JSONRPCRequest{
 				JSONRPC: "2.0",
 				ID:      1,
 				Method:  "tools/call",
@@ -265,17 +265,17 @@ func ExternalFunc() {}`,
 func handleToolCallForTest(mcpServer *server.MCPServer, req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
 	// This would normally be an internal method, but for testing we simulate it
 	// In a real test, you'd either export the method or use a test helper
-    _, ok := req.Params.(map[string]interface{})
-    if !ok {
-        return &protocol.JSONRPCResponse{
-            JSONRPC: "2.0",
-            ID:      req.ID,
-            Error: &protocol.RPCError{
-                Code:    -32602,
-                Message: "Invalid params",
-            },
-        }
-    }
+	_, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return &protocol.JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &protocol.RPCError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+	}
 
 	// For this test, we'll need to make the delegateToolCall method accessible
 	// or create a test-specific handler
