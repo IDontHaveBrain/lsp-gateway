@@ -21,39 +21,23 @@ func convertEnhancedSymbolResults(searchResults []search.EnhancedSymbolResult) [
 
 // QueryIndex queries the SCIP storage for symbols and relationships
 func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
-	return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
-		request := &search.SearchRequest{
-			Context:    ctx,
-			Type:       search.SearchType(query.Type),
-			SymbolName: query.Symbol,
-			MaxResults: constants.DefaultMaxResults,
-		}
+    return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
+        request := &search.SearchRequest{
+            Context:    ctx,
+            Type:       search.SearchType(query.Type),
+            SymbolName: query.Symbol,
+            MaxResults: constants.DefaultMaxResults,
+        }
 
-		response, err := m.searchService.ExecuteSearch(request)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert SearchResponse to IndexResult
-		metadata := map[string]interface{}{
-			"query_language": query.Language,
-			"query_type":     query.Type,
-		}
-		if response.Metadata != nil {
-			if response.Metadata.IndexStats != nil {
-				metadata["total_symbols"] = response.Metadata.IndexStats.TotalSymbols
-				metadata["total_documents"] = response.Metadata.IndexStats.TotalDocuments
-				metadata["total_occurrences"] = response.Metadata.IndexStats.TotalOccurrences
-			}
-		}
-
-		return &IndexResult{
-			Type:      query.Type,
-			Results:   response.Results,
-			Metadata:  metadata,
-			Timestamp: response.Timestamp,
-		}, nil
-	})
+        response, err := m.searchService.ExecuteSearch(request)
+        if err != nil {
+            return nil, err
+        }
+        if response.Metadata != nil && query.Language != "" {
+            response.Metadata.Language = query.Language
+        }
+        return response, nil
+    })
 }
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
