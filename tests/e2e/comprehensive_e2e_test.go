@@ -5,6 +5,8 @@ import (
     "strings"
     "testing"
     "os/exec"
+    "runtime"
+    "path/filepath"
 
     "lsp-gateway/tests/e2e/base"
 
@@ -77,21 +79,41 @@ func isLanguageAvailable(lang string) bool {
         }
         return false
     }
+    hasTool := func(language string, tools ...string) bool {
+        for _, tool := range tools {
+            home, _ := os.UserHomeDir()
+            p := filepath.Join(home, ".lsp-gateway", "tools", language, "bin", tool)
+            // On Windows, allow .exe/.bat/.cmd variants
+            if runtime.GOOS == "windows" {
+                for _, ext := range []string{"", ".exe", ".bat", ".cmd"} {
+                    if _, err := os.Stat(p + ext); err == nil {
+                        return true
+                    }
+                }
+            } else {
+                if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+                    return true
+                }
+            }
+        }
+        return false
+    }
     switch lang {
     case "go":
-        return has("gopls")
+        return has("gopls") || hasTool("go", "gopls")
     case "python":
-        return has("basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server")
+        return has("basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server") ||
+            hasTool("python", "basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server")
     case "javascript", "typescript":
-        return has("typescript-language-server")
+        return has("typescript-language-server") || hasTool("typescript", "typescript-language-server")
     case "java":
-        return has("jdtls")
+        return has("jdtls") || hasTool("java", "jdtls")
     case "rust":
-        return has("rust-analyzer")
+        return has("rust-analyzer") || hasTool("rust", "rust-analyzer")
     case "csharp":
-        return has("omnisharp", "OmniSharp")
+        return has("omnisharp", "OmniSharp") || hasTool("csharp", "omnisharp", "OmniSharp")
     case "kotlin":
-        return has("kotlin-lsp", "kotlin-language-server")
+        return has("kotlin-lsp", "kotlin-language-server") || hasTool("kotlin", "kotlin-lsp", "kotlin-language-server")
     default:
         return false
     }
