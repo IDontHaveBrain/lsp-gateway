@@ -1,11 +1,12 @@
 package server
 
 import (
-	"encoding/json"
-	"testing"
-	"time"
+    "encoding/json"
+    "testing"
+    "time"
 
-	"lsp-gateway/src/config"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/server/protocol"
 )
 
 // =============================================================================
