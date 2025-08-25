@@ -1,11 +1,12 @@
 package cache
 
 import (
-	"context"
-	"time"
+    "context"
+    "time"
 
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/cache/search"
+    "lsp-gateway/src/server/scip"
 )
 
 // IndexQuery represents a query to the SCIP index
@@ -19,13 +20,8 @@ type IndexQuery struct {
 	MaxDepth int                    `json:"max_depth,omitempty"`
 }
 
-// IndexResult represents the result of an index query
-type IndexResult struct {
-	Type      string                 `json:"type"`
-	Results   []interface{}          `json:"results"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
-}
+// IndexResult unified with search.SearchResponse
+type IndexResult = search.SearchResponse
 
 // IndexStats represents statistics about the SCIP index
 type IndexStats struct {

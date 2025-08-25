@@ -3,6 +3,8 @@ package cache
 import (
     "fmt"
     "time"
+
+    "lsp-gateway/src/server/cache/search"
 )
 
 // WithEnabledGuard executes the provided function only if the cache is enabled.
@@ -29,15 +31,19 @@ func (m *SCIPCacheManager) MustBeEnabled() error {
 // WithIndexResult executes the function if cache is enabled, otherwise returns a default IndexResult
 // with cache_disabled metadata.
 func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexResult, error)) (*IndexResult, error) {
-	if !m.enabled {
-		return &IndexResult{
-			Type:      queryType,
-			Results:   []interface{}{},
-			Metadata:  map[string]interface{}{"cache_disabled": true},
-			Timestamp: time.Now(),
-		}, nil
-	}
-	return fn()
+    if !m.enabled {
+        return &search.SearchResponse{
+            Type:      search.SearchType(queryType),
+            Results:   []interface{}{},
+            Total:     0,
+            Truncated: false,
+            Metadata:  &search.SearchMetadata{CacheEnabled: false, SCIPEnabled: false, IndexStatus: "disabled"},
+            Timestamp: time.Now(),
+            Success:   false,
+            Error:     "cache disabled or SCIP storage unavailable",
+        }, nil
+    }
+    return fn()
 }
 
 // Removed: Enhanced/Symbol/Reference typed guard wrappers; search service guard handles disabled cases.
