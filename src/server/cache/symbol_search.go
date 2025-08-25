@@ -1,14 +1,14 @@
 package cache
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
-	"lsp-gateway/src/server/cache/search"
-	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/utils"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    "lsp-gateway/src/server/cache/search"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils"
 )
 
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
@@ -57,30 +57,8 @@ func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*
 }
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
-func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*EnhancedSymbolSearchResult, error) {
-	return m.WithEnhancedSymbolResult(query, func() (*EnhancedSymbolSearchResult, error) {
-		response, err := m.searchService.ExecuteEnhancedSymbolSearch(query)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert search response to cache response
-		metadata := map[string]interface{}{
-			"scip_enabled": true,
-		}
-		if response.Metadata != nil {
-			metadata["total_candidates"] = response.Metadata.TotalCandidates
-		}
-
-		return &EnhancedSymbolSearchResult{
-			Symbols:   response.Symbols,
-			Total:     response.Total,
-			Truncated: response.Truncated,
-			Query:     query,
-			Metadata:  metadata,
-			Timestamp: response.Timestamp,
-		}, nil
-	})
+func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*search.EnhancedSymbolSearchResponse, error) {
+    return m.searchService.ExecuteEnhancedSymbolSearch(query)
 }
 
 func (m *SCIPCacheManager) trySearchServiceSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, bool) {

@@ -1,11 +1,12 @@
 package server
 
 import (
-	"encoding/json"
-	"testing"
-	"time"
+    "encoding/json"
+    "testing"
+    "time"
 
-	"lsp-gateway/src/config"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/server/protocol"
 )
 
 // =============================================================================
@@ -51,7 +52,7 @@ func createValidFindReferencesParams() map[string]interface{} {
 func TestDelegateToolCall_ValidFindSymbols(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		ID:     "test-1",
 		Method: "tools/call",
 		Params: createValidFindSymbolsParams(),
@@ -89,7 +90,7 @@ func TestDelegateToolCall_ValidFindSymbols(t *testing.T) {
 func TestDelegateToolCall_ValidFindReferences(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		ID:     "test-2",
 		Method: "tools/call",
 		Params: createValidFindReferencesParams(),
@@ -152,7 +153,7 @@ func TestDelegateToolCall_InvalidParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &MCPRequest{
+            req := &protocol.JSONRPCRequest{
 				ID:     "test-error",
 				Method: "tools/call",
 				Params: tt.params,
@@ -178,7 +179,7 @@ func TestDelegateToolCall_InvalidParams(t *testing.T) {
 func TestDelegateToolCall_UnknownTool(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		ID:     "test-unknown",
 		Method: "tools/call",
 		Params: map[string]interface{}{
@@ -558,7 +559,7 @@ func TestMCPResponseFormatCompliance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &MCPRequest{
+            req := &protocol.JSONRPCRequest{
 				ID:     "format-test",
 				Method: "tools/call",
 				Params: tt.params,
@@ -624,13 +625,13 @@ func TestMCPResponseFormatCompliance(t *testing.T) {
 func TestMCPErrorResponseFormatCompliance(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		ID:     "error-format-test",
 		Method: "tools/call",
 		Params: "invalid-params", // Should cause error
 	}
 
-	response := mcpServer.delegateToolCall(req)
+    response := mcpServer.delegateToolCall(req)
 
 	if response == nil {
 		t.Fatal("Expected non-nil response")
@@ -682,7 +683,7 @@ func TestDelegateToolCall_NilRequest(t *testing.T) {
 
 	// We can't test nil request directly as it would cause panic in real usage
 	// Instead test with minimal invalid request
-	req := &MCPRequest{}
+    req := &protocol.JSONRPCRequest{}
 	response := mcpServer.delegateToolCall(req)
 
 	if response == nil {
@@ -735,7 +736,7 @@ func TestFullToolFlow_FindSymbols(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
 	// Test the full flow from request to response
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "integration-test",
 		Method:  "tools/call",
@@ -800,7 +801,7 @@ func TestFullToolFlow_FindReferences(t *testing.T) {
 	mcpServer := createTestMCPServer()
 
 	// Test the full flow from request to response
-	req := &MCPRequest{
+    req := &protocol.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "integration-test-refs",
 		Method:  "tools/call",

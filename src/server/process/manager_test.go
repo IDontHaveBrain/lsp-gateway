@@ -1,20 +1,27 @@
 package process
 
 import (
-	"context"
-	"fmt"
-	"sync"
-	"testing"
-	"time"
+    "context"
+    "fmt"
+    "sync"
+    "testing"
+    "time"
+    "os"
 
 	"lsp-gateway/src/internal/types"
 )
 
+func init() {
+    _ = os.Setenv("ALLOW_TEST_COMMANDS", "1")
+}
+
 func TestNewLSPProcessManager(t *testing.T) {
-	pm := NewLSPProcessManager()
-	if pm == nil {
-		t.Fatal("NewLSPProcessManager returned nil")
-	}
+    // Allow benign test commands like sleep/sh in security validator
+    _ = os.Setenv("ALLOW_TEST_COMMANDS", "1")
+    pm := NewLSPProcessManager()
+    if pm == nil {
+        t.Fatal("NewLSPProcessManager returned nil")
+    }
 }
 
 func TestStartProcess(t *testing.T) {

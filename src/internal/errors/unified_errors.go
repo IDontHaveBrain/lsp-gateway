@@ -72,7 +72,21 @@ func (e *TimeoutError) Unwrap() error {
 	return e.Cause
 }
 
-// Note: MethodNotSupportedError is defined in types.go for backward compatibility
+// MethodNotSupportedError represents a user-friendly error for unsupported LSP methods
+type MethodNotSupportedError struct {
+    Server     string
+    Method     string
+    Suggestion string
+}
+
+func (e *MethodNotSupportedError) Error() string {
+    return fmt.Sprintf("LSP server '%s' does not support '%s'. %s", e.Server, e.Method, e.Suggestion)
+}
+
+// NewMethodNotSupportedError creates a new MethodNotSupportedError
+func NewMethodNotSupportedError(server, method, suggestion string) error {
+    return &MethodNotSupportedError{Server: server, Method: method, Suggestion: suggestion}
+}
 
 // ProcessError represents LSP server process errors
 type ProcessError struct {
@@ -132,7 +146,6 @@ func NewTimeoutError(operation, language string, timeout time.Duration, cause er
 	}
 }
 
-// Note: NewMethodNotSupportedError is defined in types.go for backward compatibility
 
 // NewProcessError creates a new process error for LSP server operations
 func NewProcessError(language, command, errorType string, cause error) *ProcessError {
