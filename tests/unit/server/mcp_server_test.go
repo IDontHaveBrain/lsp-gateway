@@ -1,368 +1,74 @@
-package server
+package server_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
-	"lsp-gateway/src/server/protocol"
 )
 
-func TestNewMCPServer(t *testing.T) {
-	tests := []struct {
-		name   string
-		config *config.Config
-	}{
-		{
-			name:   "with default config",
-			config: config.GetDefaultConfig(),
-		},
-		{
-			name: "with custom config",
-			config: &config.Config{
-				Cache: &config.CacheConfig{
-					Enabled:     true,
-					MaxMemoryMB: 256,
-					TTLHours:    1,
-					StoragePath: "/tmp/test-cache",
-				},
-				Servers: map[string]*config.ServerConfig{
-					"go": {
-						Command: "gopls",
-						Args:    []string{"serve"},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mcpServer, err := server.NewMCPServer(tt.config)
-			if err != nil {
-				t.Fatalf("NewMCPServer failed: %v", err)
-			}
-			if mcpServer == nil {
-				t.Fatal("NewMCPServer returned nil")
-			}
-		})
-	}
-}
-
-func TestMCPServerInitialize(t *testing.T) {
+func newTestConfig() *config.Config {
 	cfg := config.GetDefaultConfig()
-	mcpServer, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("NewMCPServer failed: %v", err)
+	if cfg.Cache == nil {
+		cfg.Cache = config.GetDefaultCacheConfig()
 	}
-
-	// Create a mock MCP request for initialize
-	request := &protocol.JSONRPCRequest{
-		JSONRPC: "2.0",
-		ID:      1,
-		Method:  "initialize",
-		Params: map[string]interface{}{
-			"protocolVersion": "2025-06-18",
-			"clientInfo": map[string]interface{}{
-				"name":    "test-client",
-				"version": "1.0.0",
-			},
-		},
-	}
-
-	// Test that we can at least create the server and it has the expected structure
-	if mcpServer == nil {
-		t.Fatal("MCP server should not be nil")
-	}
-
-	// Validate the request structure is correct
-	if request.Method != "initialize" {
-		t.Errorf("Expected method 'initialize', got '%s'", request.Method)
-	}
-	if request.JSONRPC != "2.0" {
-		t.Errorf("Expected JSONRPC '2.0', got '%s'", request.JSONRPC)
-	}
+	return cfg
 }
 
-func TestMCPServerToolsList(t *testing.T) {
-	cfg := config.GetDefaultConfig()
-	mcpServer, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("NewMCPServer failed: %v", err)
-	}
-
-	// Create a mock MCP request for tools/list
-	request := &protocol.JSONRPCRequest{
-		JSONRPC: "2.0",
-		ID:      2,
-		Method:  "tools/list",
-	}
-
-	// Test that we can create the request structure correctly
-	if mcpServer == nil {
-		t.Fatal("MCP server should not be nil")
-	}
-
-	// Validate the request structure is correct for tools/list
-	if request.Method != "tools/list" {
-		t.Errorf("Expected method 'tools/list', got '%s'", request.Method)
-	}
-
-	// Test the expected tool names are correctly defined
-	expectedTools := []string{"findSymbols", "findReferences"}
-	for _, tool := range expectedTools {
-		if tool == "" {
-			t.Errorf("Tool name should not be empty")
-		}
-	}
-}
-
-func TestMCPServerToolsCall(t *testing.T) {
-	tests := []struct {
-		name      string
-		toolName  string
-		arguments map[string]interface{}
-		valid     bool
-	}{
-		{
-			name:     "findSymbols with valid params",
-			toolName: "findSymbols",
-			arguments: map[string]interface{}{
-				"pattern":     "test.*",
-				"filePattern": "*.go",
-			},
-			valid: true,
-		},
-		{
-			name:     "findReferences with valid params",
-			toolName: "findReferences",
-			arguments: map[string]interface{}{
-				"pattern":     "TestFunction",
-				"filePattern": "**/*.go",
-			},
-			valid: true,
-		},
-		{
-			name:      "unknown tool",
-			toolName:  "unknownTool",
-			arguments: map[string]interface{}{},
-			valid:     false,
-		},
-		{
-			name:     "findSymbols missing required params",
-			toolName: "findSymbols",
-			arguments: map[string]interface{}{
-				"pattern": "test.*",
-				// missing filePattern
-			},
-			valid: false,
-		},
-	}
-
-	cfg := config.GetDefaultConfig()
-	mcpServer, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("NewMCPServer failed: %v", err)
-	}
-
-	if mcpServer == nil {
-		t.Fatal("MCP server should not be nil")
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock MCP request for tools/call
-			request := &protocol.JSONRPCRequest{
-				JSONRPC: "2.0",
-				ID:      3,
-				Method:  "tools/call",
-				Params: map[string]interface{}{
-					"name":      tt.toolName,
-					"arguments": tt.arguments,
-				},
-			}
-
-			// Validate request structure
-			if request.Method != "tools/call" {
-				t.Errorf("Expected method 'tools/call', got '%s'", request.Method)
-			}
-
-			// Validate tool name and arguments structure
-			if params, ok := request.Params.(map[string]interface{}); ok {
-				if name, ok := params["name"].(string); ok {
-					if name != tt.toolName {
-						t.Errorf("Expected tool name '%s', got '%s'", tt.toolName, name)
-					}
-				} else {
-					t.Error("Tool name not found in params")
-				}
-			} else {
-				t.Error("Invalid params structure")
-			}
-		})
-	}
-}
-
-func TestMCPJSONRPCStructures(t *testing.T) {
-	tests := []struct {
-		name        string
-		request     string
-		expectValid bool
-	}{
-		{
-			name:        "valid JSON-RPC request",
-			request:     `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
-			expectValid: true,
-		},
-		{
-			name:        "invalid JSON",
-			request:     `{invalid json}`,
-			expectValid: false,
-		},
-		{
-			name:        "missing method",
-			request:     `{"jsonrpc":"2.0","id":1,"params":{}}`,
-			expectValid: false,
-		},
-		{
-			name:        "valid tools/list request",
-			request:     `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
-			expectValid: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var req protocol.JSONRPCRequest
-			err := json.Unmarshal([]byte(tt.request), &req)
-
-			if tt.expectValid {
-				if err != nil {
-					t.Errorf("Expected valid JSON, but got error: %v", err)
-				}
-				if req.JSONRPC != "2.0" {
-					t.Errorf("Expected JSONRPC '2.0', got '%s'", req.JSONRPC)
-				}
-			} else {
-				if err == nil && req.Method != "" {
-					t.Error("Expected invalid JSON or missing method")
-				}
-			}
-		})
-	}
-}
-
-func TestMCPJSONRPCVersionValidation(t *testing.T) {
-	cfg := config.GetDefaultConfig()
-	_, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("NewMCPServer failed: %v", err)
-	}
-
-	tests := []struct {
-		name           string
-		jsonrpcVersion string
-		expectError    bool
-	}{
-		{
-			name:           "valid JSON-RPC version 2.0",
-			jsonrpcVersion: "2.0",
-			expectError:    false,
-		},
-		{
-			name:           "invalid JSON-RPC version 1.0",
-			jsonrpcVersion: "1.0",
-			expectError:    true,
-		},
-		{
-			name:           "invalid JSON-RPC version 3.0",
-			jsonrpcVersion: "3.0",
-			expectError:    true,
-		},
-		{
-			name:           "empty JSON-RPC version",
-			jsonrpcVersion: "",
-			expectError:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			request := &protocol.JSONRPCRequest{
-				JSONRPC: tt.jsonrpcVersion,
-				ID:      1,
-				Method:  "initialize",
-				Params:  map[string]interface{}{},
-			}
-
-			// We can't directly call handleRequest as it's not exported,
-			// but we can test the validation logic indirectly
-			if tt.expectError {
-				// Invalid versions should fail validation
-				if request.JSONRPC == "2.0" {
-					t.Errorf("Test case expects error but has valid version")
-				}
-			} else {
-				// Valid version should pass
-				if request.JSONRPC != "2.0" {
-					t.Errorf("Expected JSONRPC '2.0', got '%s'", request.JSONRPC)
-				}
-			}
-		})
-	}
-}
-
-func TestMCPServerStop(t *testing.T) {
-	cfg := &config.Config{
-		Cache: &config.CacheConfig{
-			Enabled:     true,
-			StoragePath: "/tmp/test-cache",
-		},
-		Servers: map[string]*config.ServerConfig{},
-	}
+func TestNewMCPServerRegistersGoSDKComponents(t *testing.T) {
+	cfg := newTestConfig()
 
 	mcpServer, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("NewMCPServer failed: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, mcpServer, "expected MCP server")
 
-	// Test that Stop method exists and can be called
-	err = mcpServer.Stop()
-	if err != nil {
-		t.Errorf("Stop() returned error: %v", err)
-	}
+	t.Run("sdk server initialized", func(t *testing.T) {
+		assert.NotNil(t, mcpServer.GoSDKServer())
+		assert.NotNil(t, mcpServer.Implementation())
+	})
+
+	t.Run("tools registered", func(t *testing.T) {
+		names := mcpServer.RegisteredToolNames()
+		assert.ElementsMatch(t, []string{"findSymbols", "findReferences"}, names)
+	})
+
+	t.Run("capabilities configured", func(t *testing.T) {
+		caps := mcpServer.Capabilities()
+		require.NotNil(t, caps.Tools)
+		assert.True(t, caps.Tools.ListChanged)
+	})
 }
 
-func TestMCPErrorCodes(t *testing.T) {
-	tests := []struct {
-		code     int
-		expected string
-	}{
-		{-32700, "Parse error"},
-		{-32600, "Invalid request"},
-		{-32601, "Method not found"},
-		{-32602, "Invalid params"},
-		{-32603, "Internal error"},
-		{-32000, "Server error"},
-	}
+func TestFindSymbolsToolSchemaExposesPattern(t *testing.T) {
+	cfg := newTestConfig()
+	mcpServer, err := server.NewMCPServer(cfg)
+	require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("code_%d", tt.code), func(t *testing.T) {
-			err := &protocol.RPCError{
-				Code:    tt.code,
-				Message: tt.expected,
-			}
+	def := mcpServer.ToolDefinition("findSymbols")
+	require.NotNil(t, def, "expected findSymbols tool definition")
+	assert.Equal(t, "findSymbols", def.Name)
+	assert.NotEmpty(t, def.Description)
+}
 
-			data, jsonErr := json.Marshal(err)
-			if jsonErr != nil {
-				t.Fatalf("Failed to marshal error: %v", jsonErr)
-			}
-			if !strings.Contains(string(data), tt.expected) {
-				t.Errorf("Error message not found in JSON: %s", string(data))
-			}
-		})
-	}
+// Ensure helper methods provide stable access for integration tests and tooling.
+func TestExportedAccessorsReturnCopies(t *testing.T) {
+	cfg := newTestConfig()
+	mcpServer, err := server.NewMCPServer(cfg)
+	require.NoError(t, err)
+
+	names := mcpServer.RegisteredToolNames()
+	require.Len(t, names, 2)
+
+	names[0] = "mutated"
+	// Re-read to ensure mutation does not leak into server internals.
+	again := mcpServer.RegisteredToolNames()
+	assert.NotEqual(t, names[0], again[0])
+
+	// Ensure capabilities are reported using go-sdk types.
+	caps := mcpServer.Capabilities()
+	assert.IsType(t, mcp.ServerCapabilities{}, caps)
 }

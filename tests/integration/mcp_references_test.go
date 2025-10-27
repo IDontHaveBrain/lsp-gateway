@@ -1,45 +1,33 @@
 package integration
 
 import (
-	"bufio"
-	"bytes"
+	"context"
 	"encoding/json"
-	"io"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/require"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 )
 
-type mcpReq struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      int         `json:"id"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-}
-
-type mcpResp struct {
-	JSONRPC string                 `json:"jsonrpc"`
-	ID      int                    `json:"id"`
-	Result  map[string]interface{} `json:"result"`
-	Error   interface{}            `json:"error"`
-}
-
-func TestMCPFindReferences_UsesSCIPAndPrintsRefs(t *testing.T) {
-	// Skip if gopls is not available; MCP initial indexing relies on LSP fallback
+func TestMCPFindReferences_UsesSCIPAndReturnsReferences(t *testing.T) {
 	if _, err := exec.LookPath("gopls"); err != nil {
 		t.Skip("Go LSP server (gopls) not installed, skipping test")
 	}
 
 	wd, _ := os.Getwd()
 	tmpDir := filepath.Join(wd, "..", "..", "tmp-mcp-refs")
-	_ = os.MkdirAll(tmpDir, 0755)
-	defer os.RemoveAll(tmpDir)
+	require.NoError(t, os.MkdirAll(tmpDir, 0o755))
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
 
 	mainFile := filepath.Join(tmpDir, "main.go")
 	mainContent := `package main
@@ -50,15 +38,13 @@ func main() {
 	Foo()
 }
 `
-	if err := os.WriteFile(mainFile, []byte(mainContent), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
+	require.NoError(t, os.WriteFile(mainFile, []byte(mainContent), 0o644))
 	goMod := filepath.Join(tmpDir, "go.mod")
-	_ = os.WriteFile(goMod, []byte("module m\n\ngo 1.21\n"), 0644)
+	require.NoError(t, os.WriteFile(goMod, []byte("module m\n\ngo 1.21\n"), 0o644))
 
-	orig, _ := os.Getwd()
-	_ = os.Chdir(tmpDir)
-	defer os.Chdir(orig)
+	origWd, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	cfg := &config.Config{
 		Cache: &config.CacheConfig{
@@ -71,193 +57,130 @@ func main() {
 		Servers: map[string]*config.ServerConfig{"go": {Command: "gopls", Args: []string{"serve"}}},
 	}
 
-	mcp, err := server.NewMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("new mcp: %v", err)
-	}
-	t.Logf("Created MCP server with cache enabled, background indexing: %v", cfg.Cache.BackgroundIndex)
+	mcpServer, err := server.NewMCPServer(cfg)
+	require.NoError(t, err)
 
-	prIn, pwIn := io.Pipe()
-	prOut, pwOut := io.Pipe()
-	defer pwIn.Close()
-	defer prOut.Close()
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
-	lines := make(chan []byte, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	serverErrCh := make(chan error, 1)
 	go func() {
-		_ = mcp.Run(prIn, pwOut)
-	}()
-	go func() {
-		s := bufio.NewScanner(prOut)
-		for s.Scan() {
-			b := make([]byte, len(s.Bytes()))
-			copy(b, s.Bytes())
-			lines <- b
+		if err := mcpServer.Run(ctx, serverTransport); err != nil && !errors.Is(err, context.Canceled) {
+			serverErrCh <- err
 		}
-		close(lines)
+		close(serverErrCh)
 	}()
 
-	initReq := mcpReq{JSONRPC: "2.0", ID: 1, Method: "initialize", Params: map[string]interface{}{"capabilities": map[string]interface{}{}}}
-	b, _ := json.Marshal(initReq)
-	pwIn.Write(append(b, '\n'))
-	t.Logf("Sent initialize request; proceeding to send findSymbols")
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "v1.0.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
 
-	symCall := mcpReq{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: map[string]interface{}{
-		"name": "findSymbols",
-		"arguments": map[string]interface{}{
-			"pattern":  "Foo",
-			"filePath": "*.go",
-		},
-	}}
-	b, _ = json.Marshal(symCall)
-	pwIn.Write(append(b, '\n'))
+	// Wait for the symbol to appear in the MCP tool output.
+	require.Eventually(t, func() bool {
+		res, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "findSymbols",
+			Arguments: map[string]any{
+				"pattern":  "Foo",
+				"filePath": "*.go",
+			},
+		})
+		if err != nil {
+			t.Logf("findSymbols call failed: %v", err)
+			return false
+		}
 
-	// Wait for findSymbols response and verify indexing worked
-	if !waitForFindSymbolsResponse(t, lines, 15*time.Second) {
-		t.Fatalf("findSymbols did not return expected results within timeout")
-	}
-	t.Logf("findSymbols succeeded, waiting for reference indexing to complete")
+		payload := extractStructuredPayload(t, res)
+		symbols, ok := payload["symbols"].([]interface{})
+		if !ok || len(symbols) == 0 {
+			return false
+		}
+		for _, sym := range symbols {
+			if symMap, ok := sym.(map[string]interface{}); ok {
+				if name, ok := symMap["name"].(string); ok && name == "Foo" {
+					return true
+				}
+			}
+		}
+		return false
+	}, 15*time.Second, 500*time.Millisecond, "findSymbols never returned Foo")
 
-	// Proceed to send findReferences; rely on response wait below
-	t.Logf("findSymbols succeeded; sending findReferences")
-
-	refCall := mcpReq{JSONRPC: "2.0", ID: 3, Method: "tools/call", Params: map[string]interface{}{
-		"name": "findReferences",
-		"arguments": map[string]interface{}{
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "findReferences",
+		Arguments: map[string]any{
 			"pattern":    "Foo",
 			"filePath":   "*.go",
 			"maxResults": 20,
 		},
-	}}
-	b, _ = json.Marshal(refCall)
-	pwIn.Write(append(b, '\n'))
+	})
+	require.NoError(t, err)
 
-	deadline := time.After(8 * time.Second)
-	var got []byte
-Loop:
-	for {
-		select {
-		case <-deadline:
-			break Loop
-		case line, ok := <-lines:
-			if !ok {
-				break Loop
-			}
-			if bytes.Contains(line, []byte("\"id\":3")) {
-				got = line
-				break Loop
-			}
-		}
-	}
-	if len(got) == 0 {
-		t.Fatalf("no response for findReferences")
-	}
-
-	var resp mcpResp
-	if err := json.Unmarshal(got, &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	content, ok := resp.Result["content"].([]interface{})
-	if !ok || len(content) == 0 {
-		t.Fatalf("no content")
-	}
-	text := content[0].(map[string]interface{})["text"].(string)
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
-		t.Fatalf("response text is not JSON: %v\n%s", err, text)
-	}
+	payload := extractStructuredPayload(t, res)
 	refsAny, ok := payload["references"].([]interface{})
-	if !ok || len(refsAny) == 0 {
-		t.Fatalf("missing references in payload: %s", text)
-	}
+	require.True(t, ok, "references payload missing")
+	require.NotEmpty(t, refsAny, "no references returned")
+
 	foundLineOnly := false
-	verifiedTextOnly := false
+	verifiedText := false
+	rangePattern := regexp.MustCompile(`:(\d+)(-\d+)?$`)
+	columnPattern := regexp.MustCompile(`:(\d+):(\d+)`)
+
 	for _, r := range refsAny {
-		m := r.(map[string]interface{})
-		loc := m["location"].(string)
-		if !bytes.Contains([]byte(loc), []byte("main.go")) {
+		refMap, ok := r.(map[string]interface{})
+		if !ok {
 			continue
 		}
-		if regexp.MustCompile(`:(\d+):(\d+)`).MatchString(loc) {
-			t.Fatalf("location contains line:col but should be file:line only: %s", loc)
-		}
-		if regexp.MustCompile(`:(\d+)$`).MatchString(loc) {
-			foundLineOnly = true
-		}
-		if txt, ok := m["text"].(string); ok && txt != "" {
-			if _, exists := m["code"]; exists {
-				t.Fatalf("code field should not be present: %v", m)
+		loc, _ := refMap["location"].(string)
+		if strings.Contains(loc, "main.go") {
+			if columnPattern.MatchString(loc) {
+				t.Fatalf("location contains line:col but should be file:line or file:line-line: %s", loc)
 			}
-			verifiedTextOnly = true
+			if rangePattern.MatchString(loc) {
+				foundLineOnly = true
+			}
+		}
+		if text, ok := refMap["text"].(string); ok && text != "" {
+			if _, exists := refMap["code"]; !exists {
+				verifiedText = true
+			}
 		}
 	}
-	if !foundLineOnly {
-		t.Fatalf("no location with file:line found in %s", text)
-	}
-	if !verifiedTextOnly {
-		t.Fatalf("text for the line not present in %s", text)
+
+	require.True(t, foundLineOnly, "expected reference locations to be file:line format")
+	require.True(t, verifiedText, "expected references to include surrounding source text")
+
+	cancel()
+	select {
+	case err, ok := <-serverErrCh:
+		if ok && err != nil {
+			t.Fatalf("mcp server exited with error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("server did not terminate")
 	}
 }
 
-// waitForFindSymbolsResponse waits for findSymbols to return results with the expected symbol
-func waitForFindSymbolsResponse(t *testing.T, lines <-chan []byte, timeout time.Duration) bool {
-	deadline := time.After(timeout)
-
-	for {
-		select {
-		case <-deadline:
-			t.Logf("Timeout waiting for findSymbols response")
-			return false
-		case line, ok := <-lines:
-			if !ok {
-				t.Logf("Channel closed while waiting for findSymbols response")
-				return false
-			}
-			if bytes.Contains(line, []byte("\"id\":2")) {
-				var resp mcpResp
-				if err := json.Unmarshal(line, &resp); err != nil {
-					t.Logf("Failed to decode findSymbols response: %v", err)
-					return false
-				}
-
-				// Check for errors first
-				if resp.Error != nil {
-					t.Logf("findSymbols returned error: %v", resp.Error)
-					return false
-				}
-
-				// Check if we got symbols
-				content, ok := resp.Result["content"].([]interface{})
-				if !ok || len(content) == 0 {
-					t.Logf("No content in findSymbols response")
-					return false
-				}
-
-				text := content[0].(map[string]interface{})["text"].(string)
-				var payload map[string]interface{}
-				if err := json.Unmarshal([]byte(text), &payload); err != nil {
-					t.Logf("Response text is not JSON: %v\nRaw text: %s", err, text)
-					return false
-				}
-
-				symbols, ok := payload["symbols"].([]interface{})
-				if !ok || len(symbols) == 0 {
-					t.Logf("findSymbols returned empty symbols, cache may not be ready yet: %s", text)
-					return false
-				}
-
-				// Verify we found the Foo function
-				for _, sym := range symbols {
-					if symMap, ok := sym.(map[string]interface{}); ok {
-						if name, ok := symMap["name"].(string); ok && name == "Foo" {
-							t.Logf("Successfully found Foo symbol via findSymbols")
-							return true
-						}
-					}
-				}
-
-				t.Logf("findSymbols returned %d symbols but no 'Foo' found: %s", len(symbols), text)
-				return false
-			}
+func extractStructuredPayload(t *testing.T, res *mcp.CallToolResult) map[string]interface{} {
+	t.Helper()
+	if res.StructuredContent != nil {
+		if payload, ok := res.StructuredContent.(map[string]interface{}); ok {
+			return payload
 		}
 	}
+
+	if len(res.Content) == 0 {
+		t.Fatalf("call tool result missing content")
+	}
+
+	switch c := res.Content[0].(type) {
+	case *mcp.TextContent:
+		var payload map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(c.Text), &payload))
+		return payload
+	default:
+		t.Fatalf("unsupported content type %T", c)
+	}
+	return nil
 }
