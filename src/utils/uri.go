@@ -4,13 +4,12 @@ package utils
 import (
 	"net/url"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-)
 
-const osWindows = "windows"
+	"lsp-gateway/src/internal/platform"
+)
 
 // Cache infrastructure for URI conversions
 var (
@@ -43,7 +42,7 @@ func URIToFilePath(uri string) string {
 	// On Windows, file URIs look like file:///C:/path/to/file
 	// After removing file://, we have /C:/path/to/file
 	// We need to remove the leading slash for Windows absolute paths
-	if runtime.GOOS == osWindows && len(path) > 2 {
+	if platform.IsWindows() && len(path) > 2 {
 		// Check if this looks like a Windows absolute path (e.g., /C:/)
 		if path[0] == '/' && path[2] == ':' {
 			path = path[1:]
@@ -67,7 +66,7 @@ func URIToFilePath(uri string) string {
 func FilePathToURI(path string) string {
 	// Clean the path first
 	path = filepath.Clean(path)
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		path = LongPath(path)
 	}
 
@@ -75,14 +74,14 @@ func FilePathToURI(path string) string {
 	path = filepath.ToSlash(path)
 
 	// Normalize Windows drive letter to uppercase for consistency
-	if runtime.GOOS == osWindows && len(path) >= 2 && path[1] == ':' {
+	if platform.IsWindows() && len(path) >= 2 && path[1] == ':' {
 		if 'a' <= path[0] && path[0] <= 'z' {
 			path = strings.ToUpper(path[:1]) + path[1:]
 		}
 	}
 
 	// On Windows, absolute paths need a leading slash to form file:///C:/...
-	if runtime.GOOS == osWindows && filepath.IsAbs(path) && !strings.HasPrefix(path, "/") {
+	if platform.IsWindows() && filepath.IsAbs(path) && !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 

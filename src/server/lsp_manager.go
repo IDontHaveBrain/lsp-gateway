@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/project"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/aggregators"
@@ -52,10 +52,10 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		scipCache:           cacheIntegrator.GetCache(),
 		projectInfo:         nil,
 	}
-    limiterSize := 2
-    if runtime.GOOS == osWindows {
-        limiterSize = 1
-    }
+	limiterSize := 2
+	if platform.IsWindows() {
+		limiterSize = 1
+	}
 	manager.indexLimiter = make(chan struct{}, limiterSize)
 	if wd, err := os.Getwd(); err == nil {
 		language := manager.detectPrimaryLanguage(wd)

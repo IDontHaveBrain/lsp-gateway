@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/contextmap"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
@@ -24,17 +24,6 @@ import (
 )
 
 const jsonNullLiteral = "null"
-
-type contextNode struct {
-	Name      string         `json:"name,omitempty"`
-	Signature string         `json:"signature,omitempty"`
-	StartL    int            `json:"start_line"`
-	StartC    int            `json:"start_char"`
-	EndL      int            `json:"end_line"`
-	EndC      int            `json:"end_char"`
-	Kind      string         `json:"kind"`
-	Children  []*contextNode `json:"children,omitempty"`
-}
 
 type SymbolInfo struct {
 	Name       string   `json:"name"`
@@ -176,108 +165,35 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 		return fmt.Errorf("scip storage unavailable")
 	}
 
+	signatureMap, err := contextmap.BuildSignatureMap(
+		context.Background(),
+		storage,
+		func(uri string) string {
+			if path := utils.URIToFilePathCached(uri); path != "" {
+				return path
+			}
+			return uri
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	if outputPath == "" {
 		outputPath = "context-signature-map.txt"
 	}
 	wd, _ := os.Getwd()
-
-	// Collect entries grouped by file
-	grouped := make(map[string][]*contextNode)
-
-	// List and iterate documents
-	uris, err := storage.ListDocuments(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to list documents: %w", err)
-	}
-
-	totalSymbols := 0
-
-	for _, uri := range uris {
-		doc, err := storage.GetDocument(context.Background(), uri)
-		if err != nil || doc == nil {
-			continue
-		}
-
-		file := utils.URIToFilePathCached(uri)
-		if file == "" {
-			file = uri
-		}
-
-		for _, si := range doc.SymbolInformation {
-			name := strings.TrimSpace(si.DisplayName)
-			sig := strings.TrimSpace(si.SignatureDocumentation.Text)
-			if name == "" && sig == "" {
-				continue
-			}
-			nd := &contextNode{
-				Name:      name,
-				Signature: sig,
-				StartL:    int(si.Range.Start.Line),
-				StartC:    int(si.Range.Start.Character),
-				EndL:      int(si.Range.End.Line),
-				EndC:      int(si.Range.End.Character),
-				Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
-				Children:  nil,
-			}
-			grouped[file] = append(grouped[file], nd)
-			totalSymbols++
-		}
-	}
-
-	if totalSymbols == 0 {
-		return fmt.Errorf("no indexed symbols found; run 'lsp-gateway cache index' first")
-	}
-
-	// Sort files and entries
-	files := make([]string, 0, len(grouped))
-	for f := range grouped {
-		files = append(files, f)
-	}
-	sort.Strings(files)
-
-	for _, f := range files {
-		list := grouped[f]
-		sort.Slice(list, func(i, j int) bool {
-			if list[i].StartL == list[j].StartL {
-				if list[i].StartC == list[j].StartC {
-					if list[i].EndL == list[j].EndL {
-						if list[i].EndC == list[j].EndC {
-							return list[i].Name < list[j].Name
-						}
-						return list[i].EndC < list[j].EndC
-					}
-					return list[i].EndL < list[j].EndL
-				}
-				return list[i].StartC < list[j].StartC
-			}
-			return list[i].StartL < list[j].StartL
-		})
-		roots := buildTree(list)
-		grouped[f] = roots
-	}
-
-	// Write output
 	out, err := common.CreateFileUnder(wd, outputPath, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer func() { _ = out.Close() }()
 
-	w := bufio.NewWriter(out)
-	defer func() { _ = w.Flush() }()
-
-	// Header
-	_, _ = fmt.Fprintf(w, "# context signature map\n")
-	_, _ = fmt.Fprintf(w, "# generated: %s\n\n", time.Now().Format(time.RFC3339))
-
-	for _, f := range files {
-		_, _ = fmt.Fprintf(w, "FILE: %s\n", f)
-		roots := grouped[f]
-		writeNodes(w, roots, 0)
-		_, _ = fmt.Fprintln(w)
+	if err := signatureMap.WriteText(out, time.Now()); err != nil {
+		return fmt.Errorf("failed to write signature map: %w", err)
 	}
 
-	common.CLILogger.Info("Signature map written: %s (%d symbols)", outputPath, totalSymbols)
+	common.CLILogger.Info("Signature map written: %s (%d symbols)", outputPath, signatureMap.TotalSymbols)
 	return nil
 }
 
@@ -1082,49 +998,6 @@ func runContextSymbolsCmd(cmd *cobra.Command, args []string) error {
 	return ExtractSymbols(configPath, files, formatJSON, includeRefs)
 }
 
-func containsRange(p, c *contextNode) bool {
-	if c.StartL < p.StartL || (c.StartL == p.StartL && c.StartC < p.StartC) {
-		return false
-	}
-	if c.EndL > p.EndL || (c.EndL == p.EndL && c.EndC > p.EndC) {
-		return false
-	}
-	return true
-}
-
-func buildTree(nodes []*contextNode) []*contextNode {
-	var roots []*contextNode
-	var stack []*contextNode
-	for _, n := range nodes {
-		for len(stack) > 0 && !containsRange(stack[len(stack)-1], n) {
-			stack = stack[:len(stack)-1]
-		}
-		if len(stack) == 0 {
-			roots = append(roots, n)
-		} else {
-			parent := stack[len(stack)-1]
-			parent.Children = append(parent.Children, n)
-		}
-		stack = append(stack, n)
-	}
-	return roots
-}
-
-func writeNodes(w *bufio.Writer, nodes []*contextNode, depth int) {
-	indent := strings.Repeat("  ", depth)
-	for _, n := range nodes {
-		label := n.Name
-		if n.Signature != "" {
-			_, _ = fmt.Fprintf(w, "%s- %s: %s\n", indent, label, n.Signature)
-		} else {
-			_, _ = fmt.Fprintf(w, "%s- %s\n", indent, label)
-		}
-		if len(n.Children) > 0 {
-			writeNodes(w, n.Children, depth+1)
-		}
-	}
-}
-
 // parseDocumentSymbolsResult normalizes an LSP documentSymbol result into []lsp.DocumentSymbol
 func parseDocumentSymbolsResult(result interface{}) ([]lsp.DocumentSymbol, error) {
 	if result == nil {
@@ -1223,72 +1096,27 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 		return fmt.Errorf("scip storage unavailable")
 	}
 
-	type JSONOutput struct {
-		Generated string                    `json:"generated"`
-		Files     map[string][]*contextNode `json:"files"`
-		Total     int                       `json:"total_symbols"`
-	}
-
-	output := JSONOutput{
-		Generated: time.Now().Format(time.RFC3339),
-		Files:     make(map[string][]*contextNode),
-	}
-
-	uris, err := storage.ListDocuments(context.Background())
+	signatureMap, err := contextmap.BuildSignatureMap(
+		context.Background(),
+		storage,
+		func(uri string) string {
+			if path := utils.URIToFilePathCached(uri); path != "" {
+				return path
+			}
+			return uri
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to list documents: %w", err)
-	}
-
-	for _, uri := range uris {
-		doc, err := storage.GetDocument(context.Background(), uri)
-		if err != nil || doc == nil {
-			continue
-		}
-
-		file := utils.URIToFilePathCached(uri)
-		var nodes []*contextNode
-
-		for _, si := range doc.SymbolInformation {
-			name := strings.TrimSpace(si.DisplayName)
-			sig := strings.TrimSpace(si.SignatureDocumentation.Text)
-			if name == "" && sig == "" {
-				continue
-			}
-			nd := &contextNode{
-				Name:      name,
-				Signature: sig,
-				StartL:    int(si.Range.Start.Line),
-				StartC:    int(si.Range.Start.Character),
-				EndL:      int(si.Range.End.Line),
-				EndC:      int(si.Range.End.Character),
-				Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
-			}
-			nodes = append(nodes, nd)
-			output.Total++
-		}
-
-		if len(nodes) > 0 {
-			sort.Slice(nodes, func(i, j int) bool {
-				if nodes[i].StartL != nodes[j].StartL {
-					return nodes[i].StartL < nodes[j].StartL
-				}
-				return nodes[i].StartC < nodes[j].StartC
-			})
-			output.Files[file] = buildTree(nodes)
-		}
-	}
-
-	if output.Total == 0 {
-		return fmt.Errorf("no indexed symbols found; run 'lsp-gateway cache index' first")
+		return err
 	}
 
 	if outputPath == "" {
 		outputPath = "context-signature-map.json"
 	}
 
-	data, err := json.MarshalIndent(output, "", "  ")
+	data, err := signatureMap.ToJSON(time.Now())
 	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
+		return fmt.Errorf("failed to marshal signature map JSON: %w", err)
 	}
 
 	wd, _ := os.Getwd()
@@ -1296,11 +1124,11 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("invalid output path: %w", err)
 	}
-	if err := os.WriteFile(resolved, data, 0600); err != nil {
+	if err := os.WriteFile(resolved, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
-	common.CLILogger.Info("JSON signature map written: %s (%d symbols)", outputPath, output.Total)
+	common.CLILogger.Info("Signature map JSON written: %s (%d symbols)", outputPath, signatureMap.TotalSymbols)
 	return nil
 }
 

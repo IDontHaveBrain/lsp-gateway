@@ -8,13 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/project"
 	"lsp-gateway/src/internal/security"
 	"lsp-gateway/src/internal/types"
@@ -331,9 +331,9 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 				}
 			}
 		}
-		if runtime.GOOS == osWindows || isFWCD {
+		if platform.IsWindows() || isFWCD {
 			// Use stdio path below
-		} else if isJetBrains || runtime.GOOS != osWindows {
+		} else if isJetBrains || !platform.IsWindows() {
 			// Prefer socket mode for JetBrains server on non-Windows
 			// Choose an available port; default to 9999 when free, otherwise random
 			addr := "127.0.0.1:9999"

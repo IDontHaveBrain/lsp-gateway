@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/scip"
 )
 
@@ -21,13 +22,10 @@ func NewSearchGuard(enabled bool) *SearchGuard {
 // WithEnabledGuard executes the provided function only if the service is enabled.
 // Returns the function result if enabled, otherwise returns nil and no error.
 func (g *SearchGuard) WithEnabledGuard(fn func() (interface{}, error)) (interface{}, error) {
-	if !g.enabled {
-		return nil, nil
-	}
-	return fn()
+	return common.WithEnabledGuard(g.enabled, fn)
 }
 
-// NOTE: Use internal/common.WithEnabledGuard for typed guards to avoid duplication.
+// NOTE: Base guard behavior is delegated to internal/common.WithEnabledGuard for consistency.
 
 // MustBeEnabled returns an error if the service is disabled.
 // Use this for operations that require the service to be enabled.

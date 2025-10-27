@@ -1,17 +1,11 @@
 package server
 
 import (
-	"runtime"
 	"strings"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/platform"
 )
-
-const osWindows = "windows"
-
-func (m *LSPManager) resolveCommandPath2(language, command string) string {
-	return m.resolveCommandPath(language, command)
-}
 
 func (m *LSPManager) resolveCommandPath(language, command string) string {
 	if root := common.GetLSPToolRoot(language); root != "" {
@@ -39,7 +33,7 @@ func (m *LSPManager) resolveJavaCustom(command string) string {
 		return ""
 	}
 	var customPath string
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		customPath = common.GetLSPToolPath("java", "jdtls.bat")
 	} else {
 		customPath = common.GetLSPToolPath("java", "jdtls")
@@ -52,7 +46,7 @@ func (m *LSPManager) resolveJavaCustom(command string) string {
 }
 
 func (m *LSPManager) resolveWindowsJDTLS(command string) string {
-	if runtime.GOOS != osWindows {
+	if !platform.IsWindows() {
 		return ""
 	}
 	lower := strings.ToLower(command)
@@ -91,7 +85,7 @@ func (m *LSPManager) resolveCustomLanguageMap(command string) string {
 		return ""
 	}
 	customPath := common.GetLSPToolPath(lang, command)
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		switch command {
 		case "typescript-language-server", "pylsp", "jedi-language-server":
 			customPath = customPath + ".cmd"

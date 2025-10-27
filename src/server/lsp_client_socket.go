@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,6 +16,7 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
@@ -141,7 +141,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
 	// Kotlin needs time to initialize before opening socket on Linux/macOS
 	// Windows uses stdio mode with fwcd/kotlin-language-server so doesn't need this
-	if c.language == langKotlin && runtime.GOOS != osWindows {
+	if c.language == langKotlin && !platform.IsWindows() {
 		initialDelay := 3 * time.Second
 		if common.IsCI() {
 			// Increase delay on CI to give Kotlin more time to bind the socket
@@ -168,7 +168,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 	var conn net.Conn
 	var lastErr error
 	retryInterval := 200 * time.Millisecond
-	if c.language == langKotlin && runtime.GOOS == osWindows && common.IsCI() {
+	if c.language == langKotlin && platform.IsWindows() && common.IsCI() {
 		// More frequent retries on Windows CI to catch when the server is ready
 		retryInterval = 300 * time.Millisecond
 	} else if c.language == langKotlin {
@@ -276,7 +276,7 @@ func (c *SocketClient) SendRequest(ctx context.Context, method string, params in
 		}
 		var opErr *net.OpError
 		if stderrors.As(writeErr, &opErr) {
-			if runtime.GOOS == osWindows {
+			if platform.IsWindows() {
 				isConnectionError = true
 			}
 			if opErr.Timeout() {
@@ -409,7 +409,7 @@ func (c *SocketClient) initializeLSP(ctx context.Context) error {
 		var err error
 		wd, err = os.Getwd()
 		if err != nil {
-			if runtime.GOOS == osWindows {
+			if platform.IsWindows() {
 				wd = os.TempDir()
 			} else {
 				wd = "/tmp"

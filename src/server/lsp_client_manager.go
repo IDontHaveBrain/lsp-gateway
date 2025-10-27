@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,6 +17,7 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
@@ -437,8 +437,8 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	} else {
 		var err error
 		wd, err = os.Getwd()
-    		if err != nil {
-			if runtime.GOOS == osWindows {
+		if err != nil {
+			if platform.IsWindows() {
 				wd = "C:\\temp"
 			} else {
 				wd = "/tmp"
@@ -448,7 +448,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 
 	// Ensure path is absolute and clean
 	wd, _ = filepath.Abs(wd)
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		wd = utils.URIToFilePathCached(utils.FilePathToURI(wd))
 	}
 
