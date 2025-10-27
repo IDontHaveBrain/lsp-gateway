@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"lsp-gateway/tests/e2e/base"
+	"lsp-gateway/tests/e2e/testutils"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -102,14 +103,13 @@ func isLanguageAvailable(lang string) bool {
 	case "go":
 		return has("gopls") || hasTool("go", "gopls")
 	case "python":
-		return has("basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server") ||
-			hasTool("python", "basedpyright-langserver", "pyright-langserver", "pylsp", "jedi-language-server")
+		return testutils.PythonLSPAvailable()
 	case "javascript", "typescript":
 		return has("typescript-language-server") || hasTool("typescript", "typescript-language-server")
 	case "java":
 		return has("jdtls") || hasTool("java", "jdtls")
 	case "rust":
-		return has("rust-analyzer") || hasTool("rust", "rust-analyzer")
+		return testutils.RustAnalyzerAvailable()
 	case "csharp":
 		return has("omnisharp", "OmniSharp") || hasTool("csharp", "omnisharp", "OmniSharp")
 	case "kotlin":

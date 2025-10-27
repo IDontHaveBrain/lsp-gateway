@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -297,6 +298,26 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 }
 
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
+	if language == langPython {
+		candidates := m.buildPythonCommandCandidates(cfg)
+		var errs []error
+		for _, cand := range candidates {
+			if err := m.tryStartCandidate(ctx, language, cfg, cand); err == nil {
+				if cand.command != "" && cfg != nil && cand.command != cfg.Command {
+					common.LSPLogger.Info("Started %s client using fallback command %s %v", language, cand.command, cand.args)
+				}
+				return nil
+			} else {
+				errs = append(errs, fmt.Errorf("%s %v: %w", cand.command, cand.args, err))
+				common.LSPLogger.Warn("Python LSP candidate '%s %v' failed: %v", cand.command, cand.args, err)
+			}
+		}
+		if len(errs) == 0 {
+			return fmt.Errorf("%s: no Python LSP candidates available", language)
+		}
+		return fmt.Errorf("%s: %w", language, errors.Join(errs...))
+	}
+
 	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
 	argsToUse := cfg.Args
 
@@ -334,8 +355,6 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 		if platform.IsWindows() || isFWCD {
 			// Use stdio path below
 		} else if isJetBrains || !platform.IsWindows() {
-			// Prefer socket mode for JetBrains server on non-Windows
-			// Choose an available port; default to 9999 when free, otherwise random
 			addr := "127.0.0.1:9999"
 			if ln, e := net.Listen("tcp", addr); e == nil {
 				_ = ln.Close()
@@ -347,12 +366,11 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 					_ = ln2.Close()
 				}
 			}
-			// Pass explicit socket to server to avoid ambiguity
 			argsToUse = []string{"--socket", addr}
 			common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
 			clientConfig := types.ClientConfig{Command: resolvedCommand, Args: argsToUse, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 			if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
-				return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
+				return fmt.Errorf("%s: invalid LSP server command: %w", language, err)
 			}
 			socketClient, err := NewSocketClient(clientConfig, language, addr)
 			if err == nil {
@@ -378,38 +396,36 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 				common.LSPLogger.Warn("Failed to create Kotlin socket client: %v; falling back to stdio", err)
 			}
 
-			// Fallback 1: Try JetBrains kotlin-lsp via stdio
 			common.LSPLogger.Info("Attempting Kotlin LSP stdio mode as fallback")
 			stdioArgs := []string{"--stdio"}
 			stdioCfg := types.ClientConfig{Command: resolvedCommand, Args: stdioArgs, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 			if err := security.ValidateCommand(resolvedCommand, stdioArgs); err == nil {
 				if stdClient, e2 := NewStdioClient(stdioCfg, language); e2 == nil {
-					if e3 := stdClient.Start(ctx); e3 == nil {
+					if startErr := stdClient.Start(ctx); startErr == nil {
 						m.mu.Lock()
 						m.clients[language] = stdClient
 						m.mu.Unlock()
 						return nil
 					} else {
-						common.LSPLogger.Warn("Kotlin stdio mode (JetBrains) failed to start: %v", e3)
+						common.LSPLogger.Warn("Kotlin stdio mode (JetBrains) failed to start: %v", startErr)
 					}
 				} else {
 					common.LSPLogger.Warn("Failed to create Kotlin stdio client (JetBrains): %v", e2)
 				}
 			}
 
-			// Fallback 2: Try fwcd kotlin-language-server via stdio if available
 			if p2, e2 := exec.LookPath("kotlin-language-server"); e2 == nil {
 				altCfg := types.ClientConfig{Command: p2, Args: []string{}, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 				if err := security.ValidateCommand(p2, nil); err == nil {
 					if fwcdClient, e3 := NewStdioClient(altCfg, language); e3 == nil {
-						if e4 := fwcdClient.Start(ctx); e4 == nil {
+						if startErr := fwcdClient.Start(ctx); startErr == nil {
 							common.LSPLogger.Info("Using fwcd kotlin-language-server via stdio as fallback")
 							m.mu.Lock()
 							m.clients[language] = fwcdClient
 							m.mu.Unlock()
 							return nil
 						} else {
-							common.LSPLogger.Error("Failed to start fwcd kotlin-language-server: %v", e4)
+							common.LSPLogger.Error("Failed to start fwcd kotlin-language-server: %v", startErr)
 						}
 					} else {
 						common.LSPLogger.Error("Failed to create fwcd kotlin-language-server client: %v", e3)
@@ -421,77 +437,112 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 		}
 	}
 
+	if err := m.tryStartCandidate(ctx, language, cfg, commandCandidate{command: resolvedCommand, args: argsToUse, resolved: true}); err != nil {
+		return fmt.Errorf("%s: %w", language, err)
+	}
+	return nil
+}
+
+type commandCandidate struct {
+	command  string
+	args     []string
+	resolved bool
+}
+
+func (m *LSPManager) buildPythonCommandCandidates(cfg *config.ServerConfig) []commandCandidate {
+	seen := make(map[string]bool)
+	var candidates []commandCandidate
+
+	add := func(cmd string, args []string) {
+		if cmd == "" {
+			return
+		}
+		key := cmd + "|" + strings.Join(args, "\x00")
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		copiedArgs := append([]string(nil), args...)
+		candidates = append(candidates, commandCandidate{command: cmd, args: copiedArgs})
+	}
+
+	if cfg != nil && cfg.Command != "" {
+		add(cfg.Command, cfg.Args)
+	}
+
+	add(serverBasedPyrightLS, []string{"--stdio"})
+	add(serverPyrightLS, []string{"--stdio"})
+	add("pylsp", nil)
+	add(serverJediLS, []string{"--stdio"})
+	add("uvx", []string{"--from", "basedpyright", serverBasedPyrightLS, "--", "--stdio"})
+	add("uvx", []string{"--from", "pyright", serverPyrightLS, "--", "--stdio"})
+
+	return candidates
+}
+
+func (m *LSPManager) tryStartCandidate(ctx context.Context, language string, cfg *config.ServerConfig, cand commandCandidate) error {
+	commandName := cand.command
+	if commandName == "" {
+		return fmt.Errorf("empty command")
+	}
+
+	resolvedCommand := commandName
+	if !cand.resolved {
+		resolvedCommand = m.resolveCommandPath(language, commandName)
+	}
+
+	argsToUse := cand.args
+	if argsToUse == nil && cfg != nil {
+		argsToUse = cfg.Args
+	}
+
 	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
 		return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
 	}
 	if _, err := exec.LookPath(resolvedCommand); err != nil {
-		if language == langPython {
-			type candidate struct {
-				cmd  string
-				args []string
-			}
-			seen := map[string]bool{}
-			candidates := []candidate{}
-			add := func(cmd string, args []string) {
-				if cmd != "" && !seen[cmd] {
-					seen[cmd] = true
-					candidates = append(candidates, candidate{cmd: cmd, args: args})
-				}
-			}
-			add(cfg.Command, cfg.Args)
-			add(serverBasedPyrightLS, []string{"--stdio"})
-			add(serverPyrightLS, []string{"--stdio"})
-			add("pylsp", []string{})
-			add(serverJediLS, []string{})
-			found := false
-			for _, c := range candidates {
-				rc := m.resolveCommandPath(language, c.cmd)
-				if rc == "" {
-					continue
-				}
-				if _, e := exec.LookPath(rc); e == nil {
-					resolvedCommand = rc
-					argsToUse = c.args
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("LSP server for %s not found: tried %v", language, candidates)
-			}
-		} else {
-			return fmt.Errorf("LSP server command not found: %s", resolvedCommand)
-		}
+		return fmt.Errorf("LSP server command not found: %s", resolvedCommand)
 	}
 
-	clientConfig := types.ClientConfig{Command: resolvedCommand, Args: argsToUse, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
+	clientConfig := types.ClientConfig{
+		Command:               resolvedCommand,
+		Args:                  append([]string(nil), argsToUse...),
+		WorkingDir:            cfg.WorkingDir,
+		InitializationOptions: cfg.InitializationOptions,
+	}
+
 	client, err := NewStdioClient(clientConfig, language)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+
 	if err := client.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start client: %w", err)
 	}
-
-	m.mu.Lock()
-	m.clients[language] = client
-	m.mu.Unlock()
 
 	if activeClient, ok := client.(interface{ IsActive() bool }); ok {
 		maxWaitIterations := m.getClientActiveWaitIterations(language)
 		for i := 0; i < maxWaitIterations; i++ {
 			select {
 			case <-ctx.Done():
+				_ = client.Stop()
 				return fmt.Errorf("context cancelled while waiting for client to become active")
 			default:
 				if activeClient.IsActive() {
+					m.mu.Lock()
+					m.clients[language] = client
+					m.mu.Unlock()
 					return nil
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
+		_ = client.Stop()
 		return fmt.Errorf("client did not become active within timeout")
 	}
+
+	m.mu.Lock()
+	m.clients[language] = client
+	m.mu.Unlock()
 	return nil
 }
 
