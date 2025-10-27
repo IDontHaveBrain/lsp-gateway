@@ -5,12 +5,12 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	errorspkg "lsp-gateway/src/internal/errors"
+	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/errors"
 	"strings"
@@ -64,13 +64,13 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 			}
 		}
 	}
-    if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
-        _ = m.scipCache.Store(method, params, result)
-        if method == types.MethodTextDocumentDocumentSymbol {
-            idxCtx, cancel := common.CreateContext(constants.AdjustDurationForWindows(12*time.Second, 1.5))
-            defer cancel()
-            m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
-        } else {
+	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
+		_ = m.scipCache.Store(method, params, result)
+		if method == types.MethodTextDocumentDocumentSymbol {
+			idxCtx, cancel := common.CreateContext(constants.AdjustDurationForWindows(12*time.Second, 1.5))
+			defer cancel()
+			m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
+		} else {
 			m.scheduleIndexing(method, uri, language, params, result)
 		}
 	}
@@ -80,7 +80,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPClient, method string, params interface{}, uri string, language string) (json.RawMessage, error) {
 	maxRetries := 3
 	baseDelay := 200 * time.Millisecond
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		baseDelay = 500 * time.Millisecond
 		maxRetries = 4
 	}

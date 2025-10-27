@@ -1,10 +1,12 @@
 package testutils
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -256,38 +258,114 @@ func detectAvailablePythonLSP() (string, []string, bool) {
 		{"basedpyright-langserver", []string{"--stdio"}},
 		{"pyright-langserver", []string{"--stdio"}},
 		{"pylsp", []string{}},
-		{"jedi-language-server", []string{}},
-	}
-
-	// helper to check PATH and common custom install dir
-	exists := func(name string) bool {
-		if p, err := exec.LookPath(name); err == nil && p != "" {
-			return true
-		}
-		// Check ~/.lsp-gateway/tools/python/<name> (and Windows .cmd)
-		if home, err := os.UserHomeDir(); err == nil {
-			base := filepath.Join(home, ".lsp-gateway", "tools", "python", name)
-			if fi, err2 := os.Stat(base); err2 == nil && !fi.IsDir() {
-				return true
-			}
-			if runtime.GOOS == "windows" {
-				if fi, err2 := os.Stat(base + ".cmd"); err2 == nil && !fi.IsDir() {
-					return true
-				}
-				if fi, err2 := os.Stat(base + ".exe"); err2 == nil && !fi.IsDir() {
-					return true
-				}
-			}
-		}
-		return false
+		{"jedi-language-server", []string{"--stdio"}},
 	}
 
 	for _, c := range candidates {
-		if exists(c.cmd) {
+		if commandAvailableThroughPythonTools(c.cmd) {
 			return c.cmd, c.args, true
 		}
 	}
+
+	// Fallback to uvx-managed language servers if direct binaries are unavailable.
+	if _, err := exec.LookPath("uvx"); err == nil {
+		uvxCandidates := []cand{
+			{"uvx", []string{"--from", "basedpyright", "basedpyright-langserver", "--", "--stdio"}},
+			{"uvx", []string{"--from", "pyright", "pyright-langserver", "--", "--stdio"}},
+		}
+		for _, c := range uvxCandidates {
+			// Ensure uvx itself is runnable before returning it.
+			if isCommandStartable("uvx") {
+				return c.cmd, c.args, true
+			}
+		}
+	}
+
 	return "", nil, false
+}
+
+// commandAvailableThroughPythonTools verifies whether a python language server command
+// can be launched either from PATH or from the ~/.lsp-gateway/tools/python directory.
+func commandAvailableThroughPythonTools(name string) bool {
+	for _, candidate := range pythonCommandPaths(name) {
+		if isCommandStartable(candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func pythonCommandPaths(name string) []string {
+	paths := []string{}
+	if path, err := exec.LookPath(name); err == nil && path != "" {
+		paths = append(paths, path)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		base := filepath.Join(home, ".lsp-gateway", "tools", "python")
+		variants := []string{name}
+		if runtime.GOOS == "windows" {
+			variants = append(variants, name+".cmd", name+".exe")
+		}
+		for _, variant := range variants {
+			p := filepath.Join(base, variant)
+			if fi, err2 := os.Stat(p); err2 == nil && !fi.IsDir() {
+				paths = append(paths, p)
+			}
+		}
+	}
+	return paths
+}
+
+func isCommandStartable(path string) bool {
+	if path == "" {
+		return false
+	}
+	cmd := exec.Command(path, "--help")
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		return false
+	}
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
+	select {
+	case <-time.After(2 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+	case <-done:
+	}
+	return true
+}
+
+// PythonLSPAvailable reports whether a Python language server binary is runnable without uvx.
+func PythonLSPAvailable() bool {
+	for _, name := range []string{
+		"basedpyright-langserver",
+		"pyright-langserver",
+		"pylsp",
+		"jedi-language-server",
+	} {
+		if commandAvailableThroughPythonTools(name) {
+			return true
+		}
+	}
+	return false
+}
+
+// RustAnalyzerAvailable reports whether rust-analyzer is installed via rustup.
+func RustAnalyzerAvailable() bool {
+	if _, err := exec.LookPath("rustup"); err != nil {
+		return false
+	}
+	cmd := exec.Command("rustup", "component", "list", "--installed")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(output, []byte("rust-analyzer"))
 }
 
 // waitForServerReady waits for the shared server to be ready

@@ -4,20 +4,17 @@ import (
 	"fmt"
 	"time"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache/search"
 )
 
 // WithEnabledGuard executes the provided function only if the cache is enabled.
 // Returns the function result if cache is enabled, otherwise returns nil and no error.
 func (m *SCIPCacheManager) WithEnabledGuard(fn func() (interface{}, error)) (interface{}, error) {
-	if !m.enabled {
-		return nil, nil
-	}
-	return fn()
+	return common.WithEnabledGuard(m.enabled, fn)
 }
 
-// NOTE: Typed guard helpers are centralized in internal/common.WithEnabledGuard.
-// Local typed variants removed to avoid duplication.
+// NOTE: Base guard behavior is delegated to internal/common.WithEnabledGuard to keep semantics consistent.
 
 // MustBeEnabled returns an error if the cache is disabled.
 // Use this for operations that require the cache to be enabled.

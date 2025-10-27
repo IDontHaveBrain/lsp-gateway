@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"lsp-gateway/tests/e2e/base"
+	"lsp-gateway/tests/e2e/testutils"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -27,5 +28,8 @@ func (suite *RustReferencesSuite) TestRustLSPReferences() {
 }
 
 func TestRustReferencesSuite(t *testing.T) {
+	if !testutils.RustAnalyzerAvailable() {
+		t.Skip("rust-analyzer not available; skipping Rust E2E suite")
+	}
 	suite.Run(t, new(RustReferencesSuite))
 }

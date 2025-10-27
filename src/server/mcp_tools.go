@@ -1,539 +1,205 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"time"
 
-	"lsp-gateway/src/internal/common"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"lsp-gateway/src/internal/constants"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/protocol"
-	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/utils"
-	"lsp-gateway/src/utils/filepattern"
-	"lsp-gateway/src/utils/lspconv"
 )
 
-// =============================================================================
-// Main Tool Dispatcher
-// =============================================================================
+const (
+	symbolToolTimeout     = 5 * time.Second
+	referenceToolTimeout  = 8 * time.Second
+	defaultReferenceQuery = "**/*"
+)
 
-// delegateToolCall executes LSP tool calls with cache performance tracking
-func (m *MCPServer) delegateToolCall(req *protocol.JSONRPCRequest) *protocol.JSONRPCResponse {
-	params, ok := req.Params.(map[string]interface{})
-	if !ok {
-		response := m.responseFactory.CreateInvalidParams(req.ID, fmt.Sprintf("expected object, got %T", req.Params))
-		return &response
-	}
-
-	name, ok := params["name"].(string)
-	if !ok {
-		response := m.responseFactory.CreateInvalidParams(req.ID, "missing required parameter: name")
-		return &response
-	}
-
-	// MCP server only handles enhanced tools, not basic LSP methods
-	// Route to appropriate enhanced tool handler
-	var result interface{}
-	var err error
-
-	switch name {
-	case "findSymbols":
-		result, err = m.handleFindSymbols(params)
-	case "findReferences":
-		result, err = m.handleFindSymbolReferences(params)
-	default:
-		response := m.responseFactory.CreateError(req.ID, protocol.MethodNotFound, fmt.Sprintf("tool not found: %s", name))
-		return &response
-	}
-
-	if err != nil {
-		response := m.responseFactory.CreateInternalError(req.ID, err)
-		return &response
-	}
-
-	response := m.responseFactory.CreateSuccess(req.ID, result)
-	return &response
+// FindSymbolsInput describes the structured input accepted by the findSymbols tool.
+type FindSymbolsInput struct {
+	Pattern     string `json:"pattern"`
+	FilePath    string `json:"filePath"`
+	MaxResults  int    `json:"maxResults,omitempty"`
+	IncludeCode bool   `json:"includeCode,omitempty"`
 }
 
-// =============================================================================
-// Enhanced MCP Tools
-// =============================================================================
-
-// handleFindSymbols handles the findSymbols tool for finding code symbols
-func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{}, error) {
-
-	arguments, ok := params["arguments"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("missing or invalid arguments")
-	}
-
-	pattern, ok := arguments["pattern"].(string)
-	if !ok || pattern == "" {
-		return nil, fmt.Errorf("pattern is required and must be a string")
-	}
-
-	filePath, ok := arguments["filePath"].(string)
-	if !ok || filePath == "" {
-		return nil, fmt.Errorf("filePath is required and must be a string")
-	}
-
-	query := types.SymbolPatternQuery{
-		Pattern:     pattern,
-		FilePattern: filePath,
-	}
-
-	// Parse max results
-	if maxResults, ok := arguments["maxResults"].(float64); ok {
-		query.MaxResults = int(maxResults)
-	}
-
-	// Parse include code
-	if includeCode, ok := arguments["includeCode"].(bool); ok {
-		query.IncludeCode = includeCode
-	}
-
-	// Execute the search using SCIP cache directly with fallback
-	ctx, cancel := common.CreateContext(5 * time.Second)
-	defer cancel()
-	var result *types.SymbolPatternResult
-
-	// Decide whether to fallback based on cache readiness
-	fallbackToLSP := false
-	if m.lspManager.scipCache == nil {
-		fallbackToLSP = true
-	} else {
-		if stats := m.lspManager.scipCache.GetIndexStats(); stats == nil || stats.Status == "disabled" || (stats.SymbolCount == 0 && stats.DocumentCount == 0) {
-			fallbackToLSP = true
-		}
-	}
-
-	// Try direct SCIP cache first for performance when ready
-	if !fallbackToLSP && m.lspManager.scipCache != nil {
-		maxResults := query.MaxResults
-		if maxResults <= 0 {
-			maxResults = constants.DefaultMaxResults
-		}
-
-		scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, query.FilePattern, maxResults)
-		if scipErr == nil && len(scipResults) > 0 {
-			// Convert SCIP results to SymbolPatternResult format
-			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
-			for _, scipResult := range scipResults {
-				// Handle enhanced result format with occurrence data
-				if enhancedData, ok := scipResult.(map[string]interface{}); ok {
-					// Extract symbol info and occurrence
-					var symbolInfo scip.SCIPSymbolInformation
-					var occurrence *scip.SCIPOccurrence
-					var rng types.Range
-
-					if si, ok := enhancedData["symbolInfo"].(scip.SCIPSymbolInformation); ok {
-						symbolInfo = si
-					}
-					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
-						occurrence = occ
-					}
-					// Also try to extract a plain range if provided
-					if r, ok := enhancedData["range"].(types.Range); ok {
-						rng = r
-					} else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
-						if pr, ok := lspconv.ParseRangeFromMap(rmap); ok {
-							rng = pr
-						}
-					}
-
-					// Extract file path and range from occurrence/range
-					filePath := ""
-					// Prefer explicit documentURI if present
-					if docURI, ok := enhancedData["documentURI"].(string); ok && docURI != "" {
-						filePath = utils.URIToFilePathCached(docURI)
-					} else if fp, ok := enhancedData["filePath"].(string); ok && fp != "" {
-						filePath = utils.URIToFilePathCached(fp)
-					}
-
-					// Determine line range
-					lineNumber := 0
-					endLine := 0
-					if occurrence != nil {
-						lineNumber = int(occurrence.Range.Start.Line)
-						endLine = int(occurrence.Range.End.Line)
-					} else if (rng.Start.Line != 0 || rng.End.Line != 0) || (rng.Start.Character != 0 || rng.End.Character != 0) {
-						lineNumber = int(rng.Start.Line)
-						endLine = int(rng.End.Line)
-					}
-					if endLine < lineNumber {
-						endLine = lineNumber
-					}
-
-					// Convert SCIP kind to LSP kind
-					lspKind := types.Variable // Default
-					switch symbolInfo.Kind {
-					case scip.SCIPSymbolKindClass:
-						lspKind = types.Class
-					case scip.SCIPSymbolKindMethod:
-						lspKind = types.Method
-					case scip.SCIPSymbolKindFunction:
-						lspKind = types.Function
-					case scip.SCIPSymbolKindNamespace:
-						lspKind = types.Namespace
-					case scip.SCIPSymbolKindModule:
-						lspKind = types.Module
-					case scip.SCIPSymbolKindInterface:
-						lspKind = types.Interface
-					case scip.SCIPSymbolKindEnum:
-						lspKind = types.Enum
-					case scip.SCIPSymbolKindField:
-						lspKind = types.Field
-					case scip.SCIPSymbolKindProperty:
-						lspKind = types.Property
-					case scip.SCIPSymbolKindConstructor:
-						lspKind = types.Constructor
-					case scip.SCIPSymbolKindVariable:
-						lspKind = types.Variable
-					case scip.SCIPSymbolKindConstant:
-						lspKind = types.Constant
-					case scip.SCIPSymbolKindStruct:
-						lspKind = types.Struct
-					}
-
-					// Extract documentation
-					documentation := ""
-					if len(symbolInfo.Documentation) > 0 {
-						documentation = strings.Join(symbolInfo.Documentation, "\n")
-					}
-
-					// Create enhanced symbol info
-					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: types.SymbolInformation{
-							Name: symbolInfo.DisplayName,
-							Kind: lspKind,
-							Location: types.Location{
-								URI: utils.FilePathToURI(filePath),
-								Range: types.Range{
-									Start: types.Position{Line: int32(lineNumber), Character: 0},
-									End:   types.Position{Line: int32(endLine), Character: 0},
-								},
-							},
-						},
-						FilePath:      filePath,
-						LineNumber:    lineNumber,
-						EndLine:       endLine,
-						Documentation: documentation,
-					}
-					symbols = append(symbols, enhanced)
-				} else if scipSymbol, ok := scipResult.(scip.SCIPSymbolInformation); ok {
-					// Fallback: handle plain SCIPSymbolInformation; resolve file/lines via storage
-					symbolName := scipSymbol.DisplayName
-					symbolID := scipSymbol.Symbol
-
-					// Convert SCIP kind to LSP kind
-					lspKind := types.Variable // Default
-					switch scipSymbol.Kind {
-					case scip.SCIPSymbolKindClass:
-						lspKind = types.Class
-					case scip.SCIPSymbolKindMethod:
-						lspKind = types.Method
-					case scip.SCIPSymbolKindFunction:
-						lspKind = types.Function
-					case scip.SCIPSymbolKindNamespace:
-						lspKind = types.Namespace
-					case scip.SCIPSymbolKindModule:
-						lspKind = types.Module
-					case scip.SCIPSymbolKindInterface:
-						lspKind = types.Interface
-					case scip.SCIPSymbolKindEnum:
-						lspKind = types.Enum
-					case scip.SCIPSymbolKindField:
-						lspKind = types.Field
-					case scip.SCIPSymbolKindProperty:
-						lspKind = types.Property
-					case scip.SCIPSymbolKindConstructor:
-						lspKind = types.Constructor
-					case scip.SCIPSymbolKindVariable:
-						lspKind = types.Variable
-					case scip.SCIPSymbolKindConstant:
-						lspKind = types.Constant
-					case scip.SCIPSymbolKindStruct:
-						lspKind = types.Struct
-					}
-
-					// Extract documentation
-					documentation := ""
-					if len(scipSymbol.Documentation) > 0 {
-						documentation = strings.Join(scipSymbol.Documentation, "\n")
-					}
-
-					// Resolve path via definitions/occurrences; fall back to scanning symbol info
-					filePath := ""
-					lineNumber := int(scipSymbol.Range.Start.Line)
-					endLine := int(scipSymbol.Range.End.Line)
-					if m.lspManager != nil && m.lspManager.scipCache != nil {
-						if storage := m.lspManager.scipCache.GetSCIPStorage(); storage != nil {
-							if defs, _ := storage.GetDefinitionsWithDocuments(context.Background(), symbolID); len(defs) > 0 {
-								filePath = utils.URIToFilePathCached(defs[0].DocumentURI)
-								lineNumber = int(defs[0].Range.Start.Line)
-								endLine = int(defs[0].Range.End.Line)
-							} else if occs, _ := storage.GetOccurrencesWithDocuments(context.Background(), symbolID); len(occs) > 0 {
-								filePath = utils.URIToFilePathCached(occs[0].DocumentURI)
-								lineNumber = int(occs[0].Range.Start.Line)
-								endLine = int(occs[0].Range.End.Line)
-							} else if uris, e := storage.ListDocuments(context.Background()); e == nil {
-								for _, uri := range uris {
-									if doc, de := storage.GetDocument(context.Background(), uri); de == nil && doc != nil {
-										for _, si := range doc.SymbolInformation {
-											if si.Symbol == symbolID {
-												filePath = utils.URIToFilePathCached(uri)
-												if si.Range.Start.Line != 0 || si.Range.End.Line != 0 || si.Range.Start.Character != 0 || si.Range.End.Character != 0 {
-													lineNumber = int(si.Range.Start.Line)
-													endLine = int(si.Range.End.Line)
-												}
-												break
-											}
-										}
-									}
-									if filePath != "" {
-										break
-									}
-								}
-							}
-						}
-					}
-
-					// Skip unresolved entries to avoid unknown locations
-					if filePath == "" {
-						continue
-					}
-					uri := utils.FilePathToURI(filePath)
-
-					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: types.SymbolInformation{
-							Name: symbolName,
-							Kind: lspKind,
-							Location: types.Location{
-								URI: uri,
-								Range: types.Range{
-									Start: types.Position{Line: int32(lineNumber), Character: 0},
-									End:   types.Position{Line: int32(endLine), Character: 0},
-								},
-							},
-						},
-						FilePath:      filePath,
-						LineNumber:    lineNumber,
-						EndLine:       endLine,
-						Documentation: documentation,
-					}
-					symbols = append(symbols, enhanced)
-				}
-			}
-
-			result = &types.SymbolPatternResult{
-				Symbols:    symbols,
-				TotalCount: len(symbols),
-				Truncated:  len(scipResults) >= maxResults,
-			}
-		} else {
-			// Cache miss while index is ready – keep result empty
-			result = &types.SymbolPatternResult{Symbols: []types.EnhancedSymbolInfo{}, TotalCount: 0, Truncated: false}
-		}
-	} else {
-		// Cache unavailable or not ready – fallback to LSP workspace symbol search
-		res, fbErr := m.fallbackFindSymbolsWithLSP(ctx, pattern, query.FilePattern, query.MaxResults)
-		if fbErr != nil {
-			return nil, fbErr
-		}
-		result = res
-	}
-
-	// No role filtering (symbolRoles removed)
-	filteredSymbols := result.Symbols
-
-	// Add code snippets if requested
-	if query.IncludeCode {
-		for i := range filteredSymbols {
-			if filteredSymbols[i].FilePath != "" {
-				start := filteredSymbols[i].LineNumber
-				end := filteredSymbols[i].EndLine
-				if end < start {
-					end = start
-				}
-				code, err := extractCodeLines(filteredSymbols[i].FilePath, start, end)
-				if err == nil {
-					filteredSymbols[i].Code = code
-				}
-			}
-		}
-	}
-
-	// Format the result for MCP with enhanced occurrence metadata
-	formattedResult := map[string]interface{}{
-		"symbols":    formatEnhancedSymbolsForMCP(filteredSymbols),
-		"totalCount": len(filteredSymbols),
-		"truncated":  result.Truncated,
-	}
-
-	// Wrap result in content array for MCP response
-	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": formatStructuredResult(formattedResult, "findSymbols"),
-			},
-		},
-	}, nil
+// FindReferencesInput describes the structured input accepted by the findReferences tool.
+type FindReferencesInput struct {
+	Pattern    string `json:"pattern"`
+	FilePath   string `json:"filePath,omitempty"`
+	MaxResults int    `json:"maxResults,omitempty"`
 }
 
-// fallbackFindSymbolsWithLSP performs a lightweight workspace symbol search via LSP and formats results
-func (m *MCPServer) fallbackFindSymbolsWithLSP(ctx context.Context, pattern, filePattern string, maxResults int) (*types.SymbolPatternResult, error) {
+func (s *MCPServer) registerTools() error {
+	if s.impl == nil {
+		return fmt.Errorf("mcp implementation not initialised")
+	}
+
+	s.toolDefinitions = make(map[string]*mcp.Tool)
+	s.toolOrder = nil
+
+	findSymbols := &mcp.Tool{
+		Name:        "findSymbols",
+		Description: "Search for symbol definitions using the SCIP cache with optional code excerpts.",
+	}
+	mcp.AddTool[FindSymbolsInput, map[string]any](s.server, findSymbols, s.handleFindSymbols)
+	s.toolDefinitions["findSymbols"] = findSymbols
+	s.toolOrder = append(s.toolOrder, "findSymbols")
+
+	findReferences := &mcp.Tool{
+		Name:        "findReferences",
+		Description: "Locate symbol references across the workspace with occurrence context.",
+	}
+	mcp.AddTool[FindReferencesInput, map[string]any](s.server, findReferences, s.handleFindReferences)
+	s.toolDefinitions["findReferences"] = findReferences
+	s.toolOrder = append(s.toolOrder, "findReferences")
+
+	return nil
+}
+
+func (s *MCPServer) handleFindSymbols(ctx context.Context, _ *mcp.CallToolRequest, input FindSymbolsInput) (*mcp.CallToolResult, map[string]any, error) {
+	if input.Pattern == "" {
+		return nil, nil, fmt.Errorf("pattern is required")
+	}
+	if input.FilePath == "" {
+		return nil, nil, fmt.Errorf("filePath is required")
+	}
+
+	maxResults := input.MaxResults
 	if maxResults <= 0 {
 		maxResults = constants.DefaultMaxResults
 	}
 
-	// Collect active clients snapshot
-	m.lspManager.mu.RLock()
-	clients := make(map[string]interface{}, len(m.lspManager.clients))
-	for k, v := range m.lspManager.clients {
-		clients[k] = v
-	}
-	m.lspManager.mu.RUnlock()
+	timeoutCtx, cancel := context.WithTimeout(ctx, symbolToolTimeout)
+	defer cancel()
 
-	// Query workspace symbols using aggregator
-	params := map[string]interface{}{"query": pattern}
-	aggRes, err := m.lspManager.workspaceAggregator.ProcessWorkspaceSymbol(ctx, clients, params)
-	if err != nil || aggRes == nil {
-		return &types.SymbolPatternResult{Symbols: []types.EnhancedSymbolInfo{}, TotalCount: 0, Truncated: false}, nil
+	query := SymbolSearchQuery{
+		Pattern:     input.Pattern,
+		FilePattern: input.FilePath,
+		MaxResults:  maxResults,
+		IncludeCode: input.IncludeCode,
 	}
 
-	symbols := make([]types.EnhancedSymbolInfo, 0, maxResults)
-	for _, si := range lspconv.ParseWorkspaceSymbols(aggRes) {
-		// File filter
-		if filePattern != "" && !filepattern.Match(si.Location.URI, filePattern) {
-			continue
-		}
-
-		filePath := utils.URIToFilePathCached(si.Location.URI)
-		line := int(si.Location.Range.Start.Line)
-		endLine := int(si.Location.Range.End.Line)
-		if endLine < line {
-			endLine = line
-		}
-
-		symbols = append(symbols, types.EnhancedSymbolInfo{
-			SymbolInformation: si,
-			FilePath:          filePath,
-			LineNumber:        line,
-			EndLine:           endLine,
-		})
-
-		if len(symbols) >= maxResults {
-			break
-		}
+	result, err := s.symbolService.FindSymbols(timeoutCtx, query)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return &types.SymbolPatternResult{
-		Symbols:    symbols,
-		TotalCount: len(symbols),
-		Truncated:  false,
-	}, nil
+	payload := formatSymbolSearchResult(result)
+	return nil, payload, nil
 }
 
-// handleFindSymbolReferences handles the findReferences tool for finding all references to symbols matching a pattern
-func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (interface{}, error) {
-
-	arguments, ok := params["arguments"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("missing or invalid arguments")
+func (s *MCPServer) handleFindReferences(ctx context.Context, _ *mcp.CallToolRequest, input FindReferencesInput) (*mcp.CallToolResult, map[string]any, error) {
+	if input.Pattern == "" {
+		return nil, nil, fmt.Errorf("pattern is required")
 	}
 
-	pattern, ok := arguments["pattern"].(string)
-	if !ok || pattern == "" {
-		return nil, fmt.Errorf("pattern is required and must be a string")
+	maxResults := input.MaxResults
+	if maxResults <= 0 {
+		maxResults = constants.DefaultMaxResults
 	}
 
-	filePath := "**/*" // Default to all files
-	if fp, ok := arguments["filePath"].(string); ok && fp != "" {
-		filePath = fp
+	filePattern := input.FilePath
+	if filePattern == "" {
+		filePattern = defaultReferenceQuery
 	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, referenceToolTimeout)
+	defer cancel()
 
 	query := SymbolReferenceQuery{
-		Pattern:     pattern,
-		FilePattern: filePath,
+		Pattern:     input.Pattern,
+		FilePattern: filePattern,
+		MaxResults:  maxResults,
 	}
 
-	// Parse max results
-	if maxResults, ok := arguments["maxResults"].(float64); ok {
-		query.MaxResults = int(maxResults)
-	} else {
-		query.MaxResults = constants.DefaultMaxResults
-	}
-
-	// Execute the search using LSP manager which will use SCIP cache if available
-	ctx := context.Background()
-
-	// Use LSP manager's SearchSymbolReferences which already handles SCIP cache integration
-	result, err := m.lspManager.SearchSymbolReferences(ctx, query)
+	result, err := s.symbolService.FindReferences(timeoutCtx, query)
 	if err != nil {
-		common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
-		// Return empty result instead of error for better UX
-		result = &SymbolReferenceResult{
-			References: []ReferenceInfo{},
-			TotalCount: 0,
-			Truncated:  false,
+		return nil, nil, err
+	}
+
+	payload := formatReferenceSearchResult(result)
+	return nil, payload, nil
+}
+
+// formatSymbolSearchResult converts the internal result into a compact JSON payload.
+func formatSymbolSearchResult(result *SymbolSearchResult) map[string]interface{} {
+	if result == nil {
+		return map[string]interface{}{
+			"symbols":    []interface{}{},
+			"totalCount": 0,
+			"truncated":  false,
 		}
 	}
 
-	// Format the result for MCP response (metadata removed by request)
-	formattedResult := map[string]interface{}{
-		"references": formatEnhancedReferencesForMCP(result.References),
+	formatted := make([]map[string]interface{}, 0, len(result.Symbols))
+	for _, sym := range result.Symbols {
+		entry := map[string]interface{}{
+			"name":     sym.Name,
+			"location": formatFileLocation(sym.FilePath, sym.LineNumber, sym.EndLine),
+		}
+		if sym.Signature != "" {
+			entry["signature"] = sym.Signature
+		}
+		if sym.Documentation != "" {
+			entry["documentation"] = sym.Documentation
+		}
+		if sym.Code != "" {
+			entry["code"] = sym.Code
+		}
+		formatted = append(formatted, entry)
+	}
+
+	return map[string]interface{}{
+		"symbols":    formatted,
 		"totalCount": result.TotalCount,
 		"truncated":  result.Truncated,
 	}
-
-	// Wrap result in content array for MCP response
-	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": formatStructuredResult(formattedResult, "findReferences"),
-			},
-		},
-	}, nil
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-// Role-based filtering removed (symbolRoles parameter deprecated)
-
-// extractCodeLines reads lines from a file between start and end line numbers (1-indexed)
-func extractCodeLines(filePath string, startLine, endLine int) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = file.Close() }()
-
-	scanner := bufio.NewScanner(file)
-	var lines []string
-	currentLine := 0
-
-	for scanner.Scan() {
-		if currentLine >= startLine && currentLine <= endLine {
-			lines = append(lines, scanner.Text())
+func formatReferenceSearchResult(result *SymbolReferenceResult) map[string]interface{} {
+	if result == nil {
+		return map[string]interface{}{
+			"references": []interface{}{},
+			"totalCount": 0,
+			"truncated":  false,
 		}
-		if currentLine > endLine {
-			break
+	}
+
+	formatted := make([]map[string]interface{}, 0, len(result.References))
+	for _, ref := range result.References {
+		entry := map[string]interface{}{
+			"location": formatFileLocation(ref.FilePath, ref.LineNumber, ref.LineNumber),
 		}
-		currentLine++
+		if ref.Text != "" {
+			entry["text"] = ref.Text
+		} else if ref.Context != "" {
+			entry["text"] = ref.Context
+		} else {
+			if code, err := extractCodeLines(ref.FilePath, ref.LineNumber, ref.LineNumber); err == nil && code != "" {
+				entry["text"] = code
+			}
+		}
+		formatted = append(formatted, entry)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return "", err
+	return map[string]interface{}{
+		"references": formatted,
+		"totalCount": result.TotalCount,
+		"truncated":  result.Truncated,
 	}
+}
 
-	return strings.Join(lines, "\n"), nil
+func formatFileLocation(filePath string, startLine, endLine int) string {
+	if filePath == "" {
+		return "unknown:0"
+	}
+	if endLine < startLine {
+		endLine = startLine
+	}
+	if endLine == startLine {
+		return fmt.Sprintf("%s:%d", filePath, startLine)
+	}
+	return fmt.Sprintf("%s:%d-%d", filePath, startLine, endLine)
 }
