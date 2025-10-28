@@ -41,6 +41,16 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 	// Wait for graceful shutdown with proper timeout
 	// Only wait if the process hasn't already exited (avoid duplicate Wait() calls)
 	if info.Cmd != nil && info.Cmd.Process != nil && !info.ProcessExited {
+		pid := info.Cmd.Process.Pid
+
+		// Send SIGTERM to entire process group (negative PID)
+		// This ensures shell wrapper scripts and their child processes are all terminated
+		if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+			common.LSPLogger.Debug("Failed to send SIGTERM to process group %d: %v", pid, err)
+			// Fallback to killing just the process
+			_ = info.Cmd.Process.Signal(syscall.SIGTERM)
+		}
+
 		// Create channel to track process completion
 		done := make(chan error, 1)
 		go func() {
@@ -57,10 +67,12 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 		case <-done:
 			// Process exited gracefully
 		case <-time.After(constants.ProcessShutdownTimeout):
-			// Timeout - force kill only after waiting
-			// Debug level for intentional stops, warn for unexpected
-			common.LSPLogger.Debug("LSP server %s did not exit within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
-			if err := info.Cmd.Process.Kill(); err != nil {
+			// Timeout - force kill entire process group
+			common.LSPLogger.Debug("LSP server %s did not exit within %v, force killing process group",
+				info.Language, constants.ProcessShutdownTimeout)
+
+			// Kill entire process group with SIGKILL
+			if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
 				// Ignore errors if process already exited using proper error type checking
 				isExpectedError := false
 
@@ -88,8 +100,10 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 				}
 
 				if !isExpectedError {
-					common.LSPLogger.Debug("Failed to kill LSP server %s: %v", info.Language, err)
+					common.LSPLogger.Debug("Failed to SIGKILL process group %d: %v", pid, err)
 				}
+				// Fallback to killing just the process
+				_ = info.Cmd.Process.Kill()
 			}
 			// Wait for process to actually die
 			<-done

@@ -15,7 +15,7 @@ func CreateTempTestDir(t *testing.T, prefix string) string {
 	require.NoError(t, err, "Failed to create temp directory")
 
 	t.Cleanup(func() {
-		os.RemoveAll(tempDir)
+		require.NoError(t, os.RemoveAll(tempDir))
 	})
 
 	return tempDir

@@ -70,7 +70,9 @@ func TestStartProcess(t *testing.T) {
 				if err == nil {
 					t.Error("Expected error but got none")
 					if info != nil {
-						pm.StopProcess(info, nil)
+						if stopErr := pm.StopProcess(info, nil); stopErr != nil {
+							t.Errorf("cleanup stop failed: %v", stopErr)
+						}
 					}
 				}
 			} else {
@@ -85,7 +87,9 @@ func TestStartProcess(t *testing.T) {
 						}
 
 						// Clean up
-						pm.StopProcess(info, nil)
+						if stopErr := pm.StopProcess(info, nil); stopErr != nil {
+							t.Errorf("cleanup stop failed: %v", stopErr)
+						}
 					}
 				}
 			}
@@ -132,7 +136,11 @@ func TestProcessInfoStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start process: %v", err)
 	}
-	defer pm.StopProcess(info, nil)
+	defer func() {
+		if err := pm.StopProcess(info, nil); err != nil {
+			t.Errorf("cleanup stop failed: %v", err)
+		}
+	}()
 
 	// Test ProcessInfo structure
 	if info.Language != "test-lang" {

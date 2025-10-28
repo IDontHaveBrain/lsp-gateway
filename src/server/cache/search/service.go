@@ -324,28 +324,6 @@ func (s *SearchService) withIndexReadLockTyped(fn func() (interface{}, error)) (
 	return fn()
 }
 
-// normalizeMaxResults applies default max results if not specified
-func (s *SearchService) normalizeMaxResults(maxResults int) int {
-	if maxResults <= 0 {
-		return constants.DefaultMaxResults
-	}
-	return maxResults
-}
-
-// buildSearchResponse constructs a standardized SearchResponse
-func (s *SearchService) buildSearchResponse(searchType SearchType, results []interface{}, metadata *SearchMetadata, request *SearchRequest) *SearchResponse {
-	return &SearchResponse{
-		Type:      string(searchType),
-		RequestID: request.RequestID,
-		Results:   results,
-		Total:     len(results),
-		Truncated: false,
-		Metadata:  metadata,
-		Timestamp: time.Now(),
-		Success:   true,
-	}
-}
-
 // IsEnabled returns whether the search service is enabled
 func (s *SearchService) IsEnabled() bool {
 	return s.guard.enabled

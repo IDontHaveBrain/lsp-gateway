@@ -13,35 +13,47 @@ import (
 	"lsp-gateway/src/internal/constants"
 )
 
+const (
+	envCIKey            = "CI"
+	envGitHubActionsKey = "GITHUB_ACTIONS"
+	envValueTrue        = "true"
+	ciTypeRegular       = "regular"
+	ciTypeWindows       = "windows"
+	ciTypeNone          = "none"
+)
+
 // withCIEnvironment simulates different CI environments for testing
-func withCIEnvironment(ciType string, testFunc func()) {
+func withCIEnvironment(tb testing.TB, ciType string, testFunc func()) {
+	tb.Helper()
 	// Save original environment
-	origCI := os.Getenv("CI")
-	origGitHubActions := os.Getenv("GITHUB_ACTIONS")
+	origCI := os.Getenv(envCIKey)
+	origGitHubActions := os.Getenv(envGitHubActionsKey)
 
 	defer func() {
 		if origCI == "" {
-			os.Unsetenv("CI")
+			require.NoError(tb, os.Unsetenv(envCIKey))
 		} else {
-			os.Setenv("CI", origCI)
+			require.NoError(tb, os.Setenv(envCIKey, origCI))
 		}
 		if origGitHubActions == "" {
-			os.Unsetenv("GITHUB_ACTIONS")
+			require.NoError(tb, os.Unsetenv(envGitHubActionsKey))
 		} else {
-			os.Setenv("GITHUB_ACTIONS", origGitHubActions)
+			require.NoError(tb, os.Setenv(envGitHubActionsKey, origGitHubActions))
 		}
 	}()
 
 	switch ciType {
-	case "regular":
-		os.Setenv("CI", "true")
-		os.Unsetenv("GITHUB_ACTIONS")
-	case "windows":
-		os.Setenv("CI", "true")
-		os.Setenv("GITHUB_ACTIONS", "true")
-	case "none":
-		os.Unsetenv("CI")
-		os.Unsetenv("GITHUB_ACTIONS")
+	case ciTypeRegular:
+		require.NoError(tb, os.Setenv(envCIKey, envValueTrue))
+		require.NoError(tb, os.Unsetenv(envGitHubActionsKey))
+	case ciTypeWindows:
+		require.NoError(tb, os.Setenv(envCIKey, envValueTrue))
+		require.NoError(tb, os.Setenv(envGitHubActionsKey, envValueTrue))
+	case ciTypeNone:
+		require.NoError(tb, os.Unsetenv(envCIKey))
+		require.NoError(tb, os.Unsetenv(envGitHubActionsKey))
+	default:
+		tb.Fatalf("unsupported CI type %q", ciType)
 	}
 
 	testFunc()
@@ -525,19 +537,23 @@ func TestTimeoutManager_IntegrationWithConstants(t *testing.T) {
 
 		// Remove CI multipliers from constants for fair comparison
 		// We'll test non-CI environment by temporarily unsetting CI vars
-		oldCI := os.Getenv("CI")
-		oldGitHubActions := os.Getenv("GITHUB_ACTIONS")
-		os.Unsetenv("CI")
-		os.Unsetenv("GITHUB_ACTIONS")
+		oldCI := os.Getenv(envCIKey)
+		oldGitHubActions := os.Getenv(envGitHubActionsKey)
+		require.NoError(t, os.Unsetenv(envCIKey))
+		require.NoError(t, os.Unsetenv(envGitHubActionsKey))
 
 		constantsTimeoutNonCI := constants.GetRequestTimeout(lang)
 
 		// Restore original environment
 		if oldCI != "" {
-			os.Setenv("CI", oldCI)
+			require.NoError(t, os.Setenv(envCIKey, oldCI))
+		} else {
+			require.NoError(t, os.Unsetenv(envCIKey))
 		}
 		if oldGitHubActions != "" {
-			os.Setenv("GITHUB_ACTIONS", oldGitHubActions)
+			require.NoError(t, os.Setenv(envGitHubActionsKey, oldGitHubActions))
+		} else {
+			require.NoError(t, os.Unsetenv(envGitHubActionsKey))
 		}
 
 		if tmTimeout != constantsTimeoutNonCI {
@@ -632,7 +648,7 @@ func TestTimeoutManager_ChainedOperations(t *testing.T) {
 
 // CI Environment Tests - Critical Missing Coverage
 func TestGetTimeout_RegularCI(t *testing.T) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(t, ciTypeRegular, func() {
 		tests := []struct {
 			name     string
 			language string
@@ -666,7 +682,7 @@ func TestGetTimeout_WindowsCI(t *testing.T) {
 		t.Skip("Windows CI test only runs on Windows")
 	}
 
-	withCIEnvironment("windows", func() {
+	withCIEnvironment(t, ciTypeWindows, func() {
 		tests := []struct {
 			name       string
 			language   string
@@ -712,7 +728,7 @@ func TestGetTimeout_NonWindowsCI_RegularCI(t *testing.T) {
 		t.Skip("Non-Windows CI test skipped on Windows")
 	}
 
-	withCIEnvironment("windows", func() {
+	withCIEnvironment(t, ciTypeWindows, func() {
 		// On non-Windows platforms, even with GITHUB_ACTIONS=true,
 		// should behave like regular CI (1.2x multiplier)
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
@@ -730,7 +746,7 @@ func TestGetTimeout_NonWindowsCI_RegularCI(t *testing.T) {
 }
 
 func TestGetTimeout_NoCIEnvironmentExplicit(t *testing.T) {
-	withCIEnvironment("none", func() {
+	withCIEnvironment(t, ciTypeNone, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
 		// No multipliers should be applied in non-CI environment
@@ -756,7 +772,7 @@ func TestGetTimeout_NoCIEnvironmentExplicit(t *testing.T) {
 }
 
 func TestGetTimeout_CICombinedWithGlobalMultiplier(t *testing.T) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(t, ciTypeRegular, func() {
 		// CI multiplier (1.2x) combined with global multiplier (2.0x)
 		// The CI multiplier is applied first by constants.GetRequestTimeout()
 		// Then global multiplier is applied by TimeoutManager
@@ -779,7 +795,7 @@ func TestGetTimeout_CICombinedWithGlobalMultiplier(t *testing.T) {
 }
 
 func TestGetTimeout_CustomTimeout_NotAffectedByCI(t *testing.T) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(t, ciTypeRegular, func() {
 		tm := NewTimeoutManager().
 			WithCustomTimeout("java", 60*time.Second)
 
@@ -789,7 +805,7 @@ func TestGetTimeout_CustomTimeout_NotAffectedByCI(t *testing.T) {
 		assert.Equal(t, 60*time.Second, timeout, "Custom timeout should not be affected by CI multipliers")
 	})
 
-	withCIEnvironment("windows", func() {
+	withCIEnvironment(t, ciTypeWindows, func() {
 		if runtime.GOOS == "windows" {
 			tm := NewTimeoutManager().
 				WithCustomTimeout("java", 60*time.Second)
@@ -802,7 +818,7 @@ func TestGetTimeout_CustomTimeout_NotAffectedByCI(t *testing.T) {
 }
 
 func TestGetOverallTimeout_WithCI(t *testing.T) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(t, ciTypeRegular, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
 		languages := []string{"go", "python", "java"}
@@ -820,7 +836,7 @@ func TestGetOverallTimeout_WindowsCI(t *testing.T) {
 		t.Skip("Windows CI test only runs on Windows")
 	}
 
-	withCIEnvironment("windows", func() {
+	withCIEnvironment(t, ciTypeWindows, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
 		languages := []string{"go", "python", "java"}
@@ -834,7 +850,7 @@ func TestGetOverallTimeout_WindowsCI(t *testing.T) {
 }
 
 func TestCreateContext_WithCI(t *testing.T) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(t, ciTypeRegular, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
 		ctx, cancel := tm.CreateContext(context.Background(), "java")
@@ -878,32 +894,32 @@ func TestCI_EnvironmentDetection_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Save original environment
-			origCI := os.Getenv("CI")
-			origGitHubActions := os.Getenv("GITHUB_ACTIONS")
+			origCI := os.Getenv(envCIKey)
+			origGitHubActions := os.Getenv(envGitHubActionsKey)
 
 			defer func() {
 				if origCI == "" {
-					os.Unsetenv("CI")
+					require.NoError(t, os.Unsetenv(envCIKey))
 				} else {
-					os.Setenv("CI", origCI)
+					require.NoError(t, os.Setenv(envCIKey, origCI))
 				}
 				if origGitHubActions == "" {
-					os.Unsetenv("GITHUB_ACTIONS")
+					require.NoError(t, os.Unsetenv(envGitHubActionsKey))
 				} else {
-					os.Setenv("GITHUB_ACTIONS", origGitHubActions)
+					require.NoError(t, os.Setenv(envGitHubActionsKey, origGitHubActions))
 				}
 			}()
 
 			// Set test environment
 			if tt.ciValue == "" {
-				os.Unsetenv("CI")
+				require.NoError(t, os.Unsetenv(envCIKey))
 			} else {
-				os.Setenv("CI", tt.ciValue)
+				require.NoError(t, os.Setenv(envCIKey, tt.ciValue))
 			}
 			if tt.githubActionsValue == "" {
-				os.Unsetenv("GITHUB_ACTIONS")
+				require.NoError(t, os.Unsetenv(envGitHubActionsKey))
 			} else {
-				os.Setenv("GITHUB_ACTIONS", tt.githubActionsValue)
+				require.NoError(t, os.Setenv(envGitHubActionsKey, tt.githubActionsValue))
 			}
 
 			tm := NewTimeoutManager().ForOperation(OperationRequest)
@@ -926,7 +942,7 @@ func TestCI_EnvironmentDetection_EdgeCases(t *testing.T) {
 
 // Benchmark CI overhead
 func BenchmarkGetTimeout_NoCI(b *testing.B) {
-	withCIEnvironment("none", func() {
+	withCIEnvironment(b, ciTypeNone, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -936,7 +952,7 @@ func BenchmarkGetTimeout_NoCI(b *testing.B) {
 }
 
 func BenchmarkGetTimeout_WithCI(b *testing.B) {
-	withCIEnvironment("regular", func() {
+	withCIEnvironment(b, ciTypeRegular, func() {
 		tm := NewTimeoutManager().ForOperation(OperationRequest)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

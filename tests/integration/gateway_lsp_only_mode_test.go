@@ -58,7 +58,9 @@ func Foo() int { return 42 }
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	require.NoError(t, gw.Start(ctx))
-	defer gw.Stop()
+	defer func() {
+		require.NoError(t, gw.Stop())
+	}()
 
 	// Wait for /health
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -92,7 +94,7 @@ func Foo() int { return 42 }
 	if _, err := strconv.ParseInt(rtime1, 10, 64); err != nil {
 		t.Fatalf("invalid X-LSP-Response-Time: %s", rtime1)
 	}
-	resp1.Body.Close()
+	require.NoError(t, resp1.Body.Close())
 
 	// Second identical request should be a cache hit
 	httpReq2, _ := http.NewRequest(http.MethodPost, baseURL+"/jsonrpc", bytes.NewReader(body1))
@@ -102,7 +104,7 @@ func Foo() int { return 42 }
 	require.Equal(t, http.StatusOK, resp2.StatusCode)
 	status2 := resp2.Header.Get("X-LSP-Cache-Status")
 	require.Equal(t, "hit", status2)
-	resp2.Body.Close()
+	require.NoError(t, resp2.Body.Close())
 
 	// Disallowed method in lspOnly mode
 	disallowed := map[string]interface{}{
@@ -120,7 +122,7 @@ func Foo() int { return 42 }
 
 	var payload map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp3.Body).Decode(&payload))
-	resp3.Body.Close()
+	require.NoError(t, resp3.Body.Close())
 
 	errObj, ok := payload["error"].(map[string]interface{})
 	require.True(t, ok, "expected JSON-RPC error response")

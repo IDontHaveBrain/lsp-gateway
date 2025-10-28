@@ -80,7 +80,9 @@ func main() {
 	defer cancel()
 	require.NoError(t, shared.WaitForHTTPReady(readyCtx, baseURL+"/health"))
 
-	defer gateway.Stop()
+	defer func() {
+		require.NoError(t, gateway.Stop())
+	}()
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -116,11 +118,11 @@ func main() {
 
 		respInit, err := client.Do(req)
 		require.NoError(t, err)
-		respInit.Body.Close()
+		require.NoError(t, respInit.Body.Close())
 
 		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -144,7 +146,7 @@ func main() {
 	t.Run("CacheHealthEndpoint", func(t *testing.T) {
 		resp, err := client.Get(baseURL + "/cache/health")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -175,7 +177,7 @@ func main() {
 
 		var statsBefore map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&statsBefore)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		require.NoError(t, err)
 
 		req, err := http.NewRequest(http.MethodPost, baseURL+"/cache/clear", nil)
@@ -183,7 +185,7 @@ func main() {
 
 		resp, err = client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -205,7 +207,7 @@ func main() {
 
 		respAfter, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
-		defer respAfter.Body.Close()
+		defer func() { _ = respAfter.Body.Close() }()
 
 		var statsAfter map[string]interface{}
 		err = json.NewDecoder(respAfter.Body).Decode(&statsAfter)
@@ -241,7 +243,7 @@ func main() {
 		// Even with cache disabled in config, HTTP gateway should have cache available
 		resp, err := client.Get(baseURL2 + "/cache/stats")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -274,7 +276,7 @@ func main() {
 
 				resp, err := client.Do(req)
 				require.NoError(t, err)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				require.Equal(t, tc.expected, resp.StatusCode)
 			})
@@ -305,7 +307,7 @@ func main() {
 					resultChan <- result{endpoint: endpoint, err: err}
 					return
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				resultChan <- result{
 					endpoint: endpoint,
@@ -358,12 +360,12 @@ func main() {
 
 			respLoad, err := client.Do(req)
 			require.NoError(t, err)
-			respLoad.Body.Close()
+			_ = respLoad.Body.Close()
 		}
 
 		resp, err := client.Get(baseURL + "/cache/health")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -391,8 +393,7 @@ func main() {
 
 		respClear, err := client.Do(req)
 		require.NoError(t, err)
-		respClear.Body.Close()
-
+		_ = respClear.Body.Close()
 		// Make some requests to generate hits
 		for i := 0; i < 5; i++ {
 			jsonReq := map[string]interface{}{
@@ -423,12 +424,12 @@ func main() {
 
 			respDef, err := client.Do(req)
 			require.NoError(t, err)
-			respDef.Body.Close()
+			_ = respDef.Body.Close()
 		}
 
 		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var stats map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&stats)
@@ -477,7 +478,7 @@ func main() {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -488,7 +489,7 @@ func main() {
 
 		statsResp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
-		defer statsResp.Body.Close()
+		defer func() { _ = statsResp.Body.Close() }()
 
 		var stats map[string]interface{}
 		err = json.NewDecoder(statsResp.Body).Decode(&stats)

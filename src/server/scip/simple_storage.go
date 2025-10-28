@@ -850,32 +850,6 @@ func (s *SimpleSCIPStorage) evictOldestPattern() {
 	}
 }
 
-// mergeOccurrences merges two occurrence lists, avoiding duplicates
-func (s *SimpleSCIPStorage) mergeOccurrences(existing, new []SCIPOccurrence) []SCIPOccurrence {
-	// Track existing occurrences by their unique key
-	occMap := make(map[string]SCIPOccurrence)
-
-	// Add existing occurrences
-	for _, occ := range existing {
-		key := fmt.Sprintf("%s:%d:%d", occ.Symbol, occ.Range.Start.Line, occ.Range.Start.Character)
-		occMap[key] = occ
-	}
-
-	// Add new occurrences (will overwrite if duplicate)
-	for _, occ := range new {
-		key := fmt.Sprintf("%s:%d:%d", occ.Symbol, occ.Range.Start.Line, occ.Range.Start.Character)
-		occMap[key] = occ
-	}
-
-	// Convert back to slice
-	merged := make([]SCIPOccurrence, 0, len(occMap))
-	for _, occ := range occMap {
-		merged = append(merged, occ)
-	}
-
-	return merged
-}
-
 // mergeSymbolInfo merges two symbol information lists, avoiding duplicates
 func (s *SimpleSCIPStorage) mergeSymbolInfo(existing, new []SCIPSymbolInformation) []SCIPSymbolInformation {
 	// Helper comparators
@@ -1246,65 +1220,6 @@ type occurrenceKey struct {
 	symbol string
 	line   int32
 	char   int32
-}
-
-// mergeDocuments efficiently merges occurrences and symbols from two documents
-func (s *SimpleSCIPStorage) mergeDocuments(existing, new *SCIPDocument) *SCIPDocument {
-	// Create merged document
-	merged := &SCIPDocument{
-		URI:          existing.URI,
-		Language:     existing.Language,
-		LastModified: new.LastModified,
-	}
-
-	// Use struct key for better performance than string concatenation
-	occMap := make(map[occurrenceKey]SCIPOccurrence)
-
-	// Add existing occurrences
-	for _, occ := range existing.Occurrences {
-		key := occurrenceKey{
-			symbol: occ.Symbol,
-			line:   occ.Range.Start.Line,
-			char:   occ.Range.Start.Character,
-		}
-		occMap[key] = occ
-	}
-
-	// Add/update with new occurrences
-	for _, occ := range new.Occurrences {
-		key := occurrenceKey{
-			symbol: occ.Symbol,
-			line:   occ.Range.Start.Line,
-			char:   occ.Range.Start.Character,
-		}
-		occMap[key] = occ // Overwrites if exists
-	}
-
-	// Convert back to slice with pre-allocated capacity
-	merged.Occurrences = make([]SCIPOccurrence, 0, len(occMap))
-	for _, occ := range occMap {
-		merged.Occurrences = append(merged.Occurrences, occ)
-	}
-
-	// Merge symbol information using symbol ID as key
-	symbolMap := make(map[string]SCIPSymbolInformation)
-	for _, si := range existing.SymbolInformation {
-		symbolMap[si.Symbol] = si
-	}
-	for _, si := range new.SymbolInformation {
-		symbolMap[si.Symbol] = si
-	}
-
-	// Convert back to slice with pre-allocated capacity
-	merged.SymbolInformation = make([]SCIPSymbolInformation, 0, len(symbolMap))
-	for _, si := range symbolMap {
-		merged.SymbolInformation = append(merged.SymbolInformation, si)
-	}
-
-	// Calculate size
-	merged.Size = s.calculateDocumentSize(merged)
-
-	return merged
 }
 
 // AddOccurrences efficiently adds occurrences to a document in batch

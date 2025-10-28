@@ -36,7 +36,7 @@ PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
 # BUILD TARGETS
 # =============================================================================
 
-.PHONY: all build local clean unlink
+.PHONY: all build local clean clean-orphans unlink
 all: build
 
 # Build for current platform (most common use case)
@@ -115,6 +115,15 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
 	$(GOCLEAN)
+
+# Clean orphaned LSP server processes (from failed/interrupted tests)
+clean-orphans:
+	@echo "🧹 Cleaning orphaned LSP server processes..."
+	@if [ -f scripts/cleanup-orphaned-lsp.sh ]; then \
+		./scripts/cleanup-orphaned-lsp.sh; \
+	else \
+		echo "⚠️  Cleanup script not found at scripts/cleanup-orphaned-lsp.sh"; \
+	fi
 
 # Unlink npm package globally
 unlink:
@@ -197,13 +206,13 @@ test-unit:
 	@$(GOTEST) -v -short -timeout 120s ./src/...
 
 test-integration:
-	@echo "Running integration tests..."
-	$(GOTEST) -v -timeout 600s ./tests/integration/...
+	@echo "Running integration tests (limited parallelism to prevent memory leaks)..."
+	$(GOTEST) -v -timeout 600s -p=2 ./tests/integration/...
 
 test-e2e:
-	@echo "Running E2E tests..."
+	@echo "Running E2E tests (sequential execution to prevent memory leaks)..."
 	@if [ -d tests/e2e ]; then \
-		$(GOTEST) -v -timeout 1800s ./tests/e2e/...; \
+		$(GOTEST) -v -timeout 1800s -p=1 ./tests/e2e/...; \
 	else \
 		echo "No E2E tests directory found, skipping"; \
 	fi
@@ -216,7 +225,7 @@ test-quick:
 test-fast:
 	@echo "🚀 Running fast tests (unit + integration)..."
 	@$(GOTEST) -v -short -timeout 120s ./src/...
-	@$(GOTEST) -v -timeout 600s ./tests/integration/...
+	@$(GOTEST) -v -timeout 600s -p=2 ./tests/integration/...
 	@echo "✅ Fast tests passed!"
 
 # =============================================================================

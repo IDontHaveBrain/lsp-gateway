@@ -13,12 +13,6 @@ import (
 
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
 
-// convertEnhancedSymbolResults converts search.EnhancedSymbolResult to cache.EnhancedSymbolResult
-func convertEnhancedSymbolResults(searchResults []search.EnhancedSymbolResult) []EnhancedSymbolResult {
-	// Types unified; return as-is
-	return searchResults
-}
-
 // QueryIndex queries the SCIP storage for symbols and relationships
 func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
 	return m.WithIndexResult(query.Type, func() (*IndexResult, error) {

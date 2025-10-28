@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"lsp-gateway/src/config"
 )
 
@@ -187,12 +189,12 @@ func (m *MockJavaInstaller) GetVersion() (string, error) {
 		return "", fmt.Errorf("Java development environment not installed")
 	}
 	if m.runCommandError != nil {
-		return "JDTLS installed (version unknown)", nil
+		return jdtlsInstalledUnknownText, nil
 	}
 	if m.runCommandOutput != "" {
 		return fmt.Sprintf("Java: %s, JDTLS: installed", strings.Split(m.runCommandOutput, "\n")[0]), nil
 	}
-	return "JDTLS installed (version unknown)", nil
+	return jdtlsInstalledUnknownText, nil
 }
 
 func (m *MockJavaInstaller) ValidateInstallation() error {
@@ -235,10 +237,10 @@ func (m *MockJavaInstaller) IsInstalled() bool {
 	// Check for wrapper script
 	binDir := filepath.Join(installPath, "bin")
 	var wrapperPath string
-	if m.platform.GetPlatform() == "windows" {
-		wrapperPath = filepath.Join(binDir, "jdtls.bat")
+	if m.platform.GetPlatform() == osWindows {
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperWindows)
 	} else {
-		wrapperPath = filepath.Join(binDir, "jdtls")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperUnix)
 	}
 
 	if !m.fileExists(wrapperPath) {
@@ -248,8 +250,8 @@ func (m *MockJavaInstaller) IsInstalled() bool {
 	// Check for JDK
 	jdkPath := filepath.Join(installPath, "jdk", "current")
 	javaExe := filepath.Join(jdkPath, "bin", "java")
-	if m.platform.GetPlatform() == "windows" {
-		javaExe += ".exe"
+	if m.platform.GetPlatform() == osWindows {
+		javaExe += exeSuffix
 	}
 
 	if !m.fileExists(javaExe) {
@@ -552,21 +554,21 @@ func TestJavaInstallerCreateJDTLSWrapper(t *testing.T) {
 		platform string
 		wantFile string
 	}{
-		{
-			name:     "Unix wrapper",
-			platform: "linux",
-			wantFile: "jdtls",
-		},
-		{
-			name:     "macOS wrapper",
-			platform: "darwin",
-			wantFile: "jdtls",
-		},
-		{
-			name:     "Windows wrapper",
-			platform: "windows",
-			wantFile: "jdtls.bat",
-		},
+	{
+		name:     "Unix wrapper",
+		platform: osLinux,
+		wantFile: jdtlsWrapperUnix,
+	},
+	{
+		name:     "macOS wrapper",
+		platform: osDarwin,
+		wantFile: jdtlsWrapperUnix,
+	},
+	{
+		name:     "Windows wrapper",
+		platform: osWindows,
+		wantFile: jdtlsWrapperWindows,
+	},
 	}
 
 	for _, tt := range tests {
@@ -576,8 +578,8 @@ func TestJavaInstallerCreateJDTLSWrapper(t *testing.T) {
 			jdtlsPath := filepath.Join(tempDir, "jdtls")
 
 			// Create required directory structure for wrapper generation
-			os.MkdirAll(filepath.Join(jdkPath, "current", "bin"), 0755)
-			os.MkdirAll(filepath.Join(jdtlsPath, "plugins"), 0755)
+			require.NoError(t, os.MkdirAll(filepath.Join(jdkPath, "current", "bin"), 0755))
+			require.NoError(t, os.MkdirAll(filepath.Join(jdtlsPath, "plugins"), 0755))
 
 			mockPlatform := &MockPlatformInfo{
 				platform:  tt.platform,
@@ -721,11 +723,11 @@ func TestJavaInstallerIsInstalled(t *testing.T) {
 				fullPath := filepath.Join(tempDir, file)
 				installer.fileExistsMap[fullPath] = exists
 
-				if exists {
-					// Actually create the file for more realistic testing
-					os.MkdirAll(filepath.Dir(fullPath), 0755)
-					os.WriteFile(fullPath, []byte("mock"), 0755)
-				}
+			if exists {
+				// Actually create the file for more realistic testing
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte("mock"), 0755))
+			}
 			}
 
 			installed := installer.IsInstalled()
@@ -786,14 +788,14 @@ func TestJavaInstallerGetVersion(t *testing.T) {
 			// Mock installation state
 			if tt.installed {
 				binDir := filepath.Join(tempDir, "bin")
-				wrapperFile := "jdtls"
-				if tt.platform == "windows" {
-					wrapperFile = "jdtls.bat"
+				wrapperFile := jdtlsWrapperUnix
+				if tt.platform == osWindows {
+					wrapperFile = jdtlsWrapperWindows
 				}
 				wrapperPath := filepath.Join(binDir, wrapperFile)
 				jdkPath := filepath.Join(tempDir, "jdk", "current", "bin", "java")
-				if tt.platform == "windows" {
-					jdkPath += ".exe"
+				if tt.platform == osWindows {
+					jdkPath += exeSuffix
 				}
 				jdtlsPath := filepath.Join(tempDir, "jdtls")
 
@@ -802,11 +804,11 @@ func TestJavaInstallerGetVersion(t *testing.T) {
 				installer.fileExistsMap[jdtlsPath] = true
 
 				// Create actual files
-				os.MkdirAll(filepath.Dir(wrapperPath), 0755)
-				os.MkdirAll(filepath.Dir(jdkPath), 0755)
-				os.MkdirAll(jdtlsPath, 0755)
-				os.WriteFile(wrapperPath, []byte("mock"), 0755)
-				os.WriteFile(jdkPath, []byte("mock"), 0755)
+				require.NoError(t, os.MkdirAll(filepath.Dir(wrapperPath), 0755))
+				require.NoError(t, os.MkdirAll(filepath.Dir(jdkPath), 0755))
+				require.NoError(t, os.MkdirAll(jdtlsPath, 0755))
+				require.NoError(t, os.WriteFile(wrapperPath, []byte("mock"), 0755))
+				require.NoError(t, os.WriteFile(jdkPath, []byte("mock"), 0755))
 			}
 
 			// Setup command mock

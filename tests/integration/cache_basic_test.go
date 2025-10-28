@@ -59,16 +59,15 @@ func TestBasicCacheOperations(t *testing.T) {
 		err := scipCache.Store(method, params, response)
 		require.NoError(t, err)
 
-		cached, found, err := scipCache.Lookup(method, params)
+		_, found, err := scipCache.Lookup(method, params)
 		require.NoError(t, err)
 		require.True(t, found, "Should find entry before invalidation")
 
 		err = scipCache.InvalidateDocument(uri)
 		require.NoError(t, err)
 
-		cached, found, err = scipCache.Lookup(method, params)
+		_, _, err = scipCache.Lookup(method, params)
 		require.NoError(t, err)
-		_ = cached
 		// After invalidation, the entry may or may not exist depending on implementation
 	})
 
@@ -213,7 +212,9 @@ func TestCachePersistence(t *testing.T) {
 
 		err = scipCache.Start(ctx)
 		require.NoError(t, err)
-		defer scipCache.Stop()
+		defer func() {
+			require.NoError(t, scipCache.Stop())
+		}()
 
 		// Poll for loading persisted data
 		deadline := time.Now().Add(2 * time.Second)
@@ -238,10 +239,8 @@ func TestCachePersistence(t *testing.T) {
 			"position":     map[string]int{"line": 0, "character": 0},
 		}
 
-		cached, found, err := scipCache.Lookup(method, params)
+		_, _, err = scipCache.Lookup(method, params)
 		require.NoError(t, err)
-		_ = cached
-		_ = found
 		// Whether the entry is found depends on persistence implementation
 	})
 }
@@ -277,13 +276,11 @@ func TestConcurrentCacheAccess(t *testing.T) {
 				}
 
 				// Lookup
-				cached, found, err := scipCache.Lookup(method, params)
+				_, _, err := scipCache.Lookup(method, params)
 				if err != nil {
 					errors <- err
 					continue
 				}
-				_ = cached
-				_ = found
 
 				// Occasionally invalidate
 				if i%5 == 0 {

@@ -162,19 +162,9 @@ func (m *SCIPCacheManager) updateIndexStats(language string, symbolCount int) {
 
 // Helper methods for conversion between LSP and SCIP types
 
-// convertLSPSymbolKindToSCIPKind converts LSP symbol kind to SCIP symbol kind
-func (m *SCIPCacheManager) convertLSPSymbolKindToSCIPKind(kind types.SymbolKind) scip.SCIPSymbolKind {
-	return m.converter.ConvertLSPSymbolKindToSCIP(kind)
-}
-
 // convertSCIPSymbolKindToLSP converts SCIP symbol kind back to LSP
 func (m *SCIPCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) types.SymbolKind {
 	return m.converter.ConvertSCIPSymbolKindToLSP(kind)
-}
-
-// convertLSPSymbolKindToSyntaxKind converts LSP symbol kind to syntax kind for highlighting
-func (m *SCIPCacheManager) convertLSPSymbolKindToSyntaxKind(kind types.SymbolKind) types.SyntaxKind {
-	return m.converter.ConvertLSPSymbolKindToSyntax(kind)
 }
 
 // convertSCIPSymbolKindToCompletionItemKind converts SCIP symbol kind to completion item kind

@@ -23,7 +23,11 @@ func TestSCIPIndexAndFindReferences(t *testing.T) {
 	// Create repository manager
 	baseDir := t.TempDir()
 	repoManager := testutils.NewRepoManager(baseDir)
-	defer repoManager.Cleanup()
+	defer func() {
+		if err := repoManager.Cleanup(); err != nil {
+			t.Logf("repository cleanup error: %v", err)
+		}
+	}()
 
 	// Test each language
 	languages := []string{"go", "python", "javascript", "typescript", "rust"}
@@ -67,7 +71,11 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 	if err != nil {
 		t.Fatalf("Failed to create LSP manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Errorf("failed to stop LSP manager: %v", err)
+		}
+	}()
 
 	// Start LSP manager with workspace
 	ctx := context.Background()

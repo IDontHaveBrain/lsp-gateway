@@ -199,7 +199,9 @@ func SendJSONRPCRequest(t *testing.T, client *http.Client, url string, request *
 
 	resp, err := client.Post(url, "application/json", bytes.NewReader(requestBody))
 	require.NoError(t, err, "Failed to send JSON-RPC request")
-	defer resp.Body.Close()
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP 200 OK")
 
 	body, err := io.ReadAll(resp.Body)
@@ -219,7 +221,9 @@ func SendJSONRPCRequestRaw(t *testing.T, client *http.Client, url string, reques
 
 	resp, err := client.Post(url, "application/json", bytes.NewReader(requestBody))
 	require.NoError(t, err, "Failed to send JSON-RPC request")
-	defer resp.Body.Close()
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP 200 OK")
 
 	body, err := io.ReadAll(resp.Body)
@@ -257,7 +261,9 @@ func CheckHealthEndpoint(t *testing.T, client *http.Client, serverAddr string) {
 	healthURL := BuildHealthURL(serverAddr)
 	resp, err := client.Get(healthURL)
 	require.NoError(t, err, "Health check failed")
-	defer resp.Body.Close()
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Health check should return 200")
 
 	body, err := io.ReadAll(resp.Body)

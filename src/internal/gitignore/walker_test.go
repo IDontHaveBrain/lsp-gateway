@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWalkerWithGitignore(t *testing.T) {
@@ -14,16 +16,16 @@ func TestWalkerWithGitignore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	os.WriteFile(filepath.Join(tempDir, "included.txt"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "excluded.ignore"), []byte("test"), 0644)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "included.txt"), []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "excluded.ignore"), []byte("test"), 0644))
 
 	ignoredDir := filepath.Join(tempDir, "ignored")
-	os.MkdirAll(ignoredDir, 0755)
-	os.WriteFile(filepath.Join(ignoredDir, "file.txt"), []byte("test"), 0644)
+	require.NoError(t, os.MkdirAll(ignoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "file.txt"), []byte("test"), 0644))
 
 	includedDir := filepath.Join(tempDir, "included")
-	os.MkdirAll(includedDir, 0755)
-	os.WriteFile(filepath.Join(includedDir, "file.txt"), []byte("test"), 0644)
+	require.NoError(t, os.MkdirAll(includedDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(includedDir, "file.txt"), []byte("test"), 0644))
 
 	walker := NewWalker(tempDir)
 
@@ -92,8 +94,8 @@ func TestWalkerFilterPaths(t *testing.T) {
 	}
 
 	for _, p := range paths {
-		os.MkdirAll(filepath.Dir(p), 0755)
-		os.WriteFile(p, []byte("test"), 0644)
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0755))
+		require.NoError(t, os.WriteFile(p, []byte("test"), 0644))
 	}
 
 	filtered := FilterPaths(paths, tempDir)
@@ -157,8 +159,8 @@ func TestWalkerIsGitIgnored(t *testing.T) {
 	secretFile := filepath.Join(tempDir, "config.secret")
 	normalFile := filepath.Join(tempDir, "config.yaml")
 
-	os.WriteFile(secretFile, []byte("secret"), 0644)
-	os.WriteFile(normalFile, []byte("normal"), 0644)
+	require.NoError(t, os.WriteFile(secretFile, []byte("secret"), 0644))
+	require.NoError(t, os.WriteFile(normalFile, []byte("normal"), 0644))
 
 	if !IsGitIgnored(secretFile) {
 		t.Error("Secret file should be ignored")
@@ -173,11 +175,11 @@ func TestWalkerMaxDepth(t *testing.T) {
 	tempDir := t.TempDir()
 
 	deep := filepath.Join(tempDir, "a/b/c/d/e")
-	os.MkdirAll(deep, 0755)
-	os.WriteFile(filepath.Join(deep, "deep.txt"), []byte("test"), 0644)
+	require.NoError(t, os.MkdirAll(deep, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(deep, "deep.txt"), []byte("test"), 0644))
 
 	shallow := filepath.Join(tempDir, "a/b")
-	os.WriteFile(filepath.Join(shallow, "shallow.txt"), []byte("test"), 0644)
+	require.NoError(t, os.WriteFile(filepath.Join(shallow, "shallow.txt"), []byte("test"), 0644))
 
 	walker := NewWalker(tempDir)
 

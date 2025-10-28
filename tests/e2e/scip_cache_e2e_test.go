@@ -181,7 +181,7 @@ func (suite *SCIPCacheE2ETestSuite) TearDownTest() {
 
 	// Restore original working directory
 	if suite.originalWd != "" {
-		os.Chdir(suite.originalWd)
+		suite.Assert().NoError(os.Chdir(suite.originalWd))
 	}
 }
 

@@ -6,6 +6,17 @@ import (
 	"lsp-gateway/src/config"
 )
 
+const (
+	languageGo         = "go"
+	languagePython     = "python"
+	languageTypeScript = "typescript"
+	languageJavaScript = "javascript"
+	languageJava       = "java"
+	languageRust       = "rust"
+	languageCSharp     = "csharp"
+	languageKotlin     = "kotlin"
+)
+
 func TestCreateInstallManager(t *testing.T) {
 	manager := CreateInstallManager()
 
@@ -23,7 +34,7 @@ func TestCreateInstallManager(t *testing.T) {
 		t.Errorf("Expected %d supported languages, got %d", expectedLanguageCount, len(supportedLanguages))
 	}
 
-	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
+	expectedLanguages := []string{languageGo, languagePython, languageTypeScript, languageJavaScript, languageJava, languageRust, languageCSharp, languageKotlin}
 	languageMap := make(map[string]bool)
 	for _, lang := range supportedLanguages {
 		languageMap[lang] = true
@@ -65,12 +76,12 @@ func TestRegisterAllInstallers(t *testing.T) {
 		},
 		{
 			name:     "typescript installer registered",
-			language: "typescript",
+			language: languageTypeScript,
 			wantErr:  false,
 		},
 		{
 			name:     "javascript installer registered",
-			language: "javascript",
+			language: languageJavaScript,
 			wantErr:  false,
 		},
 		{
@@ -120,8 +131,8 @@ func TestRegisterAllInstallers(t *testing.T) {
 				}
 				// JavaScript installer returns "typescript" since it's the same installer
 				expectedLanguage := tt.language
-				if tt.language == "javascript" {
-					expectedLanguage = "typescript"
+				if tt.language == languageJavaScript {
+					expectedLanguage = languageTypeScript
 				}
 				if installer.GetLanguage() != expectedLanguage {
 					t.Errorf("Installer language = %v, want %v", installer.GetLanguage(), expectedLanguage)
@@ -137,12 +148,12 @@ func TestRegisterAllInstallers_SharedTypeScriptInstaller(t *testing.T) {
 
 	registerAllInstallers(manager, platform)
 
-	typescriptInstaller, err := manager.GetInstaller("typescript")
+	typescriptInstaller, err := manager.GetInstaller(languageTypeScript)
 	if err != nil {
 		t.Fatalf("Failed to get typescript installer: %v", err)
 	}
 
-	javascriptInstaller, err := manager.GetInstaller("javascript")
+	javascriptInstaller, err := manager.GetInstaller(languageJavaScript)
 	if err != nil {
 		t.Fatalf("Failed to get javascript installer: %v", err)
 	}
@@ -167,7 +178,7 @@ func TestGetDefaultInstallManager(t *testing.T) {
 		t.Errorf("Expected %d supported languages, got %d", expectedCount, len(supportedLanguages))
 	}
 
-	testLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
+	testLanguages := []string{languageGo, languagePython, languageTypeScript, languageJavaScript, languageJava, languageRust, languageCSharp, languageKotlin}
 	for _, lang := range testLanguages {
 		installer, err := manager.GetInstaller(lang)
 		if err != nil {
@@ -369,7 +380,7 @@ func TestFactoryErrorScenarios(t *testing.T) {
 
 	registerAllInstallers(manager, platform)
 
-	installer, err = manager.GetInstaller("nonexistent")
+	_, err = manager.GetInstaller("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent language even after registration")
 	}
@@ -379,12 +390,12 @@ func TestFactoryLanguageMapping(t *testing.T) {
 	manager := CreateInstallManager()
 
 	languageMappings := map[string]string{
-		"go":         "go",
-		"python":     "python",
-		"typescript": "typescript",
-		"javascript": "typescript",
-		"java":       "java",
-		"rust":       "rust",
+		languageGo:         languageGo,
+		languagePython:     languagePython,
+		languageTypeScript: languageTypeScript,
+		languageJavaScript: languageTypeScript,
+		languageJava:       languageJava,
+		languageRust:       languageRust,
 	}
 
 	for requestedLang, expectedInstallerLang := range languageMappings {
@@ -394,8 +405,8 @@ func TestFactoryLanguageMapping(t *testing.T) {
 			continue
 		}
 
-		if requestedLang == "javascript" {
-			if installer.GetLanguage() != "typescript" && installer.GetLanguage() != "javascript" {
+		if requestedLang == languageJavaScript {
+			if installer.GetLanguage() != languageTypeScript && installer.GetLanguage() != languageJavaScript {
 				t.Errorf("JavaScript installer should handle TypeScript language, got %s", installer.GetLanguage())
 			}
 		} else {
@@ -417,7 +428,7 @@ func TestFactoryRegistrationCompleteness(t *testing.T) {
 	registerAllInstallers(manager, platform)
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
+	expectedLanguages := []string{languageGo, languagePython, languageTypeScript, languageJavaScript, languageJava, languageRust, languageCSharp, languageKotlin}
 
 	if len(supportedLanguages) != len(expectedLanguages) {
 		t.Errorf("Expected %d languages after registration, got %d", len(expectedLanguages), len(supportedLanguages))

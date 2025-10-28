@@ -172,7 +172,9 @@ func TestCacheOptionalMethods(t *testing.T) {
 
 	// Test SetCache method for optional injection
 	simpleCache := shared.CreateAndStartSimpleCache(t, 64)
-	defer simpleCache.Stop()
+	t.Cleanup(func() {
+		assert.NoError(t, simpleCache.Stop())
+	})
 
 	manager.SetCache(simpleCache)
 	retrievedCache := manager.GetCache()
@@ -192,7 +194,9 @@ func TestCacheIntegrationPattern(t *testing.T) {
 
 	// Start cache manager
 	cacheManager := shared.StartCacheManager(t, cacheConfig)
-	defer cacheManager.Stop()
+	t.Cleanup(func() {
+		assert.NoError(t, cacheManager.Stop())
+	})
 
 	// Test basic cache operations
 	method := "textDocument/definition"

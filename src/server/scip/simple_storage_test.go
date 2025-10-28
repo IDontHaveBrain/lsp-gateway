@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"lsp-gateway/src/internal/types"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleSCIPStorage_StoreQueryPersist(t *testing.T) {
@@ -43,7 +45,9 @@ func TestSimpleSCIPStorage_StoreQueryPersist(t *testing.T) {
 	if err := s2.Start(context.Background()); err != nil {
 		t.Fatalf("start2: %v", err)
 	}
-	defer s2.Stop(context.Background())
+	defer func() {
+		require.NoError(t, s2.Stop(context.Background()))
+	}()
 	defs2, _ := s2.GetDefinitionsWithDocuments(context.Background(), "sym:foo")
 	if len(defs2) != 1 {
 		t.Fatalf("persisted defs not found")

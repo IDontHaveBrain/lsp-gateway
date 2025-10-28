@@ -168,6 +168,13 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 	)
 
+	// Set process group for proper cleanup of child LSP processes
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
+	}
+
 	// Capture output for debugging
 	// We'll redirect to os.Stderr so it doesn't interfere with test output
 	// but we can still see errors if the server fails
@@ -212,7 +219,9 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 
 	// Wait for server to be ready
 	if err := mgr.waitForServerReady(t); err != nil {
-		mgr.stopSharedServer(t)
+		if stopErr := mgr.stopSharedServer(t); stopErr != nil {
+			t.Logf("shared server cleanup error: %v", stopErr)
+		}
 		return fmt.Errorf("shared server failed to become ready: %w", err)
 	}
 
@@ -405,12 +414,11 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 		var health map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		resp.Body.Close()
-
+		_ = resp.Body.Close()
 		// Check if required LSP clients are active
 		lspClients, ok := health["lsp_clients"].(map[string]interface{})
 		if !ok {
@@ -517,15 +525,28 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 
 	// Close HTTP client
 	if mgr.httpClient != nil {
-		mgr.httpClient.Close()
+		if err := mgr.httpClient.Close(); err != nil {
+			t.Logf("⚠️  Failed to close shared server HTTP client: %v", err)
+		}
 		mgr.httpClient = nil
 	}
 
-	// Gracefully terminate the server
+	// Gracefully terminate the server and all child LSP processes
 	if mgr.gatewayCmd.Process != nil {
-		// Send SIGTERM for graceful shutdown
-		if err := mgr.gatewayCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			t.Logf("⚠️  Failed to send SIGTERM to shared server: %v", err)
+		pid := mgr.gatewayCmd.Process.Pid
+
+		// Kill entire process group to ensure all child LSP servers are terminated
+		if runtime.GOOS != "windows" {
+			// Send SIGTERM to process group (negative PID)
+			if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+				t.Logf("⚠️  Failed to send SIGTERM to process group: %v", err)
+				// Fallback to killing just the process
+				_ = mgr.gatewayCmd.Process.Signal(syscall.SIGTERM)
+			}
+		} else {
+			if err := mgr.gatewayCmd.Process.Signal(syscall.SIGTERM); err != nil {
+				t.Logf("⚠️  Failed to send SIGTERM to shared server: %v", err)
+			}
 		}
 
 		// Wait up to 10 seconds for graceful shutdown
@@ -535,13 +556,22 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 		}()
 
 		select {
-		case err := <-done:
-			if err != nil {
-				// Server exited
-			}
+		case <-done:
+			// Process exited gracefully
 		case <-time.After(10 * time.Second):
-			mgr.gatewayCmd.Process.Kill()
-			mgr.gatewayCmd.Wait()
+			// Force kill process group if still running
+			if runtime.GOOS != "windows" {
+				if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+					t.Logf("⚠️  Failed to SIGKILL process group: %v", err)
+				}
+			} else {
+				if err := mgr.gatewayCmd.Process.Kill(); err != nil {
+					t.Logf("⚠️  Failed to kill shared server process: %v", err)
+				}
+			}
+			if err := mgr.gatewayCmd.Wait(); err != nil {
+				t.Logf("⚠️  Shared server wait error after kill: %v", err)
+			}
 		}
 	}
 

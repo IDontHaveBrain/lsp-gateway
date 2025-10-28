@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,10 +211,14 @@ func (w *WorkspaceSetup) GetFilePath(filename string) string {
 // Cleanup removes the temporary workspace
 func (w *WorkspaceSetup) Cleanup() {
 	if w.OriginalWD != "" {
-		os.Chdir(w.OriginalWD)
+		if err := os.Chdir(w.OriginalWD); err != nil {
+			panic(fmt.Sprintf("failed to restore working directory: %v", err))
+		}
 	}
 	if w.TempDir != "" {
-		os.RemoveAll(w.TempDir)
+		if err := os.RemoveAll(w.TempDir); err != nil {
+			panic(fmt.Sprintf("failed to remove temp dir: %v", err))
+		}
 	}
 }
 

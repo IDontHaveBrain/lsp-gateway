@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestManagerShouldIgnore(t *testing.T) {
@@ -45,13 +47,13 @@ func TestManagerShouldIgnore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			os.MkdirAll(filepath.Dir(tt.path), 0755)
+			require.NoError(t, os.MkdirAll(filepath.Dir(tt.path), 0755))
 
 			isDir := filepath.Base(tt.path) == "node_modules" || filepath.Base(tt.path) == "build"
 			if isDir {
-				os.MkdirAll(tt.path, 0755)
+				require.NoError(t, os.MkdirAll(tt.path, 0755))
 			} else {
-				os.WriteFile(tt.path, []byte("test"), 0644)
+				require.NoError(t, os.WriteFile(tt.path, []byte("test"), 0644))
 			}
 
 			result := manager.ShouldIgnore(tt.path)
@@ -72,7 +74,7 @@ func TestManagerNestedGitignore(t *testing.T) {
 	}
 
 	level1 := filepath.Join(tempDir, "level1")
-	os.MkdirAll(level1, 0755)
+	require.NoError(t, os.MkdirAll(level1, 0755))
 	level1Gitignore := filepath.Join(level1, ".gitignore")
 	err = os.WriteFile(level1Gitignore, []byte("*.level1\n"), 0644)
 	if err != nil {
@@ -80,7 +82,7 @@ func TestManagerNestedGitignore(t *testing.T) {
 	}
 
 	level2 := filepath.Join(level1, "level2")
-	os.MkdirAll(level2, 0755)
+	require.NoError(t, os.MkdirAll(level2, 0755))
 	level2Gitignore := filepath.Join(level2, ".gitignore")
 	err = os.WriteFile(level2Gitignore, []byte("*.level2\n"), 0644)
 	if err != nil {
@@ -106,7 +108,7 @@ func TestManagerNestedGitignore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			os.WriteFile(tt.path, []byte("test"), 0644)
+			require.NoError(t, os.WriteFile(tt.path, []byte("test"), 0644))
 			result := manager.ShouldIgnore(tt.path)
 			if result != tt.expected {
 				t.Errorf("ShouldIgnore(%s) = %v, want %v", tt.path, result, tt.expected)
@@ -160,7 +162,7 @@ func TestManagerCaching(t *testing.T) {
 	manager := NewManager(tempDir)
 
 	testFile := filepath.Join(tempDir, "test.cache")
-	os.WriteFile(testFile, []byte("test"), 0644)
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
 
 	if !manager.ShouldIgnore(testFile) {
 		t.Error("First call should match")
@@ -188,7 +190,7 @@ func TestManagerEnabled(t *testing.T) {
 
 	manager := NewManager(tempDir)
 	testFile := filepath.Join(tempDir, "test.ignore")
-	os.WriteFile(testFile, []byte("test"), 0644)
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
 
 	if !manager.IsEnabled() {
 		t.Error("Manager should be enabled by default")

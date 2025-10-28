@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -671,14 +669,6 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 }
 
 // occurrencesMatch checks if two occurrences are the same
-func (m *LSPManager) occurrencesMatch(a, b scip.SCIPOccurrence) bool {
-	return a.Symbol == b.Symbol &&
-		a.Range.Start.Line == b.Range.Start.Line &&
-		a.Range.Start.Character == b.Range.Start.Character &&
-		a.Range.End.Line == b.Range.End.Line &&
-		a.Range.End.Character == b.Range.End.Character &&
-		a.SymbolRoles == b.SymbolRoles
-}
 
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
 func (m *LSPManager) createLegacyReferenceInfo(symbolInfo types.SymbolInformation) ReferenceInfo {
@@ -743,31 +733,4 @@ func (m *LSPManager) compareReferenceRelevance(a, b ReferenceInfo) bool {
 		return a.FilePath < b.FilePath
 	}
 	return a.LineNumber < b.LineNumber
-}
-
-// readFileContent reads the content of a file
-func (m *LSPManager) readFileContent(filePath string) ([]byte, error) {
-	return os.ReadFile(filePath)
-}
-
-// detectLanguageFromURI detects the language from a URI based on file extension
-func (m *LSPManager) detectLanguageFromURI(uri string) string {
-	filePath := utils.URIToFilePathCached(uri)
-	ext := filepath.Ext(filePath)
-	switch ext {
-	case ".go":
-		return "go"
-	case ".js", ".jsx", ".mjs":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
-	case ".py":
-		return langPython
-	case ".java":
-		return "java"
-	case ".kt", ".kts":
-		return "kotlin"
-	default:
-		return "plaintext"
-	}
 }

@@ -247,7 +247,9 @@ func (m *CacheIsolationManager) RecordCacheState(healthURL, testPhase string) er
 
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var health map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
@@ -305,7 +307,9 @@ func (m *CacheIsolationManager) ValidateCacheHealth(healthURL string, expectedSt
 
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var health map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
@@ -609,7 +613,9 @@ func (m *CacheIsolationManager) WaitForCacheStabilization(healthURL string, time
 
 			var health map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&health)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("[WARN] failed to close response body: %v\n", err)
+			}
 
 			if err != nil {
 				stableCount = 0

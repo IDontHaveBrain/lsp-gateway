@@ -264,36 +264,6 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 	return "", errors.New("no suitable OmniSharp asset found")
 }
 
-func (c *CSharpInstaller) findOmniSharpBinary(root string) (string, error) {
-	var candidates []string
-	if runtime.GOOS == osWindows {
-		candidates = []string{"omnisharp.exe", "OmniSharp.exe"}
-	} else {
-		candidates = []string{"omnisharp", "OmniSharp"}
-	}
-	var match string
-	found := errors.New("found")
-	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		name := filepath.Base(path)
-		for _, cnd := range candidates {
-			if strings.EqualFold(name, cnd) {
-				match = path
-				return found
-			}
-		}
-		return nil
-	}); err != nil && !errors.Is(err, found) {
-		return "", err
-	}
-	if match == "" {
-		return "", errors.New("OmniSharp binary not found in archive")
-	}
-	return match, nil
-}
-
 // copyDirContents copies all files from srcDir into dstDir recursively
 func copyDirContents(srcDir, dstDir string) error {
 	return filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {

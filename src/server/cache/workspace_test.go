@@ -95,7 +95,9 @@ func TestScanWorkspaceSourceFiles(t *testing.T) {
 	// Create a temporary test directory structure
 	tempDir, err := os.MkdirTemp("", "workspace_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
 
 	// Create test files
 	testFiles := []string{
@@ -190,7 +192,7 @@ func TestIndexWorkspaceFiles(t *testing.T) {
 	// Create a temporary test directory
 	tempDir, err := os.MkdirTemp("", "workspace_index_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test files
 	goFile := filepath.Join(tempDir, "main.go")
@@ -272,7 +274,7 @@ func TestIndexWorkspaceFiles(t *testing.T) {
 func TestIndexWorkspaceFiles_ContextCancellation(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "workspace_cancel_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a test file
 	err = os.WriteFile(filepath.Join(tempDir, "test.go"), []byte("package main"), 0644)

@@ -1,18 +1,8 @@
 package cache
 
-import (
-	"lsp-gateway/src/server/cache/search"
-	"lsp-gateway/src/server/scip"
-)
+import "lsp-gateway/src/server/scip"
 
 // Result building utilities - creates enhanced symbol results and occurrence info from SCIP data
-
-// buildEnhancedSymbolResult creates an enhanced symbol result from SCIP data
-func (m *SCIPCacheManager) buildEnhancedSymbolResult(symbolInfo *scip.SCIPSymbolInformation, occurrences []scip.SCIPOccurrence, query *EnhancedSymbolQuery) EnhancedSymbolResult {
-	includeDocs := query != nil && query.IncludeDocumentation
-	// Cache manager path computes basic scoring to support relevance-based sorting
-	return search.BuildEnhancedSymbolResult(symbolInfo, occurrences, "", includeDocs, true)
-}
 
 // buildOccurrenceInfo creates occurrence info with context
 func (m *SCIPCacheManager) buildOccurrenceInfo(occ *scip.SCIPOccurrence, docURI string) SCIPOccurrenceInfo {

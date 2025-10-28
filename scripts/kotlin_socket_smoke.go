@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Minimal Kotlin project
 	ktPath := filepath.Join(tmpDir, "Main.kt")
@@ -61,7 +61,11 @@ class Hello {
 		fmt.Println("manager start error:", err)
 		os.Exit(2)
 	}
-	defer mgr.Stop()
+	defer func() {
+		if err := mgr.Stop(); err != nil {
+			fmt.Fprintf(os.Stderr, "manager stop error: %v\n", err)
+		}
+	}()
 
 	// Small delay to allow server to settle
 	time.Sleep(2 * time.Second)

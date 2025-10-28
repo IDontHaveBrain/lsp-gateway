@@ -16,14 +16,11 @@ import (
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/contextmap"
-	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
 	"lsp-gateway/src/utils/lspconv"
 )
-
-const jsonNullLiteral = "null"
 
 type SymbolInfo struct {
 	Name       string   `json:"name"`
@@ -707,92 +704,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	return nil
 }
 
-func parseDefinitionResult(result interface{}) ([]types.Location, error) {
-	if result == nil {
-		return nil, nil
-	}
-	switch v := result.(type) {
-	case types.Location:
-		return []types.Location{v}, nil
-	case *types.Location:
-		if v == nil {
-			return nil, nil
-		}
-		return []types.Location{*v}, nil
-	case []types.Location:
-		return v, nil
-	case []*types.Location:
-		out := make([]types.Location, 0, len(v))
-		for _, p := range v {
-			if p != nil {
-				out = append(out, *p)
-			}
-		}
-		return out, nil
-	case json.RawMessage:
-		if len(v) == 0 || string(v) == jsonNullLiteral {
-			return nil, nil
-		}
-		var arr []types.Location
-		if err := json.Unmarshal(v, &arr); err == nil {
-			return arr, nil
-		}
-		var single types.Location
-		if err := json.Unmarshal(v, &single); err == nil {
-			return []types.Location{single}, nil
-		}
-		// Try LocationLink[]: { targetUri, targetRange, targetSelectionRange }
-		type locationLink struct {
-			TargetURI            string      `json:"targetUri"`
-			TargetRange          types.Range `json:"targetRange"`
-			TargetSelectionRange types.Range `json:"targetSelectionRange"`
-		}
-		var links []locationLink
-		if err := json.Unmarshal(v, &links); err == nil && len(links) > 0 {
-			out := make([]types.Location, 0, len(links))
-			for _, l := range links {
-				// Prefer full targetRange; use selection if full is absent
-				rng := l.TargetRange
-				if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
-					rng = l.TargetSelectionRange
-				}
-				out = append(out, types.Location{URI: l.TargetURI, Range: rng})
-			}
-			return out, nil
-		}
-		// Try single LocationLink
-		var link locationLink
-		if err := json.Unmarshal(v, &link); err == nil && link.TargetURI != "" {
-			rng := link.TargetRange
-			if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
-				rng = link.TargetSelectionRange
-			}
-			return []types.Location{{URI: link.TargetURI, Range: rng}}, nil
-		}
-		return nil, fmt.Errorf("unable to parse definition result")
-	case []byte:
-		return parseDefinitionResult(json.RawMessage(v))
-	case string:
-		return parseDefinitionResult(json.RawMessage([]byte(v)))
-	default:
-		return nil, fmt.Errorf("unsupported definition result type: %T", result)
-	}
-}
-
-func clamp(v, min, max int) int {
-	if v < min {
-		return min
-	}
-	if v > max {
-		return max
-	}
-	return v
-}
-
-func isIdentChar(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
-}
-
 func extractFileDefsRefsWithContext(cmdCtx *clicommon.CommandContext, file string, formatJSON bool) error {
 	absPath, _ := filepath.Abs(file)
 	uri := utils.FilePathToURICached(absPath)
@@ -998,87 +909,6 @@ func runContextSymbolsCmd(cmd *cobra.Command, args []string) error {
 	return ExtractSymbols(configPath, files, formatJSON, includeRefs)
 }
 
-// parseDocumentSymbolsResult normalizes an LSP documentSymbol result into []lsp.DocumentSymbol
-func parseDocumentSymbolsResult(result interface{}) ([]lsp.DocumentSymbol, error) {
-	if result == nil {
-		return nil, nil
-	}
-	switch v := result.(type) {
-	case []lsp.DocumentSymbol:
-		return v, nil
-	case []*lsp.DocumentSymbol:
-		out := make([]lsp.DocumentSymbol, 0, len(v))
-		for _, p := range v {
-			if p != nil {
-				out = append(out, *p)
-			}
-		}
-		return out, nil
-	case json.RawMessage:
-		if len(v) == 0 || string(v) == jsonNullLiteral {
-			return nil, nil
-		}
-		var ds []lsp.DocumentSymbol
-		if err := json.Unmarshal(v, &ds); err == nil {
-			return ds, nil
-		}
-		var si []types.SymbolInformation
-		if err := json.Unmarshal(v, &si); err == nil {
-			out := make([]lsp.DocumentSymbol, 0, len(si))
-			for _, s := range si {
-				out = append(out, lsp.DocumentSymbol{
-					Name:           s.Name,
-					Kind:           s.Kind,
-					Range:          s.Location.Range,
-					SelectionRange: s.Location.Range,
-				})
-			}
-			return out, nil
-		}
-		return nil, fmt.Errorf("unable to parse document symbols result")
-	case []byte:
-		return parseDocumentSymbolsResult(json.RawMessage(v))
-	case string:
-		return parseDocumentSymbolsResult(json.RawMessage([]byte(v)))
-	default:
-		return nil, fmt.Errorf("unsupported document symbols result type: %T", result)
-	}
-}
-
-// parseReferencesResult normalizes an LSP references result into []types.Location
-func parseReferencesResult(result interface{}) ([]types.Location, error) {
-	if result == nil {
-		return nil, nil
-	}
-	switch v := result.(type) {
-	case []types.Location:
-		return v, nil
-	case []*types.Location:
-		out := make([]types.Location, 0, len(v))
-		for _, p := range v {
-			if p != nil {
-				out = append(out, *p)
-			}
-		}
-		return out, nil
-	case json.RawMessage:
-		if len(v) == 0 || string(v) == jsonNullLiteral {
-			return nil, nil
-		}
-		var locs []types.Location
-		if err := json.Unmarshal(v, &locs); err == nil {
-			return locs, nil
-		}
-		return nil, fmt.Errorf("unable to parse references result")
-	case []byte:
-		return parseReferencesResult(json.RawMessage(v))
-	case string:
-		return parseReferencesResult(json.RawMessage([]byte(v)))
-	default:
-		return nil, fmt.Errorf("unsupported references result type: %T", result)
-	}
-}
-
 // GenerateContextSignatureMapJSON creates a JSON signature map from indexed data
 func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
@@ -1264,24 +1094,6 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 	}
 
 	return nil
-}
-
-// Helper function to count symbols recursively
-func countSymbols(symbols []lsp.DocumentSymbol) int {
-	count := len(symbols)
-	for _, sym := range symbols {
-		if len(sym.Children) > 0 {
-			// Convert pointers to values
-			children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
-			for _, child := range sym.Children {
-				if child != nil {
-					children = append(children, *child)
-				}
-			}
-			count += countSymbols(children)
-		}
-	}
-	return count
 }
 
 // AnalyzeDependencies analyzes dependencies for specified files using only LSP data

@@ -21,7 +21,6 @@ type MockInstaller struct {
 	uninstallError   error
 	installDelay     time.Duration
 	validationDelay  time.Duration
-	forceReinstall   bool
 	installCallCount int
 	mutex            sync.Mutex
 }

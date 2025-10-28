@@ -4,17 +4,17 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSafeLoggerLevels(t *testing.T) {
-	old := os.Getenv("LSP_GATEWAY_DEBUG")
-	defer os.Setenv("LSP_GATEWAY_DEBUG", old)
-	os.Unsetenv("LSP_GATEWAY_DEBUG")
+	t.Setenv("LSP_GATEWAY_DEBUG", "")
 	l := NewSafeLogger("TEST")
 	if l.level != LogInfo {
 		t.Fatalf("expected info level")
 	}
-	os.Setenv("LSP_GATEWAY_DEBUG", "true")
+	t.Setenv("LSP_GATEWAY_DEBUG", "true")
 	l2 := NewSafeLogger("TEST")
 	if l2.level != LogDebug {
 		t.Fatalf("expected debug level")
@@ -31,9 +31,10 @@ func TestLoggerWritesToStderr(t *testing.T) {
 
 	l := NewSafeLogger("TEST")
 	l.Info("hello")
-	w.Close()
+	require.NoError(t, w.Close())
 	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
+	n, err := r.Read(buf)
+	require.NoError(t, err)
 	s := string(buf[:n])
 	if !strings.Contains(s, "TEST:") {
 		t.Fatalf("missing prefix: %q", s)

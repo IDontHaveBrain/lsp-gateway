@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -91,7 +90,9 @@ func handleError(err error) {
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() {
+		require.NoError(t, scipCache.Stop())
+	}()
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
@@ -105,7 +106,9 @@ func handleError(err error) {
 
 	err = gateway.Start(ctx)
 	require.NoError(t, err)
-	defer gateway.Stop()
+	defer func() {
+		require.NoError(t, gateway.Stop())
+	}()
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
 	require.NoError(t, shared.WaitForHTTPReady(ctx, baseURL+"/health"))
@@ -153,7 +156,7 @@ func handleError(err error) {
 				httpErrors.Add(1)
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode == http.StatusOK {
 				httpSuccesses.Add(1)
@@ -242,7 +245,7 @@ func handleError(err error) {
 		bytes.NewReader(body),
 	)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "System should be stable after concurrent load")
 }
@@ -271,7 +274,9 @@ func TestDualProtocolResourceContention(t *testing.T) {
 
 	err = gateway.Start(ctx2)
 	require.NoError(t, err)
-	defer gateway.Stop()
+	defer func() {
+		require.NoError(t, gateway.Stop())
+	}()
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
 	require.NoError(t, shared.WaitForHTTPReady(ctx2, baseURL+"/health"))
 
@@ -308,7 +313,7 @@ func TestDualProtocolResourceContention(t *testing.T) {
 			)
 
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		}(i)
 
@@ -368,16 +373,6 @@ func TestDualProtocolResourceContention(t *testing.T) {
 	// Cache evictions depend on actual file indexing which requires real test files.
 	// The cache may remain empty if no files are indexed during the test.
 }
-
-type mockStdioTransport struct {
-	stdin  io.Reader
-	stdout io.Writer
-	stderr io.Writer
-}
-
-func (m *mockStdioTransport) Stdin() io.Reader  { return m.stdin }
-func (m *mockStdioTransport) Stdout() io.Writer { return m.stdout }
-func (m *mockStdioTransport) Stderr() io.Writer { return m.stderr }
 
 func getMemoryUsage() uint64 {
 	var m runtime.MemStats

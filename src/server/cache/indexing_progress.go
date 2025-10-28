@@ -8,14 +8,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
-	"lsp-gateway/src/utils/lspconv"
 )
 
 // indexedSymbol represents a symbol found during indexing
@@ -96,13 +93,6 @@ func (w *WorkspaceIndexer) collectUniqueDefinitions(documents map[string]*scip.S
 	return result
 }
 
-func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {
-	if r, ok := lspconv.ParseRangeFromMap(rangeData); ok {
-		return r
-	}
-	return types.Range{}
-}
-
 // clampPositionToFile ensures the given position is within the file's line bounds
 func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) types.Position {
 	path := utils.URIToFilePathCached(uri)
@@ -132,15 +122,6 @@ func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) t
 		pos.Character = 0
 	}
 	return pos
-}
-
-func (w *WorkspaceIndexer) detectLanguageFromURI(uri string) string {
-	path := utils.URIToFilePathCached(uri)
-	ext := filepath.Ext(path)
-	if lang, ok := registry.GetLanguageByExtension(ext); ok {
-		return lang.Name
-	}
-	return "unknown"
 }
 
 func (w *WorkspaceIndexer) isValidIdentifierSyntaxKind(syntaxKind types.SyntaxKind) bool {
@@ -213,14 +194,6 @@ func (w *WorkspaceIndexer) isBuiltinSymbol(symbol string) bool {
 	}
 
 	return builtinTypes[symbol]
-}
-
-// min is a utility function for getting the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // GetAllDocuments returns all documents in the cache

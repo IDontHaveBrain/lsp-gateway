@@ -8,6 +8,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server/cache"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReferenceUpdateOnFileModification(t *testing.T) {
@@ -16,7 +18,9 @@ func TestReferenceUpdateOnFileModification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
 
 	// Create test files
 	fileA := filepath.Join(tempDir, "file_a.go")
@@ -79,7 +83,9 @@ func FunctionC() string {
 	if err := cacheManager.Start(ctx); err != nil {
 		t.Fatalf("Failed to start cache manager: %v", err)
 	}
-	defer cacheManager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, cacheManager.Stop())
+	})
 
 	// Mock LSP fallback for testing
 	mockLSP := &mockLSPFallbackWithReferences{

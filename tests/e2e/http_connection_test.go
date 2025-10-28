@@ -38,14 +38,14 @@ func (suite *HttpConnectionTestSuite) SetupTest() {
 // TearDownTest cleans up after each test
 func (suite *HttpConnectionTestSuite) TearDownTest() {
 	if suite.httpClient != nil {
-		suite.httpClient.Close()
+		suite.Require().NoError(suite.httpClient.Close())
 	}
 }
 
 // TearDownSuite cleans up after all tests
 func (suite *HttpConnectionTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		suite.Require().NoError(os.RemoveAll(suite.tempDir))
 	}
 }
 

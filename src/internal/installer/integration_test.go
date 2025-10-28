@@ -422,7 +422,7 @@ func TestConfigUpdater_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	manager := NewLSPInstallManager()
 	updater := NewConfigUpdater(manager)

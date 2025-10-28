@@ -9,6 +9,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server/cache"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestIncrementalIndexing(t *testing.T) {
@@ -17,7 +19,9 @@ func TestIncrementalIndexing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
 
 	// Create test files
 	file1 := filepath.Join(tempDir, "file1.go")
@@ -59,7 +63,9 @@ func World() string {
 	if err := cacheManager.Start(ctx); err != nil {
 		t.Fatalf("Failed to start cache manager: %v", err)
 	}
-	defer cacheManager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, cacheManager.Stop())
+	})
 
 	// Mock LSP fallback
 	mockLSP := &mockLSPFallback{

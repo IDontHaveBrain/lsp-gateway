@@ -229,7 +229,7 @@ func TestNewHTTPGateway(t *testing.T) {
 					assert.Equal(t, tt.lspOnly, gateway.lspOnly)
 					assert.NotNil(t, gateway.server)
 					assert.NotNil(t, gateway.responseFactory)
-					gateway.Stop()
+					require.NoError(t, gateway.Stop())
 				}
 			}
 		})

@@ -24,7 +24,7 @@ type CacheTestSetup struct {
 // Close performs cleanup and stops the cache manager
 func (setup *CacheTestSetup) Close() {
 	if setup.Manager != nil {
-		setup.Manager.Stop()
+		require.NoError(setup.t, setup.Manager.Stop())
 	}
 }
 
@@ -197,7 +197,7 @@ func StartCacheManager(t *testing.T, cfg *config.CacheConfig) *cache.SCIPCacheMa
 
 	// Register cleanup
 	t.Cleanup(func() {
-		scipCache.Stop()
+		require.NoError(t, scipCache.Stop())
 	})
 
 	return scipCache

@@ -2,13 +2,14 @@ package shared
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"testing"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server/cache"
 
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // CacheConfigOptions holds options for creating cache configurations
@@ -165,6 +166,8 @@ func CreateReferencesTestData() (string, map[string]interface{}, interface{}) {
 // CleanupCache stops and cleans up a cache manager
 func CleanupCache(scipCache *cache.SCIPCacheManager) {
 	if scipCache != nil {
-		scipCache.Stop()
+		if err := scipCache.Stop(); err != nil {
+			panic(fmt.Sprintf("failed to stop SCIP cache: %v", err))
+		}
 	}
 }

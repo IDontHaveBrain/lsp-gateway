@@ -108,7 +108,9 @@ func NewHandler(s *Server) *Handler {
 	ctx := context.Background()
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
-	defer lspManager.Stop()
+	defer func() {
+		require.NoError(t, lspManager.Stop())
+	}()
 
 	t.Run("SCIPDefinitionStorage", func(t *testing.T) {
 		testURI := uri.File(testFile1)
@@ -257,7 +259,9 @@ func NewHandler(s *Server) *Handler {
 		case map[string]interface{}:
 			if data, err := json.Marshal(res); err == nil {
 				hover = &protocol.Hover{}
-				json.Unmarshal(data, hover)
+				require.NoError(t, json.Unmarshal(data, hover))
+			} else {
+				require.Fail(t, "Failed to marshal hover map", "error: %v", err)
 			}
 		default:
 			require.Fail(t, "Unexpected hover result type", "Expected *protocol.Hover, got %T", hoverResult)
@@ -471,7 +475,9 @@ func NewHandler(s *Server) *Handler {
 
 		smallCache, err := cache.NewSCIPCacheManager(smallCacheConfig)
 		require.NoError(t, err)
-		defer smallCache.Stop()
+		defer func() {
+			require.NoError(t, smallCache.Stop())
+		}()
 
 		for i := 0; i < 100; i++ {
 			tempFile := filepath.Join(testDir, fmt.Sprintf("temp%d.go", i))

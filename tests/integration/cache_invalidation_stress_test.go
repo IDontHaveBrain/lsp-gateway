@@ -99,7 +99,9 @@ func (s *Struct%d) Method%d() string {
 
 	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() {
+		require.NoError(t, scipCache.Stop())
+	}()
 
 	// Start the cache before using it
 	err = scipCache.Start(ctx)
@@ -107,7 +109,9 @@ func (s *Struct%d) Method%d() string {
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer lspManager.Stop()
+	defer func() {
+		require.NoError(t, lspManager.Stop())
+	}()
 	lspManager.SetCache(scipCache)
 
 	// Start the LSP manager to initialize LSP servers
@@ -520,12 +524,14 @@ func (c *ConsistencyTest) Method2() int {
 		// Force the LSP server to re-read the file by making a fresh connection
 		// This simulates what would happen if the file was changed and the LSP
 		// server detected it through file system monitoring
-		lspManager.Stop()
+		require.NoError(t, lspManager.Stop())
 
 		// Restart the LSP manager to get fresh file content
 		lspManager2, err := server.NewLSPManager(cfg)
 		require.NoError(t, err)
-		defer lspManager2.Stop()
+		defer func() {
+			require.NoError(t, lspManager2.Stop())
+		}()
 		lspManager2.SetCache(scipCache)
 
 		// Restart the cache since it was stopped with the previous manager

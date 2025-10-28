@@ -154,7 +154,7 @@ func (b *LSPManagerBuilder) createSetup(t *testing.T, autoStart bool) *LSPManage
 	cleanup := func() {
 		setup.Stop()
 		if setup.TempDir != "" && setup.TempDir != b.tempDir {
-			os.RemoveAll(setup.TempDir)
+			require.NoError(t, os.RemoveAll(setup.TempDir))
 		}
 	}
 	setup.CleanupFunc = cleanup
@@ -221,15 +221,50 @@ func (setup *LSPManagerTestSetup) Start(t *testing.T) {
 
 // Stop stops the LSP manager and cache
 func (setup *LSPManagerTestSetup) Stop() {
-	if setup.Started {
-		if setup.Manager != nil {
-			setup.Manager.Stop()
+	// Recover from panics during cleanup to ensure resources are released
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[WARN] Panic during LSP manager cleanup: %v\n", r)
 		}
+	}()
+
+	if setup.Started {
+		// Stop LSP manager with timeout to prevent hanging
+		if setup.Manager != nil {
+			done := make(chan error, 1)
+			go func() {
+				done <- setup.Manager.Stop()
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					fmt.Printf("[WARN] failed to stop LSP manager: %v\n", err)
+				}
+			case <-time.After(15 * time.Second):
+				fmt.Printf("[WARN] LSP manager stop timed out after 15s\n")
+			}
+		}
+
+		// Stop cache with timeout
 		if setup.Cache != nil {
-			setup.Cache.Stop()
+			done := make(chan error, 1)
+			go func() {
+				done <- setup.Cache.Stop()
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					fmt.Printf("[WARN] failed to stop cache manager: %v\n", err)
+				}
+			case <-time.After(5 * time.Second):
+				fmt.Printf("[WARN] cache manager stop timed out after 5s\n")
+			}
 		}
 		setup.Started = false
 	}
+
 	if setup.Cancel != nil {
 		setup.Cancel()
 	}

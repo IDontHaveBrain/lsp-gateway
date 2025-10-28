@@ -320,8 +320,12 @@ func (suite *ComprehensiveTestBaseSuite) DisableSharedServer() {
 // stopGatewayServer stops the gateway server
 func (suite *ComprehensiveTestBaseSuite) stopGatewayServer() {
 	if suite.gatewayCmd != nil && suite.gatewayCmd.Process != nil {
-		suite.gatewayCmd.Process.Signal(syscall.SIGTERM)
-		suite.gatewayCmd.Wait()
+		if err := suite.gatewayCmd.Process.Signal(syscall.SIGTERM); err != nil {
+			suite.T().Logf("failed to signal gateway process: %v", err)
+		}
+		if err := suite.gatewayCmd.Wait(); err != nil {
+			suite.T().Logf("gateway process wait error: %v", err)
+		}
 		suite.gatewayCmd = nil
 	}
 	suite.serverStarted = false
@@ -507,7 +511,7 @@ func (suite *ComprehensiveTestBaseSuite) checkLSPClientsActive(healthURL string)
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var health map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
@@ -620,7 +624,7 @@ func (suite *ComprehensiveTestBaseSuite) validateCachePerformance() {
 		suite.T().Logf("Warning: Failed to get health status for cache validation: %v", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var health map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {

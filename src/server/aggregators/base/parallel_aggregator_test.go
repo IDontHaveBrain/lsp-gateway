@@ -68,16 +68,6 @@ func (m *mockLSPClient) withResponse(response interface{}) *mockLSPClient {
 	return m
 }
 
-func (m *mockLSPClient) withInactive() *mockLSPClient {
-	m.isActive = false
-	return m
-}
-
-func (m *mockLSPClient) withUnsupported() *mockLSPClient {
-	m.supportsMethod = false
-	return m
-}
-
 func (m *mockLSPClient) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -133,10 +123,6 @@ func (m *mockLSPClient) Supports(method string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.supportsMethod
-}
-
-func (m *mockLSPClient) getCallCount() int32 {
-	return atomic.LoadInt32(&m.callCount)
 }
 
 // Test executor function that converts generic request/response

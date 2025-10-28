@@ -157,7 +157,7 @@ func TestLSPManager_Constructor(t *testing.T) {
 				}
 
 				// Cleanup
-				manager.Stop()
+				require.NoError(t, manager.Stop())
 			}
 		})
 	}
@@ -208,7 +208,7 @@ func TestLSPManager_ProcessRequest_NilCacheHandling(t *testing.T) {
 	mockClient.AssertExpectations(t)
 
 	// Cleanup
-	manager.Stop()
+	require.NoError(t, manager.Stop())
 }
 
 // Test Start method basic functionality
@@ -216,7 +216,9 @@ func TestLSPManager_Start_Basic(t *testing.T) {
 	cfg := createSimpleTestConfig()
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -286,7 +288,9 @@ func TestLSPManager_CheckServerAvailability(t *testing.T) {
 
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	status := manager.CheckServerAvailability()
 
@@ -324,7 +328,7 @@ func TestLSPManager_GetClientStatus(t *testing.T) {
 	assert.NoError(t, status["go"].Error)
 
 	// Cleanup
-	manager.Stop()
+	require.NoError(t, manager.Stop())
 }
 
 // Test GetClient method
@@ -352,7 +356,7 @@ func TestLSPManager_GetClient(t *testing.T) {
 	assert.Equal(t, mockClient, client)
 
 	// Cleanup
-	manager.Stop()
+	require.NoError(t, manager.Stop())
 }
 
 // Test GetConfiguredServers method
@@ -360,7 +364,9 @@ func TestLSPManager_GetConfiguredServers(t *testing.T) {
 	cfg := createSimpleTestConfig()
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	servers := manager.GetConfiguredServers()
 	assert.Equal(t, cfg.Servers, servers)
@@ -372,7 +378,9 @@ func TestLSPManager_DetectPrimaryLanguage(t *testing.T) {
 	cfg := createSimpleTestConfig()
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	// Create temporary directory with Go files
 	tempDir := t.TempDir()
@@ -422,7 +430,7 @@ func TestLSPManager_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Cleanup
-	manager.Stop()
+	require.NoError(t, manager.Stop())
 }
 
 // Test isNoViewsRPCError function
@@ -473,7 +481,9 @@ func TestLSPManager_CacheIntegration(t *testing.T) {
 		cfg := createCacheTestConfig()
 		manager, err := NewLSPManager(cfg)
 		require.NoError(t, err)
-		defer manager.Stop()
+		t.Cleanup(func() {
+			require.NoError(t, manager.Stop())
+		})
 
 		// Test that the method exists and works
 		result := manager.isCacheableMethod("textDocument/definition")
@@ -487,7 +497,9 @@ func TestLSPManager_CacheIntegration(t *testing.T) {
 		cfg := createSimpleTestConfig()
 		manager, err := NewLSPManager(cfg)
 		require.NoError(t, err)
-		defer manager.Stop()
+		t.Cleanup(func() {
+			require.NoError(t, manager.Stop())
+		})
 
 		// Set cache to nil
 		manager.scipCache = nil
@@ -503,7 +515,9 @@ func TestLSPManager_ProcessRequest_UnsupportedFileType(t *testing.T) {
 	cfg := createSimpleTestConfig()
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -529,7 +543,9 @@ func TestLSPManager_ProcessRequest_WorkspaceSymbol(t *testing.T) {
 	cfg := createSimpleTestConfig()
 	manager, err := NewLSPManager(cfg)
 	require.NoError(t, err)
-	defer manager.Stop()
+	t.Cleanup(func() {
+		require.NoError(t, manager.Stop())
+	})
 
 	params := map[string]interface{}{
 		"query": "TestFunction",

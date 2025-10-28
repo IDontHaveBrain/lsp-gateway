@@ -14,7 +14,12 @@ import (
 	"lsp-gateway/src/internal/security"
 )
 
-const exeSuffix = ".exe"
+const (
+	exeSuffix                 = ".exe"
+	jdtlsWrapperUnix          = "jdtls"
+	jdtlsWrapperWindows       = "jdtls.bat"
+	jdtlsInstalledUnknownText = "JDTLS installed (version unknown)"
+)
 
 // JavaInstaller handles Java language server (jdtls) and JDK installation
 type JavaInstaller struct {
@@ -164,10 +169,10 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	var wrapperContent string
 
 	if platform == osWindows {
-		wrapperPath = filepath.Join(binDir, "jdtls.bat")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperWindows)
 		wrapperContent = j.createWindowsWrapper(jdkPath, jdtlsPath)
 	} else {
-		wrapperPath = filepath.Join(binDir, "jdtls")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperUnix)
 		wrapperContent = j.createUnixWrapper(jdkPath, jdtlsPath)
 	}
 
@@ -357,7 +362,7 @@ func (j *JavaInstaller) GetVersion() (string, error) {
 		if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
 			return fmt.Sprintf("Java: %s, JDTLS: installed", strings.Split(javaVersion, "\n")[0]), nil
 		}
-		return "JDTLS installed (version unknown)", nil
+		return jdtlsInstalledUnknownText, nil
 	}
 
 	// Fallback: detect manual install under ~/.lsp-gateway
@@ -382,9 +387,9 @@ func (j *JavaInstaller) IsInstalled() bool {
 	binDir := filepath.Join(installPath, "bin")
 	var wrapperPath string
 	if j.platform.GetPlatform() == osWindows {
-		wrapperPath = filepath.Join(binDir, "jdtls.bat")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperWindows)
 	} else {
-		wrapperPath = filepath.Join(binDir, "jdtls")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperUnix)
 	}
 
 	jdkPath := filepath.Join(installPath, "jdk", "current")
@@ -422,9 +427,9 @@ func (j *JavaInstaller) GetServerConfig() *config.ServerConfig {
 
 	var command string
 	if j.platform.GetPlatform() == osWindows {
-		command = filepath.Join(binDir, "jdtls.bat")
+		command = filepath.Join(binDir, jdtlsWrapperWindows)
 	} else {
-		command = filepath.Join(binDir, "jdtls")
+		command = filepath.Join(binDir, jdtlsWrapperUnix)
 	}
 
 	// Return updated config with custom command path
@@ -468,9 +473,9 @@ func (j *JavaInstaller) ValidateInstallation() error {
 	binDir := filepath.Join(installPath, "bin")
 	var wrapperPath string
 	if j.platform.GetPlatform() == osWindows {
-		wrapperPath = filepath.Join(binDir, "jdtls.bat")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperWindows)
 	} else {
-		wrapperPath = filepath.Join(binDir, "jdtls")
+		wrapperPath = filepath.Join(binDir, jdtlsWrapperUnix)
 	}
 
 	if err := security.ValidateCommand(wrapperPath, []string{}); err != nil {

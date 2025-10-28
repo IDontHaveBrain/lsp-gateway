@@ -83,7 +83,9 @@ func (u *User) Validate() bool {
 	ctx := context.Background()
 	err = scipCache.Start(ctx)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() {
+		require.NoError(t, scipCache.Stop())
+	}()
 
 	t.Run("Manual file indexing", func(t *testing.T) {
 		mainFile := filepath.Join(projectDir, "main.go")
@@ -232,7 +234,9 @@ func Process` + file[:len(file)-3] + `() error {
 	ctx := context.Background()
 	err = scipCache.Start(ctx)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() {
+		require.NoError(t, scipCache.Stop())
+	}()
 
 	// Update index with files from the project directory
 	files := []string{}

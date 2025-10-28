@@ -117,10 +117,14 @@ func (setup *LSPManagerSetup) Start(t *testing.T) {
 func (setup *LSPManagerSetup) Stop() {
 	if setup.Started {
 		if setup.Manager != nil {
-			setup.Manager.Stop()
+			if err := setup.Manager.Stop(); err != nil {
+				panic(fmt.Sprintf("failed to stop LSP manager: %v", err))
+			}
 		}
 		if setup.Cache != nil {
-			setup.Cache.Stop()
+			if err := setup.Cache.Stop(); err != nil {
+				panic(fmt.Sprintf("failed to stop cache: %v", err))
+			}
 		}
 		setup.Started = false
 	}
@@ -349,7 +353,9 @@ func (setup *HTTPGatewaySetup) Start(t *testing.T) {
 // Stop stops the HTTP gateway
 func (setup *HTTPGatewaySetup) Stop() {
 	if setup.Started && setup.Gateway != nil {
-		setup.Gateway.Stop()
+		if err := setup.Gateway.Stop(); err != nil {
+			panic(fmt.Sprintf("failed to stop HTTP gateway: %v", err))
+		}
 		setup.Started = false
 	}
 	if setup.Cancel != nil {

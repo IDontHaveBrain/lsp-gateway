@@ -229,7 +229,7 @@ func CheckServerConnectivity(t *testing.T, host string, port string) {
 	require.NoError(t, err, "Failed to connect to %s", address)
 
 	if conn != nil {
-		conn.Close()
+		require.NoError(t, conn.Close())
 	}
 }
 
@@ -252,7 +252,7 @@ func WaitForServerConnectivity(t *testing.T, host, port string, timeout time.Dur
 			return false
 		}
 		if conn != nil {
-			conn.Close()
+			_ = conn.Close()
 		}
 		return true
 	})
@@ -344,7 +344,9 @@ func checkEndpointAvailability(url string, client *http.Client) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	return resp.StatusCode == http.StatusOK
 }
 
@@ -354,7 +356,9 @@ func checkHealthEndpointResponse(url string, client *http.Client) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return false
@@ -395,7 +399,9 @@ func checkJSONRPCEndpointResponse(url string, client *http.Client) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	return resp.StatusCode == http.StatusOK
 }
@@ -415,7 +421,9 @@ func checkEndpointWithHeaders(url string, client *http.Client, headers map[strin
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	return resp.StatusCode == http.StatusOK
 }
@@ -485,7 +493,9 @@ func WaitForHTTPCacheReady(t *testing.T, baseURL string, timeout time.Duration) 
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			return false

@@ -13,11 +13,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
 type MultiServerManager struct {
-	mu sync.RWMutex
 	// Repositories
 	baseDir string
 	repos   map[string]string // language -> repoDir
@@ -192,6 +192,12 @@ func InitGlobalServer() error {
 		"GO111MODULE=on",
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 	)
+	// Set process group for proper cleanup
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
+	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start server: %w", err)
 	}
@@ -245,7 +251,7 @@ func waitAllOrHealthy(healthURL string, timeout time.Duration) error {
 		}
 		var health map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&health)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		lspClients, ok := health["lsp_clients"].(map[string]interface{})
 		if !ok {
 			time.Sleep(1 * time.Second)
@@ -465,13 +471,61 @@ func ShutdownGlobalServer() {
 	if globalMgr == nil {
 		return
 	}
+
+	// Send graceful shutdown request to gateway first to allow it to cleanup LSP clients
 	if globalMgr.httpClient != nil {
-		globalMgr.httpClient.Close()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// Request graceful shutdown via API
+		req := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      999999,
+			"method":  "shutdown",
+		}
+		_, _ = globalMgr.httpClient.MakeRawJSONRPCRequest(shutdownCtx, req)
+
+		// Give server time to cleanup LSP clients properly
+		time.Sleep(2 * time.Second)
+
+		if err := globalMgr.httpClient.Close(); err != nil {
+			fmt.Printf("[WARN] failed to close global http client: %v\n", err)
+		}
 	}
+
+	// Kill entire process group to ensure all LSP child processes are terminated
 	if globalMgr.gatewayCmd != nil && globalMgr.gatewayCmd.Process != nil {
-		_ = globalMgr.gatewayCmd.Process.Kill()
-		_, _ = globalMgr.gatewayCmd.Process.Wait()
+		pid := globalMgr.gatewayCmd.Process.Pid
+
+		if runtime.GOOS != "windows" {
+			// On Unix, kill entire process group (negative PID)
+			// This ensures all child LSP servers are terminated
+			_ = syscall.Kill(-pid, syscall.SIGTERM)
+		} else {
+			// On Windows, send termination signal
+			_ = globalMgr.gatewayCmd.Process.Kill()
+		}
+
+		// Wait for graceful shutdown with timeout
+		done := make(chan error, 1)
+		go func() {
+			done <- globalMgr.gatewayCmd.Wait()
+		}()
+
+		select {
+		case <-done:
+			// Process exited cleanly
+		case <-time.After(10 * time.Second):
+			// Force kill process group if still running
+			if runtime.GOOS != "windows" {
+				_ = syscall.Kill(-pid, syscall.SIGKILL)
+			} else {
+				_ = globalMgr.gatewayCmd.Process.Kill()
+			}
+			<-done
+		}
 	}
+
 	if globalMgr.cacheIsolationMgr != nil {
 		_ = globalMgr.cacheIsolationMgr.Cleanup()
 	}

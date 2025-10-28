@@ -61,7 +61,9 @@ func A() int { return 1 }
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	require.NoError(t, mgr.Start(ctx))
-	defer mgr.Stop()
+	defer func() {
+		require.NoError(t, mgr.Stop())
+	}()
 
 	// Small delay to ensure watcher routine is running
 	time.Sleep(300 * time.Millisecond)
