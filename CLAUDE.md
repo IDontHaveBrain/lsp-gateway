@@ -12,9 +12,8 @@ This document provides essential architecture, patterns, and conventions for dev
 
 ```bash
 make local          # Build + npm link (primary development workflow)
-make test-fast      # Unit + integration tests (8-10 min)
-make quality        # Format + vet (essential checks)
-make quality-full   # Format + vet + lint + security (full validation)
+make test           # Unit + integration tests
+make lint           # Format + lint (golangci-lint)
 ```
 
 ## Architecture Overview
@@ -144,13 +143,12 @@ results := aggregator.Execute(ctx, clients, request, executor)
    - Scope: Component interaction, cache, gateway
    - Parallelism: Limited to `p=2`
 
-**Fast workflow**: `make test-fast` runs unit + integration tests
+**Fast workflow**: `make test` runs unit + integration tests
 
 ### Quality Gates
 
 ```bash
-make quality        # Format + vet (no external dependencies)
-make quality-full   # Format + vet + lint + security (complete)
+make lint           # Format + lint (golangci-lint)
 ```
 
 ### Configuration

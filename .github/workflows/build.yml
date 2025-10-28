@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   build-quality:
     name: Build & Quality (${{ matrix.os }})
@@ -30,23 +34,10 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Run quality checks
-      run: |
-        echo "📋 Running code formatting..."
-        make format
-        
-        echo "🔍 Running go vet..."
-        make vet
-        
-        # Check if code is properly formatted - only check repository source files
-        UNFORMATTED="$(find . -name '*.go' -not -path './.gomodcache/*' -not -path './.gocache/*' -not -path './vendor/*' -not -path './.git/*' -not -path './bin/*' | xargs -r gofmt -l)"
-        if [ -n "$UNFORMATTED" ]; then
-          echo "❌ Code is not formatted. Please run 'make format'"
-          echo "$UNFORMATTED"
-          exit 1
-        fi
-        
-        echo "✅ Quality checks passed"
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        args: --timeout=5m
 
     - name: Build for current platform
       run: |

@@ -119,21 +119,15 @@ MCP tools: `findSymbols`, `findReferences`
 make local                  # Primary workflow: build + npm link
 make build                  # Build for all platforms
 make clean                  # Clean build artifacts
-
-# Platform-specific
-make linux                  # Linux amd64
-make macos                  # Darwin amd64  
-make macos-arm64           # Darwin arm64 (M1/M2)
-make windows               # Windows amd64
 ```
 
 ### Test & Quality
 
 ```bash
-make test-fast              # Unit + integration (8-10 min, recommended)
-make test                   # Complete suite (30+ min)
-make quality                # Format + vet
-make quality-full           # Format + vet + lint + security
+make test                   # Unit + integration tests
+make test-unit              # Unit tests only
+make test-integration       # Integration tests only
+make lint                   # Format + lint (golangci-lint)
 ```
 
 ## Configuration
