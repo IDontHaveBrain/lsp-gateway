@@ -16,6 +16,7 @@ const (
 	langJava       = "java"
 	langJavaScript = "javascript"
 	langTypeScript = "typescript"
+	langPython     = "python"
 )
 
 // PackageInfo represents package metadata extracted from project files

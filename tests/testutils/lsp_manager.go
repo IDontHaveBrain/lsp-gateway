@@ -385,31 +385,30 @@ func WaitForIndexing(t *testing.T, manager *server.LSPManager, timeout time.Dura
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if stats := manager.GetIndexStats(); stats != nil {
-				switch s := stats.(type) {
-				case *cache.IndexStats:
-					if s.Status == "ready" || s.SymbolCount > 0 {
-						return
-					}
-				case map[string]interface{}:
-					if st, ok := s["status"].(string); ok && st == "ready" {
-						return
-					}
-					// Optional numeric check if provided in map form
-					if v, ok := s["symbol_count"]; ok {
-						switch val := v.(type) {
-						case int:
-							if val > 0 {
-								return
-							}
-						case int64:
-							if val > 0 {
-								return
-							}
-						case float64:
-							if val > 0 {
-								return
-							}
+			stats := manager.GetIndexStats()
+			switch s := stats.(type) {
+			case *cache.IndexStats:
+				if s.Status == "ready" || s.SymbolCount > 0 {
+					return
+				}
+			case map[string]interface{}:
+				if st, ok := s["status"].(string); ok && st == "ready" {
+					return
+				}
+				// Optional numeric check if provided in map form
+				if v, ok := s["symbol_count"]; ok {
+					switch val := v.(type) {
+					case int:
+						if val > 0 {
+							return
+						}
+					case int64:
+						if val > 0 {
+							return
+						}
+					case float64:
+						if val > 0 {
+							return
 						}
 					}
 				}

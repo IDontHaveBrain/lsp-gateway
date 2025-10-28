@@ -345,7 +345,7 @@ suspend fun main() {
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() { _ = scipCache.Stop() }()
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
@@ -354,7 +354,7 @@ suspend fun main() {
 	// Start the LSP manager to initialize clients
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
-	defer lspManager.Stop()
+	defer func() { _ = lspManager.Stop() }()
 
 	files := []string{
 		filepath.Join(testDir, "main.go"),

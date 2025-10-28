@@ -192,7 +192,7 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 		if isMusl() {
 			plat = "linux-musl"
 		} else {
-			plat = "linux"
+			plat = osLinux
 		}
 		ext = ".tar.gz"
 	case osDarwin:
@@ -245,7 +245,7 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 	base := fmt.Sprintf("omnisharp-%s-%s", plat, archTag)
 	candidates = append(candidates, base+ext)
 	candidates = append(candidates, base+"-net6.0"+ext)
-	if platform == "darwin" {
+	if platform == osDarwin {
 		candidates = append(candidates, "omnisharp-osx"+ext)
 	}
 	for _, asset := range data.Assets {

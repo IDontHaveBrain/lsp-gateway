@@ -60,7 +60,7 @@ func testFunction(param string) string {
 		err = lspManager.Start(ctx)
 		// Manager starts successfully even if individual servers fail
 		require.NoError(t, err)
-		defer lspManager.Stop()
+		defer func() { _ = lspManager.Stop() }()
 
 		// Try to process a request for the invalid language
 		testURI := uri.File(testFile)
@@ -97,7 +97,7 @@ func testFunction(param string) string {
 		ctx := context.Background()
 		err = lspManager.Start(ctx)
 		require.NoError(t, err)
-		defer lspManager.Stop()
+		defer func() { _ = lspManager.Stop() }()
 
 		// Test normal operation
 		testURI := uri.File(testFile)
@@ -134,7 +134,7 @@ func testFunction(param string) string {
 		ctx := context.Background()
 		err = lspManager.Start(ctx)
 		require.NoError(t, err)
-		defer lspManager.Stop()
+		defer func() { _ = lspManager.Stop() }()
 
 		requestCtx, cancel := context.WithCancel(context.Background())
 
@@ -235,7 +235,7 @@ func cacheTest() string {
 	ctx := context.Background()
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
-	defer lspManager.Stop()
+	defer func() { _ = lspManager.Stop() }()
 
 	t.Run("CacheIntegration", func(t *testing.T) {
 		testURI := uri.File(testFile)

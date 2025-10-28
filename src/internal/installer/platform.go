@@ -12,6 +12,7 @@ const (
 	osWindows = "windows"
 	archAMD64 = "amd64"
 	archARM64 = "arm64"
+	archX64   = "x64"
 	jdkTag    = "jdk-21.0.4+7"
 )
 
@@ -41,11 +42,11 @@ func (p *LSPPlatformInfo) GetPlatformString() string {
 	// Normalize architecture names
 	switch arch {
 	case archAMD64:
-		arch = "x64"
+		arch = archX64
 	case archARM64:
-		arch = "arm64"
+		arch = archARM64
 	default:
-		arch = "x64" // Default fallback
+		arch = archX64 // Default fallback
 	}
 
 	// Normalize platform names
@@ -142,13 +143,13 @@ func (p *LSPPlatformInfo) GetNodeInstallCommand() []string {
 	platform := p.GetPlatform()
 
 	switch platform {
-	case "linux":
+	case osLinux:
 		// Try different package managers
 		return []string{"apt-get", "update", "&&", "apt-get", "install", "-y", "nodejs", "npm"}
-	case "darwin":
+	case osDarwin:
 		// Assume Homebrew is available
 		return []string{"brew", "install", "node"}
-	case "windows":
+	case osWindows:
 		// Recommend manual installation
 		return []string{"echo", "Please install Node.js from https://nodejs.org/"}
 	default:

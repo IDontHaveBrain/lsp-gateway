@@ -385,7 +385,7 @@ func WaitForHTTPReady(ctx context.Context, healthURL string) error {
 		case <-ticker.C:
 			resp, err := client.Get(healthURL)
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				if resp.StatusCode == http.StatusOK {
 					return nil
 				}

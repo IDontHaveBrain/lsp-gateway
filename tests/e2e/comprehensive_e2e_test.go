@@ -21,14 +21,14 @@ type LanguageTestConfig struct {
 
 func getLanguageConfigs() []LanguageTestConfig {
 	all := []LanguageTestConfig{
-		{name: "go", displayName: "Go"},
-		{name: "python", displayName: "Python"},
-		{name: "javascript", displayName: "JavaScript"},
-		{name: "typescript", displayName: "TypeScript"},
-		{name: "java", displayName: "Java"},
-		{name: "rust", displayName: "Rust"},
-		{name: "csharp", displayName: "CSharp"}, // Always include C# in tests
-		{name: "kotlin", displayName: "Kotlin"},
+		{name: langGo, displayName: "Go"},
+		{name: langPython, displayName: "Python"},
+		{name: langJavaScript, displayName: "JavaScript"},
+		{name: langTypeScript, displayName: "TypeScript"},
+		{name: langJava, displayName: "Java"},
+		{name: langRust, displayName: "Rust"},
+		{name: langCSharp, displayName: "CSharp"}, // Always include C# in tests
+		{name: langKotlin, displayName: "Kotlin"},
 	}
 	langs := os.Getenv("E2E_LANGS")
 	if strings.TrimSpace(langs) == "" {
@@ -49,9 +49,9 @@ func getLanguageConfigs() []LanguageTestConfig {
 		k := strings.TrimSpace(strings.ToLower(raw))
 		switch k {
 		case "js":
-			k = "javascript"
+			k = langJavaScript
 		case "ts":
-			k = "typescript"
+			k = langTypeScript
 		}
 		if k != "" {
 			allow[k] = true
@@ -85,7 +85,7 @@ func isLanguageAvailable(lang string) bool {
 			home, _ := os.UserHomeDir()
 			p := filepath.Join(home, ".lsp-gateway", "tools", language, "bin", tool)
 			// On Windows, allow .exe/.bat/.cmd variants
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				for _, ext := range []string{"", ".exe", ".bat", ".cmd"} {
 					if _, err := os.Stat(p + ext); err == nil {
 						return true
@@ -100,20 +100,20 @@ func isLanguageAvailable(lang string) bool {
 		return false
 	}
 	switch lang {
-	case "go":
-		return has("gopls") || hasTool("go", "gopls")
-	case "python":
+	case langGo:
+		return has("gopls") || hasTool(langGo, "gopls")
+	case langPython:
 		return testutils.PythonLSPAvailable()
-	case "javascript", "typescript":
-		return has("typescript-language-server") || hasTool("typescript", "typescript-language-server")
-	case "java":
-		return has("jdtls") || hasTool("java", "jdtls")
-	case "rust":
+	case langJavaScript, langTypeScript:
+		return has("typescript-language-server") || hasTool(langTypeScript, "typescript-language-server")
+	case langJava:
+		return has("jdtls") || hasTool(langJava, "jdtls")
+	case langRust:
 		return testutils.RustAnalyzerAvailable()
-	case "csharp":
-		return has("omnisharp", "OmniSharp") || hasTool("csharp", "omnisharp", "OmniSharp")
-	case "kotlin":
-		return has("kotlin-lsp", "kotlin-language-server") || hasTool("kotlin", "kotlin-lsp", "kotlin-language-server")
+	case langCSharp:
+		return has("omnisharp", "OmniSharp") || hasTool(langCSharp, "omnisharp", "OmniSharp")
+	case langKotlin:
+		return has("kotlin-lsp", "kotlin-language-server") || hasTool(langKotlin, "kotlin-lsp", "kotlin-language-server")
 	default:
 		return false
 	}
@@ -129,7 +129,7 @@ func TestAllLanguagesComprehensive(t *testing.T) {
 	for _, lang := range getLanguageConfigs() {
 		lang := lang // capture range variable
 		t.Run(lang.displayName, func(t *testing.T) {
-			if v := strings.ToLower(strings.TrimSpace(os.Getenv("E2E_PARALLEL"))); v == "1" || v == "true" || v == "yes" {
+			if v := strings.ToLower(strings.TrimSpace(os.Getenv("E2E_PARALLEL"))); v == "1" || v == valueTrue || v == valueYes {
 				t.Parallel()
 			}
 			suite.Run(t, &LanguageSpecificSuite{

@@ -215,7 +215,7 @@ func (r *RustInstaller) ensureRustAnalyzerWrapper() error {
 	}
 	wrapperPath := filepath.Join(binDir, wrapperName)
 	var script string
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		script = "@echo off\r\nsetlocal\r\nwhere rustup >nul 2>&1 || goto :no_ra\r\nrustup component list --installed --toolchain stable 2>nul | findstr /b /c:\"rust-analyzer\" >nul && (\r\n  rustup run stable rust-analyzer %*\r\n  exit /b %ERRORLEVEL%\r\n)\r\nrustup which --toolchain nightly rust-analyzer >nul 2>&1 && (\r\n  rustup run nightly rust-analyzer %*\r\n  exit /b %ERRORLEVEL%\r\n)\r\n:no_ra\r\necho rust-analyzer not available in stable or nightly via rustup 1>&2\r\nexit /b 1\r\n"
 	} else {
 		script = "#!/usr/bin/env bash\nset -e\nif command -v rustup >/dev/null 2>&1; then\n  if rustup component list --installed --toolchain stable 2>/dev/null | grep -q '^rust-analyzer'; then\n    exec rustup run stable rust-analyzer \"$@\"\n  elif rustup which --toolchain nightly rust-analyzer >/dev/null 2>&1; then\n    exec rustup run nightly rust-analyzer \"$@\"\n  fi\nfi\necho 'rust-analyzer not available in stable or nightly via rustup' 1>&2\nexit 1\n"

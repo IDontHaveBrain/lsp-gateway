@@ -18,6 +18,10 @@ import (
 	"lsp-gateway/src/internal/security"
 )
 
+const (
+	langKotlin = "kotlin"
+)
+
 // DetectedLanguage represents a detected language with its confidence score
 type DetectedLanguage struct {
 	Language   string
@@ -125,17 +129,17 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	case "pyproject.toml":
 		addDetection(detected, "python", 20, "pyproject.toml file")
 	case "pom.xml":
-		addDetection(detected, "java", 30, "pom.xml file")
+		addDetection(detected, langJava, 30, "pom.xml file")
 	case "build.gradle":
 		if hasKotlinIndicatorsInGradle(filePath, workingDir) {
-			addDetection(detected, "kotlin", 25, "Gradle with Kotlin")
-			addDetection(detected, "java", 20, "Gradle build file")
+			addDetection(detected, langKotlin, 25, "Gradle with Kotlin")
+			addDetection(detected, langJava, 20, "Gradle build file")
 		} else {
-			addDetection(detected, "java", 25, "Gradle build file")
+			addDetection(detected, langJava, 25, "Gradle build file")
 		}
 	case "build.gradle.kts":
-		addDetection(detected, "kotlin", 25, "Kotlin Gradle DSL")
-		addDetection(detected, "java", 20, "Gradle build file") // Lower priority for Java
+		addDetection(detected, langKotlin, 25, "Kotlin Gradle DSL")
+		addDetection(detected, langJava, 20, "Gradle build file") // Lower priority for Java
 	case "Cargo.toml":
 		addDetection(detected, "rust", 30, "Cargo.toml file")
 	case "Cargo.lock":
@@ -305,10 +309,10 @@ func hasKotlinIndicatorsInGradle(gradlePath, workingDir string) bool {
 	}
 	baseDir := filepath.Dir(gradlePath)
 	kotlinDirs := []string{
-		filepath.Join(baseDir, "src", "main", "kotlin"),
-		filepath.Join(baseDir, "src", "test", "kotlin"),
-		filepath.Join(workingDir, "src", "main", "kotlin"),
-		filepath.Join(workingDir, "src", "test", "kotlin"),
+		filepath.Join(baseDir, "src", "main", langKotlin),
+		filepath.Join(baseDir, "src", "test", langKotlin),
+		filepath.Join(workingDir, "src", "main", langKotlin),
+		filepath.Join(workingDir, "src", "test", langKotlin),
 	}
 	for _, d := range kotlinDirs {
 		if st, err := os.Stat(d); err == nil && st.IsDir() {
@@ -412,11 +416,11 @@ func sortLanguagesByPriority(languages []string) {
 			priority[lang] = 2
 		case "python":
 			priority[lang] = 1
-		case "java":
+		case langJava:
 			priority[lang] = 0
 		case "rust":
 			priority[lang] = 2
-		case "kotlin":
+		case langKotlin:
 			priority[lang] = 2 // Same tier as TypeScript/Rust
 		default:
 			priority[lang] = i // Use index as fallback priority
@@ -466,9 +470,9 @@ func IsLSPServerAvailable(language string) bool {
 // checkInstalledLSPServer checks if the LSP server is installed in the standard tool directory
 func checkInstalledLSPServer(language string) bool {
 	switch language {
-	case "java":
+	case langJava:
 		home, _ := os.UserHomeDir()
-		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "java")
+		installRoot := filepath.Join(home, ".lsp-gateway", "tools", langJava)
 		if common.HasAnyExecutable(installRoot, []string{"jdtls"}) {
 			return true
 		}
@@ -478,9 +482,9 @@ func checkInstalledLSPServer(language string) bool {
 		if common.HasAnyExecutable(installRoot, []string{"omnisharp", "OmniSharp"}) {
 			return true
 		}
-	case "kotlin":
+	case langKotlin:
 		home, _ := os.UserHomeDir()
-		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "kotlin")
+		installRoot := filepath.Join(home, ".lsp-gateway", "tools", langKotlin)
 		// Support both JetBrains (kotlin-lsp) and fwcd (kotlin-language-server)
 		if common.HasAnyExecutable(installRoot, []string{"kotlin-lsp", "kotlin-language-server"}) {
 			return true

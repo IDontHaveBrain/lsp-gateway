@@ -68,7 +68,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		return nil, fmt.Errorf("pattern cannot be empty")
 	}
 	if query.FilePattern == "" {
-		query.FilePattern = "**/*"
+		query.FilePattern = defaultReferenceQuery
 	}
 	if query.MaxResults <= 0 {
 		query.MaxResults = constants.DefaultMaxResults

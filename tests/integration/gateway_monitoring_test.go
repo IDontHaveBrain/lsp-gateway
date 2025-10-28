@@ -238,7 +238,7 @@ func main() {
 		defer cancel2()
 		require.NoError(t, shared.WaitForHTTPReady(readyCtx2, baseURL2+"/health"))
 
-		defer gatewayWithCache.Stop()
+		defer func() { _ = gatewayWithCache.Stop() }()
 
 		// Even with cache disabled in config, HTTP gateway should have cache available
 		resp, err := client.Get(baseURL2 + "/cache/stats")

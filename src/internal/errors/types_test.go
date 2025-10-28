@@ -81,8 +81,7 @@ func TestMethodNotSupportedError_Fields(t *testing.T) {
 
 func TestMethodNotSupportedError_Interface(t *testing.T) {
 	// Verify that MethodNotSupportedError implements the error interface
-	var err error
-	err = &MethodNotSupportedError{
+	var err error = &MethodNotSupportedError{
 		Server:     "test",
 		Method:     "test/method",
 		Suggestion: "test suggestion",

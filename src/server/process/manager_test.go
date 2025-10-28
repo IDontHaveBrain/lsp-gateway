@@ -325,7 +325,7 @@ func TestInvalidCommandHandling(t *testing.T) {
 		{
 			name: "very long command",
 			config: types.ClientConfig{
-				Command: fmt.Sprintf("%s", make([]byte, 1000)),
+				Command: string(make([]byte, 1000)),
 				Args:    []string{},
 			},
 			language: "test",
@@ -338,7 +338,7 @@ func TestInvalidCommandHandling(t *testing.T) {
 			if err == nil {
 				t.Log("Expected error for invalid command, but process started")
 				if info != nil {
-					pm.StopProcess(info, nil)
+					_ = pm.StopProcess(info, nil)
 				}
 			} else {
 				t.Logf("Got expected error: %v", err)

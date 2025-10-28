@@ -91,17 +91,17 @@ func TestPythonInstallerPyrightSupport(t *testing.T) {
 
 			// Verify the configuration was set correctly
 			if !tt.expectError {
-				if installer.BaseInstaller.serverConfig.Command != tt.expectedCmd {
-					t.Errorf("Expected command %s, got %s", tt.expectedCmd, installer.BaseInstaller.serverConfig.Command)
+				if installer.serverConfig.Command != tt.expectedCmd {
+					t.Errorf("Expected command %s, got %s", tt.expectedCmd, installer.serverConfig.Command)
 				}
 
-				if len(installer.BaseInstaller.serverConfig.Args) != len(tt.expectedArgs) {
-					t.Errorf("Expected args %v, got %v", tt.expectedArgs, installer.BaseInstaller.serverConfig.Args)
+				if len(installer.serverConfig.Args) != len(tt.expectedArgs) {
+					t.Errorf("Expected args %v, got %v", tt.expectedArgs, installer.serverConfig.Args)
 				}
 
 				for i, arg := range tt.expectedArgs {
-					if i < len(installer.BaseInstaller.serverConfig.Args) && installer.BaseInstaller.serverConfig.Args[i] != arg {
-						t.Errorf("Expected arg[%d] = %s, got %s", i, arg, installer.BaseInstaller.serverConfig.Args[i])
+					if i < len(installer.serverConfig.Args) && installer.serverConfig.Args[i] != arg {
+						t.Errorf("Expected arg[%d] = %s, got %s", i, arg, installer.serverConfig.Args[i])
 					}
 				}
 

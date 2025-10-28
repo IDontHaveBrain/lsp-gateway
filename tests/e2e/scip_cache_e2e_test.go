@@ -200,7 +200,7 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheStoreAndRetrieve() {
 		},
 	}
 
-	result1, err := suite.manager.ProcessRequest(ctx, "textDocument/definition", definitionParams)
+	result1, err := suite.manager.ProcessRequest(ctx, methodDefinition, definitionParams)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result1)
 
@@ -213,7 +213,7 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheStoreAndRetrieve() {
 	err = testutils.WaitUntil(ctx2, 50*time.Millisecond, 1*time.Second, cachePredicate)
 	suite.Require().NoError(err)
 
-	result2, err := suite.manager.ProcessRequest(ctx, "textDocument/definition", definitionParams)
+	result2, err := suite.manager.ProcessRequest(ctx, methodDefinition, definitionParams)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result2)
 
@@ -244,14 +244,14 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheInvalidation() {
 		},
 	}
 
-	result1, err := suite.manager.ProcessRequest(ctx, "textDocument/hover", hoverParams)
+	result1, err := suite.manager.ProcessRequest(ctx, methodHover, hoverParams)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result1)
 
 	err = suite.manager.InvalidateCache(uri)
 	suite.Require().NoError(err)
 
-	result2, err := suite.manager.ProcessRequest(ctx, "textDocument/hover", hoverParams)
+	result2, err := suite.manager.ProcessRequest(ctx, methodHover, hoverParams)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result2)
 
@@ -279,7 +279,7 @@ func (suite *SCIPCacheE2ETestSuite) TestMultiFileCache() {
 			},
 		}
 
-		result, err := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", symbolParams)
+		result, err := suite.manager.ProcessRequest(ctx, methodDocumentSymbol, symbolParams)
 		suite.Require().NoError(err)
 		suite.Require().NotNil(result)
 	}
@@ -320,12 +320,12 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 		}
 	}
 
-	go runRequest("textDocument/definition", 15)
-	go runRequest("textDocument/hover", 10)
-	go runRequest("textDocument/references", 5)
+	go runRequest(methodDefinition, 15)
+	go runRequest(methodHover, 10)
+	go runRequest(methodReferences, 5)
 
 	timeoutDuration := 10 * time.Second
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		timeoutDuration = 30 * time.Second
 	}
 	timeout := time.After(timeoutDuration)
@@ -367,14 +367,14 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	}
 
 	// Try to get document symbols first to ensure gopls is ready
-	docResult, err := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", symbolParams)
+	docResult, err := suite.manager.ProcessRequest(ctx, methodDocumentSymbol, symbolParams)
 	if err != nil || docResult == nil {
 		suite.T().Logf("Warning: gopls may not be ready, documentSymbol returned error: %v", err)
 		// Give more time for gopls to initialize
 		ctx4, cancel4 := context.WithTimeout(context.Background(), 4*time.Second)
 		defer cancel4()
 		goplsRetryPredicate := func() bool {
-			_, retryErr := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", symbolParams)
+			_, retryErr := suite.manager.ProcessRequest(ctx, methodDocumentSymbol, symbolParams)
 			return retryErr == nil
 		}
 		_ = testutils.WaitUntil(ctx4, 500*time.Millisecond, 3*time.Second, goplsRetryPredicate)
@@ -384,7 +384,7 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 		"query": "Server",
 	}
 
-	result1, err := suite.manager.ProcessRequest(ctx, "workspace/symbol", workspaceParams)
+	result1, err := suite.manager.ProcessRequest(ctx, methodWorkspaceSymbol, workspaceParams)
 	suite.Require().NoError(err, "workspace/symbol should not return error")
 	suite.Require().NotNil(result1, "workspace/symbol should return non-nil result")
 
@@ -397,7 +397,7 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	err = testutils.WaitUntil(ctx5, 50*time.Millisecond, 1*time.Second, workspacePredicate)
 	suite.Require().NoError(err)
 
-	result2, err := suite.manager.ProcessRequest(ctx, "workspace/symbol", workspaceParams)
+	result2, err := suite.manager.ProcessRequest(ctx, methodWorkspaceSymbol, workspaceParams)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result2)
 

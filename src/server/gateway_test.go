@@ -20,6 +20,10 @@ import (
 	"lsp-gateway/src/server/scip"
 )
 
+const (
+	httpGet = "GET"
+)
+
 // MockSCIPCache is a mock implementation of cache.SCIPCache interface for testing
 type MockSCIPCache struct {
 	mock.Mock
@@ -269,7 +273,7 @@ func TestHTTPGateway_handleJSONRPC_ProtocolValidation(t *testing.T) {
 	}{
 		{
 			name:           "wrong HTTP method returns error",
-			method:         "GET",
+			method:         httpGet,
 			contentType:    "application/json",
 			body:           nil,
 			expectedStatus: 200,
@@ -424,7 +428,7 @@ func TestHTTPGateway_handleCacheStats(t *testing.T) {
 	}{
 		{
 			name:   "GET with valid cache metrics",
-			method: "GET",
+			method: httpGet,
 			cacheMetrics: &cache.CacheMetrics{
 				HitCount:        100,
 				MissCount:       25,
@@ -452,7 +456,7 @@ func TestHTTPGateway_handleCacheStats(t *testing.T) {
 		},
 		{
 			name:           "GET with nil cache metrics returns service unavailable",
-			method:         "GET",
+			method:         httpGet,
 			cacheMetrics:   nil,
 			expectedStatus: 503,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -493,7 +497,7 @@ func TestHTTPGateway_handleCacheStats(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			tt.checkResponse(t, w)
 
-			if tt.method == "GET" {
+			if tt.method == httpGet {
 				mockCache.AssertExpectations(t)
 			}
 		})
@@ -513,7 +517,7 @@ func TestHTTPGateway_handleCacheHealth(t *testing.T) {
 	}{
 		{
 			name:           "GET with healthy cache",
-			method:         "GET",
+			method:         httpGet,
 			cacheAvailable: true,
 			healthMetrics: &cache.CacheMetrics{
 				TotalSize:  1024 * 1024,
@@ -538,7 +542,7 @@ func TestHTTPGateway_handleCacheHealth(t *testing.T) {
 		},
 		{
 			name:           "GET with cache health check error",
-			method:         "GET",
+			method:         httpGet,
 			cacheAvailable: true,
 			healthError:    errors.New("cache health check failed"),
 			expectedStatus: 503,
@@ -556,7 +560,7 @@ func TestHTTPGateway_handleCacheHealth(t *testing.T) {
 		},
 		{
 			name:           "GET with unavailable cache",
-			method:         "GET",
+			method:         httpGet,
 			cacheAvailable: false,
 			expectedStatus: 503,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -580,7 +584,7 @@ func TestHTTPGateway_handleCacheHealth(t *testing.T) {
 
 			if tt.cacheAvailable {
 				mockCache = NewMockSCIPCache()
-				if tt.method == "GET" {
+				if tt.method == httpGet {
 					mockCache.On("HealthCheck").Return(tt.healthMetrics, tt.healthError)
 				}
 				lspManager = &LSPManager{scipCache: mockCache}
@@ -603,7 +607,7 @@ func TestHTTPGateway_handleCacheHealth(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			tt.checkResponse(t, w)
 
-			if tt.cacheAvailable && tt.method == "GET" {
+			if tt.cacheAvailable && tt.method == httpGet {
 				mockCache.AssertExpectations(t)
 			}
 		})
@@ -649,7 +653,7 @@ func TestHTTPGateway_handleCacheClear(t *testing.T) {
 		},
 		{
 			name:           "GET method not allowed",
-			method:         "GET",
+			method:         httpGet,
 			expectedStatus: 405,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
 				assert.Contains(t, w.Body.String(), "Method not allowed")
@@ -805,7 +809,7 @@ func TestHTTPGateway_handleLanguages(t *testing.T) {
 	}
 
 	t.Run("GET returns languages and extensions", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/languages", nil)
+		req := httptest.NewRequest(httpGet, "/languages", nil)
 		w := httptest.NewRecorder()
 
 		gateway.handleLanguages(w, req)

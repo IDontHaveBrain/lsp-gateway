@@ -528,11 +528,11 @@ func TestPlatformIntegration_WithInstaller(t *testing.T) {
 		currentArch := platform.GetArch()
 
 		switch currentPlatform {
-		case "windows":
+		case testOsWindows:
 			if !strings.Contains(url, ".zip") {
 				t.Error("Windows should use zip archives")
 			}
-		case "linux", "darwin":
+		case testOsLinux, testOsDarwin:
 			if !strings.Contains(url, ".tar.gz") {
 				t.Error("Linux/macOS should use tar.gz archives")
 			}
@@ -560,11 +560,11 @@ func TestPlatformIntegration_WithInstaller(t *testing.T) {
 		if !containsString(nodeCmd, "apt-get") {
 			t.Error("Linux should suggest apt-get for Node.js")
 		}
-	case "darwin":
+	case testOsDarwin:
 		if !containsString(nodeCmd, "brew") {
 			t.Error("macOS should suggest brew for Node.js")
 		}
-	case "windows":
+	case testOsWindows:
 		if !containsString(nodeCmd, "nodejs.org") {
 			t.Error("Windows should suggest manual installation")
 		}

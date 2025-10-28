@@ -30,7 +30,7 @@ func TestSCIPIndexAndFindReferences(t *testing.T) {
 	}()
 
 	// Test each language
-	languages := []string{"go", "python", "javascript", "typescript", "rust"}
+	languages := []string{langGo, langPython, langJavaScript, langTypeScript, langRust}
 
 	for _, language := range languages {
 		t.Run(language, func(t *testing.T) {
@@ -101,7 +101,7 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 				},
 			}
 
-			result, err := manager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
+			result, err := manager.ProcessRequest(ctx, methodDocumentSymbol, params)
 			if err != nil {
 				t.Logf("Warning: Failed to get document symbols for %s: %v", testFile, err)
 				// Don't fail - some files might not have symbols
@@ -117,7 +117,7 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 			"query": "", // Empty query to get all symbols
 		}
 
-		result, err := manager.ProcessRequest(ctx, "workspace/symbol", params)
+		result, err := manager.ProcessRequest(ctx, methodWorkspaceSymbol, params)
 		if err != nil {
 			t.Logf("Warning: Failed to get workspace symbols: %v", err)
 		} else if result != nil {
@@ -182,15 +182,15 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 		// Get language-specific file pattern
 		var filePattern string
 		switch language {
-		case "go":
+		case langGo:
 			filePattern = "**/*.go"
-		case "python":
+		case langPython:
 			filePattern = "**/*.py"
-		case "javascript":
+		case langJavaScript:
 			filePattern = "**/*.js"
-		case "typescript":
+		case langTypeScript:
 			filePattern = "**/*.ts"
-		case "rust":
+		case langRust:
 			filePattern = "**/*.rs"
 		default:
 			filePattern = "**/*"
@@ -226,15 +226,15 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 
 func getLSPCommandForLanguage(language string) (string, []string) {
 	switch language {
-	case "go":
+	case langGo:
 		return "gopls", []string{"serve"}
-	case "python":
+	case langPython:
 		return "jedi-language-server", []string{}
-	case "javascript":
+	case langJavaScript:
 		return "typescript-language-server", []string{"--stdio"}
-	case "typescript":
+	case langTypeScript:
 		return "typescript-language-server", []string{"--stdio"}
-	case "rust":
+	case langRust:
 		return "rust-analyzer", []string{}
 	default:
 		return "", nil
@@ -273,15 +273,15 @@ func getTestFilesForLanguage(t *testing.T, repoManager *testutils.RepoManager, l
 	if len(testFiles) == 0 {
 		var pattern string
 		switch language {
-		case "go":
+		case langGo:
 			pattern = "*.go"
-		case "python":
+		case langPython:
 			pattern = "*.py"
-		case "javascript":
+		case langJavaScript:
 			pattern = "*.js"
-		case "typescript":
+		case langTypeScript:
 			pattern = "*.ts"
-		case "rust":
+		case langRust:
 			pattern = "*.rs"
 		}
 
@@ -319,15 +319,15 @@ func getKnownSymbolForLanguage(language string) string {
 
 	// Fallback to common symbols
 	switch language {
-	case "go":
+	case langGo:
 		return "Router" // Common in gorilla/mux
-	case "python":
+	case langPython:
 		return "request" // Common in requests library
-	case "javascript":
+	case langJavaScript:
 		return "map" // Common in ramda
-	case "typescript":
+	case langTypeScript:
 		return "is" // Main export in sindresorhus/is
-	case "rust":
+	case langRust:
 		return "Buffer"
 	default:
 		return "main"

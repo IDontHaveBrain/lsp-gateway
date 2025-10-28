@@ -24,7 +24,7 @@ func (suite *RustReferencesSuite) SetupSuite() {
 }
 
 func (suite *RustReferencesSuite) TestRustLSPReferences() {
-	suite.ComprehensiveTestBaseSuite.TestReferencesComprehensive()
+	suite.TestReferencesComprehensive()
 }
 
 func TestRustReferencesSuite(t *testing.T) {

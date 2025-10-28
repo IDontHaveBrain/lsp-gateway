@@ -7,6 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	osWindows = "windows"
+)
+
 func TestFilePathToURI(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -30,13 +34,13 @@ func TestFilePathToURI(t *testing.T) {
 			name:     "Windows absolute path",
 			path:     `C:\Users\username\file.go`,
 			expected: "file:///C:/Users/username/file.go",
-			os:       "windows",
+			os:       osWindows,
 		},
 		{
 			name:     "Windows path with spaces",
 			path:     `C:\Program Files\app\file.go`,
 			expected: "file:///C:/Program%20Files/app/file.go",
-			os:       "windows",
+			os:       osWindows,
 		},
 	}
 
@@ -74,13 +78,13 @@ func TestURIToFilePath(t *testing.T) {
 			name:     "Windows file URI",
 			uri:      "file:///C:/Users/username/file.go",
 			expected: `C:\Users\username\file.go`,
-			os:       "windows",
+			os:       osWindows,
 		},
 		{
 			name:     "Windows file URI with spaces",
 			uri:      "file:///C:/Program%20Files/app/file.go",
 			expected: `C:\Program Files\app\file.go`,
-			os:       "windows",
+			os:       osWindows,
 		},
 		{
 			name:     "Not a file URI",
@@ -108,7 +112,7 @@ func TestRoundTrip(t *testing.T) {
 		"/home/user name/my file.go",
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		paths = []string{
 			`C:\Users\username\file.go`,
 			`C:\Program Files\app\file.go`,
@@ -154,7 +158,7 @@ func TestFilePathToURICached(t *testing.T) {
 	ClearURICache()
 
 	testPath := "/home/user/test.go"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		testPath = `C:\Users\user\test.go`
 	}
 
@@ -259,7 +263,7 @@ func TestCachedRoundTrip(t *testing.T) {
 		"/home/user name/my file.go",
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		paths = []string{
 			`C:\Users\username\file.go`,
 			`C:\Program Files\app\file.go`,

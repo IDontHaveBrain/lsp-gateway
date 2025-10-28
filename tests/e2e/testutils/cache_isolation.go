@@ -535,9 +535,10 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 
 	// Convert duration string to hours (simplified units)
 	ttlHours := 1 // Default to 1 hour
-	if config.TTL == "10m" {
+	switch config.TTL {
+	case "10m":
 		ttlHours = 1 // Round up short durations to 1 hour
-	} else if config.TTL == "24h" {
+	case "24h":
 		ttlHours = 24
 	}
 	configContent += fmt.Sprintf("  ttl_hours: %d\n", ttlHours)
@@ -547,9 +548,10 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 
 	// Convert health check interval to minutes (simplified units)
 	healthMinutes := 1 // Default to 1 minute
-	if config.HealthCheckInterval == "1m" {
+	switch config.HealthCheckInterval {
+	case "1m":
 		healthMinutes = 1
-	} else if config.HealthCheckInterval == "5m" {
+	case "5m":
 		healthMinutes = 5
 	}
 	configContent += fmt.Sprintf("  health_check_minutes: %d\n", healthMinutes)
@@ -760,7 +762,7 @@ func (m *CacheIsolationManager) forceRemoveDirectory(path string) error {
 	}
 
 	// For Windows and locked files, try more aggressive cleanup
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		return m.windowsForceRemove(path)
 	}
 

@@ -103,7 +103,7 @@ func (m *MockJavaInstaller) ExtractArchive(ctx context.Context, archivePath, des
 		return err
 	}
 	// Create mock extracted directory structure
-	extractedDir := filepath.Join(destPath, "jdk-21.0.4+7")
+	extractedDir := filepath.Join(destPath, jdkTag)
 	if err := os.MkdirAll(filepath.Join(extractedDir, "bin"), 0755); err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (m *MockJavaInstaller) GetServerConfig() *config.ServerConfig {
 	installPath := m.GetInstallPath()
 	binDir := filepath.Join(installPath, "bin")
 	command := filepath.Join(binDir, "jdtls")
-	if m.platform != nil && m.platform.GetPlatform() == "windows" {
+	if m.platform != nil && m.platform.GetPlatform() == osWindows {
 		command += ".bat"
 	}
 	return &config.ServerConfig{Command: command}
@@ -260,11 +260,7 @@ func (m *MockJavaInstaller) IsInstalled() bool {
 
 	// Check for JDTLS
 	jdtlsPath := filepath.Join(installPath, "jdtls")
-	if !m.fileExists(jdtlsPath) {
-		return false
-	}
-
-	return true
+	return m.fileExists(jdtlsPath)
 }
 
 func TestNewJavaInstaller(t *testing.T) {
@@ -355,7 +351,7 @@ func TestJavaInstallerInstall(t *testing.T) {
 				arch:        tt.arch,
 				supported:   tt.supported,
 				downloadURL: "https://example.com/jdk.tar.gz",
-				extractDir:  "jdk-21.0.4+7",
+				extractDir:  jdkTag,
 			}
 
 			installer := NewMockJavaInstaller(mockPlatform)
@@ -411,7 +407,7 @@ func TestJavaInstallerInstallJDK(t *testing.T) {
 			platform:    "linux",
 			arch:        "amd64",
 			downloadURL: "https://example.com/jdk.tar.gz",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  jdkTag,
 			expectError: false,
 		},
 		{
@@ -419,7 +415,7 @@ func TestJavaInstallerInstallJDK(t *testing.T) {
 			platform:    "windows",
 			arch:        "amd64",
 			downloadURL: "https://example.com/jdk.zip",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  jdkTag,
 			expectError: false,
 		},
 		{
@@ -427,7 +423,7 @@ func TestJavaInstallerInstallJDK(t *testing.T) {
 			platform:    "linux",
 			arch:        "amd64",
 			downloadURL: "https://example.com/jdk.tar.gz",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  jdkTag,
 			downloadErr: fmt.Errorf("network error"),
 			expectError: true,
 		},
@@ -436,7 +432,7 @@ func TestJavaInstallerInstallJDK(t *testing.T) {
 			platform:    "linux",
 			arch:        "amd64",
 			downloadURL: "https://example.com/jdk.tar.gz",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  jdkTag,
 			extractErr:  fmt.Errorf("corrupted archive"),
 			expectError: true,
 		},
@@ -554,21 +550,21 @@ func TestJavaInstallerCreateJDTLSWrapper(t *testing.T) {
 		platform string
 		wantFile string
 	}{
-	{
-		name:     "Unix wrapper",
-		platform: osLinux,
-		wantFile: jdtlsWrapperUnix,
-	},
-	{
-		name:     "macOS wrapper",
-		platform: osDarwin,
-		wantFile: jdtlsWrapperUnix,
-	},
-	{
-		name:     "Windows wrapper",
-		platform: osWindows,
-		wantFile: jdtlsWrapperWindows,
-	},
+		{
+			name:     "Unix wrapper",
+			platform: osLinux,
+			wantFile: jdtlsWrapperUnix,
+		},
+		{
+			name:     "macOS wrapper",
+			platform: osDarwin,
+			wantFile: jdtlsWrapperUnix,
+		},
+		{
+			name:     "Windows wrapper",
+			platform: osWindows,
+			wantFile: jdtlsWrapperWindows,
+		},
 	}
 
 	for _, tt := range tests {
@@ -626,7 +622,7 @@ func TestJavaInstallerCreateJDTLSWrapper(t *testing.T) {
 
 			// Platform-specific checks
 			switch tt.platform {
-			case "windows":
+			case testOsWindows:
 				if !strings.Contains(contentStr, "@echo off") {
 					t.Error("Windows wrapper missing batch header")
 				}
@@ -723,11 +719,11 @@ func TestJavaInstallerIsInstalled(t *testing.T) {
 				fullPath := filepath.Join(tempDir, file)
 				installer.fileExistsMap[fullPath] = exists
 
-			if exists {
-				// Actually create the file for more realistic testing
-				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
-				require.NoError(t, os.WriteFile(fullPath, []byte("mock"), 0755))
-			}
+				if exists {
+					// Actually create the file for more realistic testing
+					require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+					require.NoError(t, os.WriteFile(fullPath, []byte("mock"), 0755))
+				}
 			}
 
 			installed := installer.IsInstalled()
@@ -879,13 +875,13 @@ func TestJavaInstallerValidateInstallation(t *testing.T) {
 			if tt.installed {
 				binDir := filepath.Join(tempDir, "bin")
 				wrapperFile := "jdtls"
-				if tt.platform == "windows" {
+				if tt.platform == testOsWindows {
 					wrapperFile = "jdtls.bat"
 				}
 				wrapperPath := filepath.Join(binDir, wrapperFile)
 				jdkPath := filepath.Join(tempDir, "jdk", "current", "bin", "java")
-				if tt.platform == "windows" {
-					jdkPath += ".exe"
+				if tt.platform == testOsWindows {
+					jdkPath += exeSuffix
 				}
 				jdtlsPath := filepath.Join(tempDir, "jdtls")
 
@@ -894,11 +890,11 @@ func TestJavaInstallerValidateInstallation(t *testing.T) {
 				installer.fileExistsMap[jdtlsPath] = true
 
 				// Create actual files
-				os.MkdirAll(filepath.Dir(wrapperPath), 0755)
-				os.MkdirAll(filepath.Dir(jdkPath), 0755)
-				os.MkdirAll(jdtlsPath, 0755)
-				os.WriteFile(wrapperPath, []byte("mock"), 0755)
-				os.WriteFile(jdkPath, []byte("mock"), 0755)
+				_ = os.MkdirAll(filepath.Dir(wrapperPath), 0755)
+				_ = os.MkdirAll(filepath.Dir(jdkPath), 0755)
+				_ = os.MkdirAll(jdtlsPath, 0755)
+				_ = os.WriteFile(wrapperPath, []byte("mock"), 0755)
+				_ = os.WriteFile(jdkPath, []byte("mock"), 0755)
 			}
 
 			// Setup command mock
@@ -974,8 +970,8 @@ func TestJavaInstallerUninstall(t *testing.T) {
 
 	for _, file := range testFiles {
 		fullPath := filepath.Join(tempDir, file)
-		os.MkdirAll(filepath.Dir(fullPath), 0755)
-		os.WriteFile(fullPath, []byte("test"), 0644)
+		_ = os.MkdirAll(filepath.Dir(fullPath), 0755)
+		_ = os.WriteFile(fullPath, []byte("test"), 0644)
 	}
 
 	mockPlatform := &MockPlatformInfo{
@@ -1042,13 +1038,13 @@ func TestJavaInstallerGetServerConfig(t *testing.T) {
 			if tt.installed {
 				binDir := filepath.Join(tempDir, "bin")
 				wrapperFile := "jdtls"
-				if tt.platform == "windows" {
+				if tt.platform == testOsWindows {
 					wrapperFile = "jdtls.bat"
 				}
 				wrapperPath := filepath.Join(binDir, wrapperFile)
 				jdkPath := filepath.Join(tempDir, "jdk", "current", "bin", "java")
-				if tt.platform == "windows" {
-					jdkPath += ".exe"
+				if tt.platform == testOsWindows {
+					jdkPath += exeSuffix
 				}
 				jdtlsPath := filepath.Join(tempDir, "jdtls")
 
@@ -1057,11 +1053,11 @@ func TestJavaInstallerGetServerConfig(t *testing.T) {
 				installer.fileExistsMap[jdtlsPath] = true
 
 				// Create actual files
-				os.MkdirAll(filepath.Dir(wrapperPath), 0755)
-				os.MkdirAll(filepath.Dir(jdkPath), 0755)
-				os.MkdirAll(jdtlsPath, 0755)
-				os.WriteFile(wrapperPath, []byte("mock"), 0755)
-				os.WriteFile(jdkPath, []byte("mock"), 0755)
+				_ = os.MkdirAll(filepath.Dir(wrapperPath), 0755)
+				_ = os.MkdirAll(filepath.Dir(jdkPath), 0755)
+				_ = os.MkdirAll(jdtlsPath, 0755)
+				_ = os.WriteFile(wrapperPath, []byte("mock"), 0755)
+				_ = os.WriteFile(jdkPath, []byte("mock"), 0755)
 			}
 
 			config := installer.GetServerConfig()
@@ -1131,7 +1127,7 @@ func TestJavaInstallerWrapperContentGeneration(t *testing.T) {
 			jdtlsPath := "/test/jdtls"
 
 			var content string
-			if tt.platform == "windows" {
+			if tt.platform == testOsWindows {
 				content = installer.createWindowsWrapper(jdkPath, jdtlsPath)
 			} else {
 				content = installer.createUnixWrapper(jdkPath, jdtlsPath)
@@ -1154,7 +1150,7 @@ func TestJavaInstallerWrapperContentGeneration(t *testing.T) {
 			}
 
 			// Platform-specific verifications
-			if tt.platform == "windows" {
+			if tt.platform == testOsWindows {
 				// Windows batch file checks
 				expectedWindows := []string{
 					"@echo off",
@@ -1203,7 +1199,7 @@ func TestJavaInstallerWithCustomInstallPath(t *testing.T) {
 		arch:        "amd64",
 		supported:   true,
 		downloadURL: "https://example.com/jdk.tar.gz",
-		extractDir:  "jdk-21.0.4+7",
+		extractDir:  jdkTag,
 	}
 
 	installer := NewMockJavaInstaller(mockPlatform)
@@ -1282,7 +1278,7 @@ func TestJavaInstallerErrorScenarios(t *testing.T) {
 				arch:        "amd64",
 				supported:   true,
 				downloadURL: "https://example.com/jdk.tar.gz",
-				extractDir:  "jdk-21.0.4+7",
+				extractDir:  jdkTag,
 			}
 
 			installer := NewMockJavaInstaller(mockPlatform)

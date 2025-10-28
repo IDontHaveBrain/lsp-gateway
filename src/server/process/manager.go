@@ -16,6 +16,10 @@ import (
 	"lsp-gateway/src/internal/types"
 )
 
+const (
+	osWindows = "windows"
+)
+
 // ProcessInfo holds information about a running LSP server process
 type ProcessInfo struct {
 	Cmd             *exec.Cmd
@@ -56,7 +60,7 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 	// On Windows, wrap .cmd and .bat files with cmd.exe for proper execution
 	command := config.Command
 	args := config.Args
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		lower := strings.ToLower(command)
 		if strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat") {
 			// Use cmd.exe /c to run batch scripts
@@ -89,7 +93,7 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 		cmd.Dir = wd
 		actualWorkingDir = wd
 	} else {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			cmd.Dir = os.TempDir()
 		} else {
 			cmd.Dir = "/tmp"

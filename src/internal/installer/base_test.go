@@ -491,7 +491,7 @@ func TestPlatformInfo(t *testing.T) {
 		t.Error("GetPlatform() returned empty string")
 	}
 
-	expectedPlatforms := []string{"linux", "darwin", "windows"}
+	expectedPlatforms := []string{osLinux, osDarwin, osWindows}
 	found := false
 	for _, expected := range expectedPlatforms {
 		if p == expected {
@@ -563,7 +563,7 @@ func TestPackageManagerHelpers(t *testing.T) {
 	base := NewBaseInstaller("test", serverConfig, platform)
 
 	// Test ValidateWithPackageManager for Go (if available)
-	if runtime.GOOS != "windows" { // Skip on Windows as go command may not be available
+	if runtime.GOOS != osWindows { // Skip on Windows as go command may not be available
 		err := base.ValidateWithPackageManager("echo", "go")
 		if err != nil {
 			t.Logf("ValidateWithPackageManager() error = %v (expected if Go not installed)", err)

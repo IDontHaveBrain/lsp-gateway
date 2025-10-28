@@ -8,6 +8,10 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+const (
+	nullValue = "null"
+)
+
 // ParseDefinitionResponse parses textDocument/definition response
 // Handles: Location | Location[] | LocationLink[] | null | json.RawMessage
 func ParseDefinitionResponse(t *testing.T, result interface{}) []protocol.Location {
@@ -23,7 +27,7 @@ func ParseDefinitionResponse(t *testing.T, result interface{}) []protocol.Locati
 	case json.RawMessage:
 		// Handle different JSON response formats
 		jsonStr := string(res)
-		if jsonStr == "null" || jsonStr == "{}" || jsonStr == "[]" {
+		if jsonStr == nullValue || jsonStr == "{}" || jsonStr == "[]" {
 			return []protocol.Location{}
 		}
 
@@ -92,7 +96,7 @@ func ParseReferencesResponse(t *testing.T, result interface{}) []protocol.Locati
 	case json.RawMessage:
 		// Handle different JSON response formats
 		jsonStr := string(res)
-		if jsonStr == "null" || jsonStr == "[]" || jsonStr == "{}" {
+		if jsonStr == nullValue || jsonStr == "[]" || jsonStr == "{}" {
 			return []protocol.Location{}
 		}
 
@@ -141,7 +145,7 @@ func ParseHoverResponse(t *testing.T, result interface{}) *protocol.Hover {
 		return &res
 	case json.RawMessage:
 		jsonStr := string(res)
-		if jsonStr == "null" {
+		if jsonStr == nullValue {
 			return nil
 		}
 
@@ -185,7 +189,7 @@ func ParseWorkspaceSymbolResponse(t *testing.T, result interface{}) []protocol.S
 		return res
 	case json.RawMessage:
 		jsonStr := string(res)
-		if jsonStr == "null" || jsonStr == "[]" {
+		if jsonStr == nullValue || jsonStr == "[]" {
 			return []protocol.SymbolInformation{}
 		}
 
@@ -250,7 +254,7 @@ func ParseDocumentSymbolResponse(t *testing.T, result interface{}) []protocol.Do
 		return res
 	case json.RawMessage:
 		jsonStr := string(res)
-		if jsonStr == "null" || jsonStr == "[]" {
+		if jsonStr == nullValue || jsonStr == "[]" {
 			return []protocol.DocumentSymbol{}
 		}
 
@@ -324,7 +328,7 @@ func ParseCompletionResponse(t *testing.T, result interface{}) *protocol.Complet
 		}
 	case json.RawMessage:
 		jsonStr := string(res)
-		if jsonStr == "null" || jsonStr == "[]" {
+		if jsonStr == nullValue || jsonStr == "[]" {
 			return &protocol.CompletionList{
 				IsIncomplete: false,
 				Items:        []protocol.CompletionItem{},

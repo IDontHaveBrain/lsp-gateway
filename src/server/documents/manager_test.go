@@ -10,6 +10,10 @@ import (
 	"testing"
 )
 
+const (
+	methodDidOpen = "textDocument/didOpen"
+)
+
 // Mock LSP client for testing
 type mockLSPClient struct {
 	mu            sync.Mutex
@@ -28,7 +32,7 @@ func newMockLSPClient() *mockLSPClient {
 		notifications: make([]notificationCall, 0),
 		active:        true,
 		supports: map[string]bool{
-			"textDocument/didOpen":   true,
+			methodDidOpen:            true,
 			"textDocument/didClose":  true,
 			"textDocument/didChange": true,
 		},
@@ -313,7 +317,7 @@ func TestEnsureOpen(t *testing.T) {
 				// Check that didOpen notification was sent
 				found := false
 				for _, call := range client.notifications {
-					if call.method == "textDocument/didOpen" {
+					if call.method == methodDidOpen {
 						found = true
 						break
 					}
@@ -427,7 +431,7 @@ func TestLanguageDetectionInEnsureOpen(t *testing.T) {
 			// Check language ID in notification
 			found := false
 			for _, call := range client.notifications {
-				if call.method == "textDocument/didOpen" {
+				if call.method == methodDidOpen {
 					if params, ok := call.params.(map[string]interface{}); ok {
 						if textDoc, ok := params["textDocument"].(map[string]interface{}); ok {
 							if langId, ok := textDoc["languageId"].(string); ok {
@@ -550,7 +554,7 @@ func TestClientNotificationFailure(t *testing.T) {
 	failingClient := &failingMockLSPClient{
 		active: true,
 		supports: map[string]bool{
-			"textDocument/didOpen": true,
+			methodDidOpen: true,
 		},
 	}
 

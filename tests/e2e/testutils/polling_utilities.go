@@ -68,9 +68,10 @@ func WaitForLSPReady(ctx context.Context, httpClient *HttpClient, language strin
 
 	// Adjust timeout based on language - Java needs longer initialization
 	timeout := 15 * time.Second
-	if language == "java" {
+	switch language {
+	case langJava:
 		timeout = 90 * time.Second
-	} else if language == "python" {
+	case langPython:
 		timeout = 30 * time.Second
 	}
 
@@ -184,7 +185,7 @@ func WaitForServerStartup(ctx context.Context, httpClient *HttpClient) error {
 
 	// Platform-specific timeout adjustment
 	timeout := 15 * time.Second
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		timeout = 25 * time.Second // Windows typically needs more time
 	}
 
@@ -225,7 +226,7 @@ func WaitForCacheReady(ctx context.Context, httpClient *HttpClient) error {
 
 // PlatformAdjustedWait provides platform-specific wait times
 func PlatformAdjustedWait(baseInterval time.Duration) time.Duration {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		return baseInterval * 2 // Windows usually needs longer waits
 	}
 	return baseInterval

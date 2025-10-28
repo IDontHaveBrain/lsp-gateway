@@ -60,9 +60,14 @@ func ExternalFunc() {}`,
 	}
 
 	// Change to temp directory for testing
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Setup MCP server with cache
 	cfg := config.GetDefaultConfigWithCache()
@@ -77,7 +82,7 @@ func ExternalFunc() {}`,
 	if err := mcpServer.Start(); err != nil {
 		t.Fatalf("Failed to start MCP server: %v", err)
 	}
-	defer mcpServer.Stop()
+	defer func() { _ = mcpServer.Stop() }()
 
 	// Wait for cache initialization
 	time.Sleep(2 * time.Second)

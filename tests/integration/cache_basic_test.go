@@ -14,6 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	methodTextDocumentDefinition     = "textDocument/definition"
+	methodTextDocumentHover          = "textDocument/hover"
+	methodTextDocumentDocumentSymbol = "textDocument/documentSymbol"
+	methodTextDocumentReferences     = "textDocument/references"
+)
+
 func TestBasicCacheOperations(t *testing.T) {
 	tempDir := t.TempDir()
 	cacheConfig := shared.CreateBasicCacheConfig(tempDir)
@@ -33,7 +40,7 @@ func TestBasicCacheOperations(t *testing.T) {
 	})
 
 	t.Run("Cache miss for non-existent entry", func(t *testing.T) {
-		method := "textDocument/hover"
+		method := methodTextDocumentHover
 		params := map[string]interface{}{
 			"textDocument": map[string]string{"uri": "file:///missing.go"},
 			"position":     map[string]int{"line": 0, "character": 0},
@@ -47,7 +54,7 @@ func TestBasicCacheOperations(t *testing.T) {
 
 	t.Run("Document invalidation", func(t *testing.T) {
 		uri := "file:///invalidate.go"
-		method := "textDocument/documentSymbol"
+		method := methodTextDocumentDocumentSymbol
 		params := map[string]interface{}{
 			"textDocument": map[string]string{"uri": uri},
 		}
@@ -72,7 +79,7 @@ func TestBasicCacheOperations(t *testing.T) {
 	})
 
 	t.Run("Clear cache", func(t *testing.T) {
-		method := "textDocument/references"
+		method := methodTextDocumentReferences
 		params := map[string]interface{}{
 			"textDocument": map[string]string{"uri": "file:///clear.go"},
 			"position":     map[string]int{"line": 5, "character": 10},
@@ -188,7 +195,7 @@ func TestCachePersistence(t *testing.T) {
 
 		// Store multiple entries
 		for i := 0; i < 3; i++ {
-			method := "textDocument/hover"
+			method := methodTextDocumentHover
 			params := map[string]interface{}{
 				"textDocument": map[string]string{"uri": "file:///test" + string(rune('0'+i)) + ".go"},
 				"position":     map[string]int{"line": i, "character": 0},
@@ -233,7 +240,7 @@ func TestCachePersistence(t *testing.T) {
 		require.NotNil(t, metrics)
 
 		// Try to retrieve one of the persisted entries
-		method := "textDocument/hover"
+		method := methodTextDocumentHover
 		params := map[string]interface{}{
 			"textDocument": map[string]string{"uri": "file:///test0.go"},
 			"position":     map[string]int{"line": 0, "character": 0},
@@ -260,7 +267,7 @@ func TestConcurrentCacheAccess(t *testing.T) {
 	for g := 0; g < numGoroutines; g++ {
 		go func(goroutineID int) {
 			for i := 0; i < numOperations; i++ {
-				method := "textDocument/definition"
+				method := methodTextDocumentDefinition
 				params := map[string]interface{}{
 					"textDocument": map[string]string{"uri": "file:///g" + string(rune('0'+goroutineID)) + "/file" + string(rune('0'+i)) + ".go"},
 					"position":     map[string]int{"line": i, "character": goroutineID},

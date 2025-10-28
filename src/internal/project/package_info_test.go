@@ -100,7 +100,7 @@ func TestGetPackageInfo_NodeJS(t *testing.T) {
 		t.Fatalf("Failed to write package.json: %v", err)
 	}
 
-	info, err := GetPackageInfo(tmpDir, "javascript")
+	info, err := GetPackageInfo(tmpDir, langJavaScript)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestGetPackageInfo_NodeJS(t *testing.T) {
 		t.Errorf("Expected repository 'https://github.com/user/test-package.git', got '%s'", info.Repository)
 	}
 
-	if info.Language != "javascript" {
+	if info.Language != langJavaScript {
 		t.Errorf("Expected language 'javascript', got '%s'", info.Language)
 	}
 }
@@ -143,7 +143,7 @@ version = "0.2.0"
 		t.Fatalf("Failed to write pyproject.toml: %v", err)
 	}
 
-	info, err := GetPackageInfo(tmpDir, "python")
+	info, err := GetPackageInfo(tmpDir, langPython)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -157,7 +157,7 @@ version = "0.2.0"
 		t.Errorf("Expected version '0.1.0', got '%s'", info.Version)
 	}
 
-	if info.Language != "python" {
+	if info.Language != langPython {
 		t.Errorf("Expected language 'python', got '%s'", info.Language)
 	}
 }
@@ -186,7 +186,7 @@ setup(
 		t.Fatalf("Failed to write setup.py: %v", err)
 	}
 
-	info, err := GetPackageInfo(tmpDir, "python")
+	info, err := GetPackageInfo(tmpDir, langPython)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -203,7 +203,7 @@ setup(
 		t.Errorf("Expected repository 'https://github.com/user/test-setup-package', got '%s'", info.Repository)
 	}
 
-	if info.Language != "python" {
+	if info.Language != langPython {
 		t.Errorf("Expected language 'python', got '%s'", info.Language)
 	}
 }
@@ -239,7 +239,7 @@ func TestGetPackageInfo_Java_Maven(t *testing.T) {
 		t.Fatalf("Failed to write pom.xml: %v", err)
 	}
 
-	info, err := GetPackageInfo(tmpDir, "java")
+	info, err := GetPackageInfo(tmpDir, langJava)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestGetPackageInfo_Java_Maven(t *testing.T) {
 		t.Errorf("Expected repository 'https://github.com/user/test-maven-project.git', got '%s'", info.Repository)
 	}
 
-	if info.Language != "java" {
+	if info.Language != langJava {
 		t.Errorf("Expected language 'java', got '%s'", info.Language)
 	}
 }
@@ -288,7 +288,7 @@ dependencies {
 		t.Fatalf("Failed to write build.gradle: %v", err)
 	}
 
-	info, err := GetPackageInfo(tmpDir, "java")
+	info, err := GetPackageInfo(tmpDir, langJava)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -301,7 +301,7 @@ dependencies {
 		t.Errorf("Expected version '1.0.0', got '%s'", info.Version)
 	}
 
-	if info.Language != "java" {
+	if info.Language != langJava {
 		t.Errorf("Expected language 'java', got '%s'", info.Language)
 	}
 }
@@ -325,7 +325,7 @@ func TestGetPackageInfo_MissingFiles(t *testing.T) {
 	}
 
 	// Test JavaScript without package.json
-	info, err = GetPackageInfo(tmpDir, "javascript")
+	info, err = GetPackageInfo(tmpDir, langJavaScript)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestGetPackageInfo_MissingFiles(t *testing.T) {
 	}
 
 	// Test Python without any package files
-	info, err = GetPackageInfo(tmpDir, "python")
+	info, err = GetPackageInfo(tmpDir, langPython)
 	if err != nil {
 		t.Fatalf("GetPackageInfo failed: %v", err)
 	}

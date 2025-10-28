@@ -20,6 +20,7 @@ const (
 	ciTypeRegular       = "regular"
 	ciTypeWindows       = "windows"
 	ciTypeNone          = "none"
+	osWindows           = "windows"
 )
 
 // withCIEnvironment simulates different CI environments for testing
@@ -328,7 +329,7 @@ func TestTimeoutManager_CreateContext(t *testing.T) {
 func TestTimeoutManager_CreateContext_NilParent(t *testing.T) {
 	tm := NewTimeoutManager()
 
-	ctx, cancel := tm.CreateContext(nil, "go")
+	ctx, cancel := tm.CreateContext(context.TODO(), "go")
 	defer cancel()
 
 	if ctx == nil {
@@ -678,7 +679,7 @@ func TestGetTimeout_RegularCI(t *testing.T) {
 }
 
 func TestGetTimeout_WindowsCI(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		t.Skip("Windows CI test only runs on Windows")
 	}
 
@@ -724,7 +725,7 @@ func TestGetTimeout_WindowsCI(t *testing.T) {
 }
 
 func TestGetTimeout_NonWindowsCI_RegularCI(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		t.Skip("Non-Windows CI test skipped on Windows")
 	}
 
@@ -806,7 +807,7 @@ func TestGetTimeout_CustomTimeout_NotAffectedByCI(t *testing.T) {
 	})
 
 	withCIEnvironment(t, ciTypeWindows, func() {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			tm := NewTimeoutManager().
 				WithCustomTimeout("java", 60*time.Second)
 
@@ -832,7 +833,7 @@ func TestGetOverallTimeout_WithCI(t *testing.T) {
 }
 
 func TestGetOverallTimeout_WindowsCI(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		t.Skip("Windows CI test only runs on Windows")
 	}
 

@@ -104,7 +104,7 @@ func TestKotlinDetection(t *testing.T) {
 
 		found := false
 		for _, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				found = true
 				break
 			}
@@ -141,7 +141,7 @@ func TestKotlinDetection(t *testing.T) {
 
 		found := false
 		for _, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				found = true
 				break
 			}
@@ -209,10 +209,10 @@ plugins {
 		foundKotlin := false
 		foundJava := false
 		for _, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				foundKotlin = true
 			}
-			if lang == "java" {
+			if lang == langJava {
 				foundJava = true
 			}
 		}
@@ -264,10 +264,10 @@ application {
 		foundKotlin := false
 		foundJava := false
 		for _, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				foundKotlin = true
 			}
-			if lang == "java" {
+			if lang == langJava {
 				foundJava = true
 			}
 		}
@@ -283,10 +283,10 @@ application {
 		kotlinIndex := -1
 		javaIndex := -1
 		for i, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				kotlinIndex = i
 			}
-			if lang == "java" {
+			if lang == langJava {
 				javaIndex = i
 			}
 		}
@@ -321,7 +321,7 @@ dependencies {
 		}
 		foundKotlin := false
 		for _, lang := range langs {
-			if lang == "kotlin" {
+			if lang == langKotlin {
 				foundKotlin = true
 				break
 			}
@@ -371,7 +371,7 @@ func TestKotlinFileExtensions(t *testing.T) {
 
 			foundKotlin := false
 			for _, lang := range langs {
-				if lang == "kotlin" {
+				if lang == langKotlin {
 					foundKotlin = true
 					break
 				}

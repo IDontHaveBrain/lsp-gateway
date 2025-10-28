@@ -91,7 +91,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	mgr.projectRoot = filepath.Dir(filepath.Dir(pwd))
 
 	binaryName := "lsp-gateway"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		binaryName = "lsp-gateway.exe"
 	}
 	binaryPath := filepath.Join(mgr.projectRoot, "bin", binaryName)
@@ -169,7 +169,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	)
 
 	// Set process group for proper cleanup of child LSP processes
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
 		}
@@ -203,7 +203,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	// Determine timeout based on environment - should be longer than server's internal timeout
 	var httpTimeout time.Duration
 	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			httpTimeout = 210 * time.Second
 		} else {
 			httpTimeout = 120 * time.Second
@@ -312,7 +312,7 @@ func pythonCommandPaths(name string) []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		base := filepath.Join(home, ".lsp-gateway", "tools", "python")
 		variants := []string{name}
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			variants = append(variants, name+".cmd", name+".exe")
 		}
 		for _, variant := range variants {
@@ -385,7 +385,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 	// Allow more time for heavier language servers; extend further on Windows
 	maxRetries := 180
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		maxRetries = 330
 	}
 	for i := 0; i < maxRetries; i++ {
@@ -536,7 +536,7 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 		pid := mgr.gatewayCmd.Process.Pid
 
 		// Kill entire process group to ensure all child LSP servers are terminated
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != osWindows {
 			// Send SIGTERM to process group (negative PID)
 			if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
 				t.Logf("⚠️  Failed to send SIGTERM to process group: %v", err)
@@ -560,7 +560,7 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 			// Process exited gracefully
 		case <-time.After(10 * time.Second):
 			// Force kill process group if still running
-			if runtime.GOOS != "windows" {
+			if runtime.GOOS != osWindows {
 				if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
 					t.Logf("⚠️  Failed to SIGKILL process group: %v", err)
 				}

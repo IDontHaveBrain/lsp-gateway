@@ -92,7 +92,7 @@ func helperFunction() {
 
 	err = scipCache.Start(ctx)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() { _ = scipCache.Stop() }()
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func helperFunction() {
 
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
-	defer lspManager.Stop()
+	defer func() { _ = lspManager.Stop() }()
 	// Wait for manager readiness instead of fixed sleep
 	testutils.WaitForLSPManagerReady(t, lspManager, 10*time.Second)
 

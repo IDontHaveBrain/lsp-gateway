@@ -13,6 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	statusReady = "ready"
+)
+
 // CacheTestSetup provides comprehensive cache setup with automatic cleanup
 type CacheTestSetup struct {
 	Manager *cache.SCIPCacheManager
@@ -371,7 +375,7 @@ func WaitForIndexingComplete(t *testing.T, cacheManager cache.SCIPCache, maxWait
 			return
 		case <-ticker.C:
 			stats := cacheManager.GetIndexStats()
-			if stats != nil && stats.Status == "ready" {
+			if stats != nil && stats.Status == statusReady {
 				return
 			}
 		}

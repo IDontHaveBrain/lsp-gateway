@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +15,7 @@ func TestBuiltinTypeFilteringIntegration(t *testing.T) {
 	}
 
 	// Create a temporary test directory with Go files
-	tempDir, err := ioutil.TempDir("", "lsp-gateway-test-*")
+	tempDir, err := os.MkdirTemp("", "lsp-gateway-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -50,7 +49,7 @@ func HandleRequest(input interface{}) bool {
 	return true
 }
 `
-	if err := ioutil.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -60,20 +59,23 @@ func HandleRequest(input interface{}) bool {
 go 1.21
 `
 	goModFile := filepath.Join(tempDir, "go.mod")
-	if err := ioutil.WriteFile(goModFile, []byte(goModContent), 0644); err != nil {
+	if err := os.WriteFile(goModFile, []byte(goModContent), 0644); err != nil {
 		t.Fatalf("Failed to write go.mod: %v", err)
 	}
 
 	// Change to test directory
-	originalDir, _ := os.Getwd()
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("Failed to change directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Test would normally run the actual indexing here
 	// For demonstration, we'll check the content parsing
-	content, err := ioutil.ReadFile(testFile)
+	content, err := os.ReadFile(testFile)
 	if err != nil {
 		t.Fatalf("Failed to read test file: %v", err)
 	}
@@ -117,11 +119,11 @@ go 1.21
 // TestPositionValidationIntegration tests position validation with actual file content
 func TestPositionValidationIntegration(t *testing.T) {
 	// Create a temporary test file
-	tempFile, err := ioutil.TempFile("", "position-test-*.go")
+	tempFile, err := os.CreateTemp("", "position-test-*.go")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 
 	testContent := `package test
 
@@ -137,10 +139,12 @@ func anotherFunction() {
 	if _, err := tempFile.Write([]byte(testContent)); err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
 
 	// Read the content back
-	content, err := ioutil.ReadFile(tempFile.Name())
+	content, err := os.ReadFile(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to read test file: %v", err)
 	}

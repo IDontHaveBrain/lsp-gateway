@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,6 +20,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+)
+
+const (
+	ciTrue = "true"
 )
 
 // LanguageConfig defines language-specific configuration
@@ -84,12 +87,12 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 			suite.tempDir = base
 			suite.preserveRepos = true
 		} else {
-			tmp, terr := ioutil.TempDir("", "lsp-gateway-e2e-repos")
+			tmp, terr := os.MkdirTemp("", "lsp-gateway-e2e-repos")
 			require.NoError(suite.T(), terr, "Failed to create temp directory")
 			suite.tempDir = tmp
 		}
 	} else {
-		tmp, terr := ioutil.TempDir("", "lsp-gateway-e2e-repos")
+		tmp, terr := os.MkdirTemp("", "lsp-gateway-e2e-repos")
 		require.NoError(suite.T(), terr, "Failed to create temp directory")
 		suite.tempDir = tmp
 	}
@@ -375,37 +378,37 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	}
 	var servers map[string]interface{}
 	switch suite.Config.Language {
-	case "go":
+	case langGo:
 		servers = map[string]interface{}{
-			"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
+			langGo: map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
 		}
-	case "python":
+	case langPython:
 		servers = map[string]interface{}{
-			"python": map[string]interface{}{"command": "jedi-language-server", "args": []string{}, "working_dir": suite.repoDir},
+			langPython: map[string]interface{}{"command": "jedi-language-server", "args": []string{}, "working_dir": suite.repoDir},
 		}
-	case "javascript":
+	case langJavaScript:
 		servers = map[string]interface{}{
-			"javascript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
+			langJavaScript: map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
 		}
-	case "typescript":
+	case langTypeScript:
 		servers = map[string]interface{}{
-			"typescript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
+			langTypeScript: map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
 		}
-	case "java":
+	case langJava:
 		servers = map[string]interface{}{
-			"java": map[string]interface{}{"command": "~/.lsp-gateway/tools/java/bin/jdtls", "args": []string{javaWorkspace}, "working_dir": suite.repoDir},
+			langJava: map[string]interface{}{"command": "~/.lsp-gateway/tools/java/bin/jdtls", "args": []string{javaWorkspace}, "working_dir": suite.repoDir},
 		}
-	case "rust":
+	case langRust:
 		servers = map[string]interface{}{
-			"rust": map[string]interface{}{"command": "rust-analyzer", "args": []string{}, "working_dir": suite.repoDir},
+			langRust: map[string]interface{}{"command": "rust-analyzer", "args": []string{}, "working_dir": suite.repoDir},
 		}
-	case "kotlin":
+	case langKotlin:
 		servers = map[string]interface{}{
-			"kotlin": map[string]interface{}{"command": testconfig.NewKotlinServerConfig().Command, "args": []string{}, "working_dir": suite.repoDir},
+			langKotlin: map[string]interface{}{"command": testconfig.NewKotlinServerConfig().Command, "args": []string{}, "working_dir": suite.repoDir},
 		}
 	default:
 		servers = map[string]interface{}{
-			"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
+			langGo: map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
 		}
 	}
 
@@ -428,7 +431,7 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 
 	// Construct binary path with platform-specific extension
 	binaryName := "lsp-gateway"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		binaryName = "lsp-gateway.exe"
 	}
 	binaryPath := filepath.Join(projectRoot, "bin", binaryName)
@@ -667,7 +670,7 @@ func (suite *ComprehensiveTestBaseSuite) TestComprehensiveServerLifecycle() {
 func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == ciTrue {
 		suite.T().Skipf("Skipping %s definition test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
@@ -722,7 +725,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == ciTrue {
 		suite.T().Skipf("Skipping %s references test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
@@ -774,7 +777,7 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == ciTrue {
 		suite.T().Skipf("Skipping %s hover test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
@@ -836,7 +839,7 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == ciTrue {
 		suite.T().Skipf("Skipping %s document symbol test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
@@ -945,7 +948,7 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == ciTrue {
 		suite.T().Skipf("Skipping %s completion test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
@@ -1026,21 +1029,21 @@ func (suite *ComprehensiveTestBaseSuite) TestAllLSPMethodsSequential() {
 	}
 
 	// Determine which tests to run based on environment
-	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() {
+	if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() {
 		// On Windows CI with JVM-based languages, only test critical methods to reduce timeout risk
 		suite.T().Logf("  Running reduced test set for %s on Windows CI", suite.Config.Language)
-		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/definition", testFile.DefinitionPos)
+		suite.testMethodSequentially(httpClient, fileURI, testFile, methodDefinition, testFile.DefinitionPos)
 		suite.testWorkspaceSymbolSequentially(httpClient, testFile.SymbolQuery) // This usually works
 		// Skip the rest to avoid timeouts: references, hover, documentSymbol, completion
 		suite.T().Logf("  Skipping non-critical tests to avoid Windows CI timeouts")
 	} else {
 		// Test all 6 LSP methods sequentially for other cases
-		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/definition", testFile.DefinitionPos)
-		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/references", testFile.ReferencePos)
-		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/hover", testFile.HoverPos)
+		suite.testMethodSequentially(httpClient, fileURI, testFile, methodDefinition, testFile.DefinitionPos)
+		suite.testMethodSequentially(httpClient, fileURI, testFile, methodReferences, testFile.ReferencePos)
+		suite.testMethodSequentially(httpClient, fileURI, testFile, methodHover, testFile.HoverPos)
 		suite.testDocumentSymbolSequentially(httpClient, fileURI)
 		suite.testWorkspaceSymbolSequentially(httpClient, testFile.SymbolQuery)
-		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/completion", testFile.CompletionPos)
+		suite.testMethodSequentially(httpClient, fileURI, testFile, methodCompletion, testFile.CompletionPos)
 	}
 
 	suite.T().Logf("✅ All LSP methods tested sequentially for %s", suite.Config.DisplayName)
@@ -1066,7 +1069,7 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 	}
 
 	// Add context for references
-	if method == "textDocument/references" {
+	if method == methodReferences {
 		request["params"].(map[string]interface{})["context"] = map[string]interface{}{
 			"includeDeclaration": true,
 		}
@@ -1077,7 +1080,7 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && method == "textDocument/definition" {
+		if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && method == methodDefinition {
 			suite.T().Logf("  ⚠️ %s encountered error on Windows CI (%s): %v", method, suite.Config.Language, err)
 			return
 		}
@@ -1086,7 +1089,7 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && method == "textDocument/definition" {
+		if (suite.Config.Language == langJava || suite.Config.Language == langKotlin) && isWindowsCI() && method == methodDefinition {
 			suite.T().Logf("  ⚠️ %s returned LSP error on Windows CI (%s): %v", method, suite.Config.Language, errorField)
 			return
 		}
@@ -1099,12 +1102,12 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 
 // Helper method for testing document symbols
 func (suite *ComprehensiveTestBaseSuite) testDocumentSymbolSequentially(httpClient *testutils.HttpClient, fileURI string) {
-	suite.T().Logf("  Testing textDocument/documentSymbol...")
+	suite.T().Logf("  Testing %s...", methodDocumentSymbol)
 
 	request := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      1,
-		"method":  "textDocument/documentSymbol",
+		"method":  methodDocumentSymbol,
 		"params": map[string]interface{}{
 			"textDocument": map[string]interface{}{
 				"uri": fileURI,
@@ -1117,26 +1120,26 @@ func (suite *ComprehensiveTestBaseSuite) testDocumentSymbolSequentially(httpClie
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Errorf("  ❌ textDocument/documentSymbol failed: %v", err)
+		suite.T().Errorf("  ❌ %s failed: %v", methodDocumentSymbol, err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Errorf("  ❌ textDocument/documentSymbol LSP error: %v", errorField)
+		suite.T().Errorf("  ❌ %s LSP error: %v", methodDocumentSymbol, errorField)
 		return
 	}
 
-	suite.T().Logf("  ✅ textDocument/documentSymbol completed")
+	suite.T().Logf("  ✅ %s completed", methodDocumentSymbol)
 }
 
 // Helper method for testing workspace symbols
 func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpClient *testutils.HttpClient, query string) {
-	suite.T().Logf("  Testing workspace/symbol...")
+	suite.T().Logf("  Testing %s...", methodWorkspaceSymbol)
 
 	request := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      1,
-		"method":  "workspace/symbol",
+		"method":  methodWorkspaceSymbol,
 		"params": map[string]interface{}{
 			"query": query,
 		},
@@ -1149,30 +1152,30 @@ func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpCli
 	if err != nil {
 		// Treat unsupported or missing method as acceptable for certain servers (e.g., Python)
 		errMsg := fmt.Sprintf("%v", err)
-		if strings.Contains(errMsg, "no LSP servers support workspace/symbol") ||
+		if strings.Contains(errMsg, "no LSP servers support "+methodWorkspaceSymbol) ||
 			strings.Contains(errMsg, "Method not found") ||
 			strings.Contains(errMsg, "not supported") {
-			suite.T().Logf("  ⚠️ workspace/symbol not supported: %v", err)
+			suite.T().Logf("  ⚠️ %s not supported: %v", methodWorkspaceSymbol, err)
 			return
 		}
-		suite.T().Errorf("  ❌ workspace/symbol failed: %v", err)
+		suite.T().Errorf("  ❌ %s failed: %v", methodWorkspaceSymbol, err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
 		// Tolerate unsupported method errors similar to comprehensive test
 		errorMsg := fmt.Sprintf("%v", errorField)
-		if strings.Contains(errorMsg, "no LSP servers support workspace/symbol") ||
+		if strings.Contains(errorMsg, "no LSP servers support "+methodWorkspaceSymbol) ||
 			strings.Contains(errorMsg, "Method not found") ||
 			strings.Contains(errorMsg, "not supported") {
-			suite.T().Logf("  ⚠️ workspace/symbol not supported by %s LSP server: %v", suite.Config.Language, errorField)
+			suite.T().Logf("  ⚠️ %s not supported by %s LSP server: %v", methodWorkspaceSymbol, suite.Config.Language, errorField)
 			return
 		}
-		suite.T().Errorf("  ❌ workspace/symbol LSP error: %v", errorField)
+		suite.T().Errorf("  ❌ %s LSP error: %v", methodWorkspaceSymbol, errorField)
 		return
 	}
 
-	suite.T().Logf("  ✅ workspace/symbol completed")
+	suite.T().Logf("  ✅ %s completed", methodWorkspaceSymbol)
 }
 
 // Cache Isolation Convenience Methods
@@ -1267,7 +1270,7 @@ func (suite *ComprehensiveTestBaseSuite) GetCacheViolationsSummary() string {
 
 // isCI detects if running in CI environment
 func isCI() bool {
-	return os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
+	return os.Getenv("CI") == ciTrue || os.Getenv("GITHUB_ACTIONS") == ciTrue
 }
 
 // isWindowsCI detects if running in Windows CI environment
@@ -1282,7 +1285,7 @@ func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
 	// Apply multipliers for CI environments
 	if isWindowsCI() {
 		// Windows CI is significantly slower, especially for JVM-based languages
-		if suite.Config.Language == "java" || suite.Config.Language == "kotlin" {
+		if suite.Config.Language == langJava || suite.Config.Language == langKotlin {
 			// Match server timeout (90s * 3 = 270s) + buffer for HTTP overhead
 			// This ensures test doesn't timeout before server responds
 			return baseTimeout*3 + 60*time.Second // 330s total
@@ -1301,19 +1304,19 @@ func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration 
 	// Use the actual timeouts from the server configuration
 	// These should match what's in src/internal/registry/languages.go
 	switch suite.Config.Language {
-	case "java":
+	case langJava:
 		// Java uses 90s timeout in the server
 		return 90 * time.Second
-	case "python":
+	case langPython:
 		// Python uses 30s timeout in the server
 		return 30 * time.Second
-	case "kotlin":
+	case langKotlin:
 		// Kotlin uses same timeout as Java (both JVM-based)
 		return 90 * time.Second
-	case "go", "javascript", "typescript":
+	case langGo, langJavaScript, langTypeScript:
 		// These use 15s timeout in the server
 		return 15 * time.Second
-	case "rust":
+	case langRust:
 		// Rust uses 15s timeout in the server
 		return 15 * time.Second
 	default:
@@ -1325,7 +1328,7 @@ func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration 
 // waitForLSPServerReady waits for LSP server to be fully initialized
 func (suite *ComprehensiveTestBaseSuite) waitForLSPServerReady(httpClient *testutils.HttpClient, fileURI string) error {
 	// For Java on Windows CI, we need more aggressive waiting
-	if suite.Config.Language == "java" && isWindowsCI() {
+	if suite.Config.Language == langJava && isWindowsCI() {
 		return suite.waitForJavaLSPReady(httpClient, fileURI)
 	}
 
@@ -1346,7 +1349,7 @@ func (suite *ComprehensiveTestBaseSuite) waitForJavaLSPReady(httpClient *testuti
 	testRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      999,
-		"method":  "workspace/symbol",
+		"method":  methodWorkspaceSymbol,
 		"params": map[string]interface{}{
 			"query": "Main",
 		},
@@ -1374,7 +1377,7 @@ func (suite *ComprehensiveTestBaseSuite) waitForJavaLSPReady(httpClient *testuti
 		}
 	}
 
-	return fmt.Errorf("Java LSP server did not become ready after %d attempts", maxRetries)
+	return fmt.Errorf("java LSP server did not become ready after %d attempts", maxRetries)
 }
 
 // GetCacheHealthHistory returns cache health checkpoint history

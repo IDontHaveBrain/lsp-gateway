@@ -45,7 +45,7 @@ func TestNewLSPManagerReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create LSP manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() { _ = manager.Stop() }()
 
 	// Start LSP manager
 	ctx := context.Background()

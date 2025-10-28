@@ -23,6 +23,10 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+const (
+	osWindows = "windows"
+)
+
 func TestCacheInvalidationUnderLoad(t *testing.T) {
 	if _, err := exec.LookPath("gopls"); err != nil {
 		t.Skip("Go LSP server (gopls) not installed, skipping test")
@@ -169,7 +173,7 @@ func (s *Struct%d) Method%d() string {
 
 		// Reduce expectations for CI environments where resources are limited
 		isCI := os.Getenv("CI") != ""
-		isWindows := runtime.GOOS == "windows"
+		isWindows := runtime.GOOS == osWindows
 
 		// Adjust concurrency and expectations based on environment
 		numReaders := 20

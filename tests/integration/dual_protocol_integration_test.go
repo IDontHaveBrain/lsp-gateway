@@ -260,7 +260,7 @@ func TestDualProtocolResourceContention(t *testing.T) {
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
-	defer scipCache.Stop()
+	defer func() { _ = scipCache.Stop() }()
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)

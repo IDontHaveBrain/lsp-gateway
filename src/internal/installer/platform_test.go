@@ -7,6 +7,16 @@ import (
 	"testing"
 )
 
+const (
+	testArchX64   = "x64"
+	testArchAMD64 = "amd64"
+	testArchARM64 = "arm64"
+	testOsLinux   = "linux"
+	testOsDarwin  = "darwin"
+	testOsWindows = "windows"
+	testJdkTag    = "jdk-21.0.4+7"
+)
+
 // mockPlatformInfo for testing different platform scenarios
 type mockPlatformInfo struct {
 	platform string
@@ -24,21 +34,21 @@ func (m *mockPlatformInfo) GetArch() string {
 func (m *mockPlatformInfo) GetPlatformString() string {
 	arch := m.arch
 	switch arch {
-	case "amd64":
-		arch = "x64"
-	case "arm64":
-		arch = "arm64"
+	case testArchAMD64:
+		arch = testArchX64
+	case testArchARM64:
+		arch = testArchARM64
 	default:
-		arch = "x64"
+		arch = testArchX64
 	}
 
 	platform := m.platform
 	switch platform {
-	case "darwin":
+	case testOsDarwin:
 		return fmt.Sprintf("darwin-%s", arch)
-	case "linux":
+	case testOsLinux:
 		return fmt.Sprintf("linux-%s", arch)
-	case "windows":
+	case testOsWindows:
 		return fmt.Sprintf("win32-%s", arch)
 	default:
 		return fmt.Sprintf("%s-%s", platform, arch)
@@ -47,9 +57,9 @@ func (m *mockPlatformInfo) GetPlatformString() string {
 
 func (m *mockPlatformInfo) IsSupported() bool {
 	supportedPlatforms := map[string][]string{
-		"linux":   {"amd64", "arm64"},
-		"darwin":  {"amd64", "arm64"},
-		"windows": {"amd64"},
+		testOsLinux:   {testArchAMD64, testArchARM64},
+		testOsDarwin:  {testArchAMD64, testArchARM64},
+		testOsWindows: {testArchAMD64},
 	}
 
 	if supportedArchs, exists := supportedPlatforms[m.platform]; exists {
@@ -73,30 +83,32 @@ func (m *mockPlatformInfo) GetJavaDownloadURL(version string) (string, string, e
 	var extractDir string
 
 	switch m.platform {
-	case "linux":
-		if m.arch == "amd64" {
+	case testOsLinux:
+		switch m.arch {
+		case testArchAMD64:
 			filename = "OpenJDK21U-jdk_x64_linux_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7"
-		} else if m.arch == "arm64" {
+			extractDir = testJdkTag
+		case testArchARM64:
 			filename = "OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7"
-		} else {
+			extractDir = testJdkTag
+		default:
 			return "", "", fmt.Errorf("unsupported architecture for Linux: %s", m.arch)
 		}
-	case "darwin":
-		if m.arch == "amd64" {
+	case testOsDarwin:
+		switch m.arch {
+		case testArchAMD64:
 			filename = "OpenJDK21U-jdk_x64_mac_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7/Contents/Home"
-		} else if m.arch == "arm64" {
+			extractDir = testJdkTag + "/Contents/Home"
+		case testArchARM64:
 			filename = "OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.4_7.tar.gz"
-			extractDir = "jdk-21.0.4+7/Contents/Home"
-		} else {
+			extractDir = testJdkTag + "/Contents/Home"
+		default:
 			return "", "", fmt.Errorf("unsupported architecture for macOS: %s", m.arch)
 		}
-	case "windows":
-		if m.arch == "amd64" {
+	case testOsWindows:
+		if m.arch == testArchAMD64 {
 			filename = "OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.zip"
-			extractDir = "jdk-21.0.4+7"
+			extractDir = testJdkTag
 		} else {
 			return "", "", fmt.Errorf("unsupported architecture for Windows: %s", m.arch)
 		}
@@ -110,11 +122,11 @@ func (m *mockPlatformInfo) GetJavaDownloadURL(version string) (string, string, e
 
 func (m *mockPlatformInfo) GetNodeInstallCommand() []string {
 	switch m.platform {
-	case "linux":
+	case testOsLinux:
 		return []string{"apt-get", "update", "&&", "apt-get", "install", "-y", "nodejs", "npm"}
-	case "darwin":
+	case testOsDarwin:
 		return []string{"brew", "install", "node"}
-	case "windows":
+	case testOsWindows:
 		return []string{"echo", "Please install Node.js from https://nodejs.org/"}
 	default:
 		return []string{"echo", "Platform not supported for automatic Node.js installation"}
@@ -133,7 +145,7 @@ func TestLSPPlatformInfo_GetPlatform(t *testing.T) {
 	}
 
 	// Should be one of supported platforms
-	supportedPlatforms := []string{"linux", "darwin", "windows"}
+	supportedPlatforms := []string{testOsLinux, testOsDarwin, testOsWindows}
 	found := false
 	for _, supported := range supportedPlatforms {
 		if result == supported {
@@ -158,7 +170,7 @@ func TestLSPPlatformInfo_GetArch(t *testing.T) {
 	}
 
 	// Should be one of common architectures
-	commonArchs := []string{"amd64", "arm64", "386", "arm"}
+	commonArchs := []string{testArchAMD64, testArchARM64, "386", "arm"}
 	found := false
 	for _, arch := range commonArchs {
 		if result == arch {
@@ -180,43 +192,43 @@ func TestLSPPlatformInfo_GetPlatformString(t *testing.T) {
 	}{
 		{
 			name:           "Linux amd64",
-			platform:       "linux",
-			arch:           "amd64",
+			platform:       testOsLinux,
+			arch:           testArchAMD64,
 			expectedSuffix: "linux-x64",
 		},
 		{
 			name:           "Linux arm64",
-			platform:       "linux",
-			arch:           "arm64",
+			platform:       testOsLinux,
+			arch:           testArchARM64,
 			expectedSuffix: "linux-arm64",
 		},
 		{
 			name:           "macOS amd64",
-			platform:       "darwin",
-			arch:           "amd64",
+			platform:       testOsDarwin,
+			arch:           testArchAMD64,
 			expectedSuffix: "darwin-x64",
 		},
 		{
 			name:           "macOS arm64",
-			platform:       "darwin",
-			arch:           "arm64",
+			platform:       testOsDarwin,
+			arch:           testArchARM64,
 			expectedSuffix: "darwin-arm64",
 		},
 		{
 			name:           "Windows amd64",
-			platform:       "windows",
-			arch:           "amd64",
+			platform:       testOsWindows,
+			arch:           testArchAMD64,
 			expectedSuffix: "win32-x64",
 		},
 		{
 			name:           "Unknown platform",
 			platform:       "freebsd",
-			arch:           "amd64",
+			arch:           testArchAMD64,
 			expectedSuffix: "freebsd-x64",
 		},
 		{
 			name:           "Unknown architecture defaults to x64",
-			platform:       "linux",
+			platform:       testOsLinux,
 			arch:           "riscv64",
 			expectedSuffix: "linux-x64",
 		},
@@ -247,56 +259,56 @@ func TestLSPPlatformInfo_IsSupported(t *testing.T) {
 	}{
 		{
 			name:      "Linux amd64 - supported",
-			platform:  "linux",
-			arch:      "amd64",
+			platform:  testOsLinux,
+			arch:      testArchAMD64,
 			supported: true,
 		},
 		{
 			name:      "Linux arm64 - supported",
-			platform:  "linux",
-			arch:      "arm64",
+			platform:  testOsLinux,
+			arch:      testArchARM64,
 			supported: true,
 		},
 		{
 			name:      "macOS amd64 - supported",
-			platform:  "darwin",
-			arch:      "amd64",
+			platform:  testOsDarwin,
+			arch:      testArchAMD64,
 			supported: true,
 		},
 		{
 			name:      "macOS arm64 - supported",
-			platform:  "darwin",
-			arch:      "arm64",
+			platform:  testOsDarwin,
+			arch:      testArchARM64,
 			supported: true,
 		},
 		{
 			name:      "Windows amd64 - supported",
-			platform:  "windows",
-			arch:      "amd64",
+			platform:  testOsWindows,
+			arch:      testArchAMD64,
 			supported: true,
 		},
 		{
 			name:      "Windows arm64 - not supported",
-			platform:  "windows",
-			arch:      "arm64",
+			platform:  testOsWindows,
+			arch:      testArchARM64,
 			supported: false,
 		},
 		{
 			name:      "Linux 386 - not supported",
-			platform:  "linux",
+			platform:  testOsLinux,
 			arch:      "386",
 			supported: false,
 		},
 		{
 			name:      "FreeBSD - not supported",
 			platform:  "freebsd",
-			arch:      "amd64",
+			arch:      testArchAMD64,
 			supported: false,
 		},
 		{
 			name:      "Unknown platform - not supported",
 			platform:  "plan9",
-			arch:      "amd64",
+			arch:      testArchAMD64,
 			supported: false,
 		},
 	}
@@ -328,60 +340,60 @@ func TestLSPPlatformInfo_GetJavaDownloadURL(t *testing.T) {
 	}{
 		{
 			name:        "Linux amd64",
-			platform:    "linux",
-			arch:        "amd64",
+			platform:    testOsLinux,
+			arch:        testArchAMD64,
 			expectError: false,
 			urlContains: "OpenJDK21U-jdk_x64_linux_hotspot_21.0.4_7.tar.gz",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  testJdkTag,
 		},
 		{
 			name:        "Linux arm64",
-			platform:    "linux",
-			arch:        "arm64",
+			platform:    testOsLinux,
+			arch:        testArchARM64,
 			expectError: false,
 			urlContains: "OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.4_7.tar.gz",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  testJdkTag,
 		},
 		{
 			name:        "macOS amd64",
-			platform:    "darwin",
-			arch:        "amd64",
+			platform:    testOsDarwin,
+			arch:        testArchAMD64,
 			expectError: false,
 			urlContains: "OpenJDK21U-jdk_x64_mac_hotspot_21.0.4_7.tar.gz",
-			extractDir:  "jdk-21.0.4+7/Contents/Home",
+			extractDir:  testJdkTag + "/Contents/Home",
 		},
 		{
 			name:        "macOS arm64",
-			platform:    "darwin",
-			arch:        "arm64",
+			platform:    testOsDarwin,
+			arch:        testArchARM64,
 			expectError: false,
 			urlContains: "OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.4_7.tar.gz",
-			extractDir:  "jdk-21.0.4+7/Contents/Home",
+			extractDir:  testJdkTag + "/Contents/Home",
 		},
 		{
 			name:        "Windows amd64",
-			platform:    "windows",
-			arch:        "amd64",
+			platform:    testOsWindows,
+			arch:        testArchAMD64,
 			expectError: false,
 			urlContains: "OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.zip",
-			extractDir:  "jdk-21.0.4+7",
+			extractDir:  testJdkTag,
 		},
 		{
 			name:        "Windows arm64 - unsupported architecture",
-			platform:    "windows",
-			arch:        "arm64",
+			platform:    testOsWindows,
+			arch:        testArchARM64,
 			expectError: true,
 		},
 		{
 			name:        "Linux 386 - unsupported architecture",
-			platform:    "linux",
+			platform:    testOsLinux,
 			arch:        "386",
 			expectError: true,
 		},
 		{
 			name:        "FreeBSD - unsupported platform",
 			platform:    "freebsd",
-			arch:        "amd64",
+			arch:        testArchAMD64,
 			expectError: true,
 		},
 	}
@@ -621,19 +633,19 @@ func TestPlatformInfo_ArchitectureNormalization(t *testing.T) {
 		inputArch    string
 		expectedArch string
 	}{
-		{"amd64", "x64"},
-		{"arm64", "arm64"},
-		{"386", "x64"},     // Falls back to x64
-		{"arm", "x64"},     // Falls back to x64
-		{"mips", "x64"},    // Falls back to x64
-		{"riscv64", "x64"}, // Falls back to x64
-		{"", "x64"},        // Falls back to x64
+		{testArchAMD64, testArchX64},
+		{testArchARM64, testArchARM64},
+		{"386", testArchX64},     // Falls back to x64
+		{"arm", testArchX64},     // Falls back to x64
+		{"mips", testArchX64},    // Falls back to x64
+		{"riscv64", testArchX64}, // Falls back to x64
+		{"", testArchX64},        // Falls back to x64
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("arch_%s", tt.inputArch), func(t *testing.T) {
 			mock := &mockPlatformInfo{
-				platform: "linux",
+				platform: testOsLinux,
 				arch:     tt.inputArch,
 			}
 

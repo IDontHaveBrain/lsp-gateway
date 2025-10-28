@@ -583,9 +583,7 @@ func TestGenericInstallerStructureIntegrity(t *testing.T) {
 			serverConfig := installer.GetServerConfig()
 			if serverConfig == nil {
 				t.Error("ServerConfig is nil")
-			}
-
-			if serverConfig.Command == "" {
+			} else if serverConfig.Command == "" {
 				t.Error("Command is empty")
 			}
 

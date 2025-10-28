@@ -50,7 +50,7 @@ func InitGlobalServer() error {
 	// Choose persistent base dir in CI, temporary otherwise
 	var baseDir string
 	var err error
-	isCI := os.Getenv("GITHUB_ACTIONS") == "true" || os.Getenv("CI") == "true"
+	isCI := os.Getenv("GITHUB_ACTIONS") == ciTrue || os.Getenv("CI") == ciTrue
 	if isCI {
 		baseDir = filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "e2e-repos-global")
 		if mkErr := os.MkdirAll(baseDir, 0o755); mkErr != nil {
@@ -108,8 +108,8 @@ func InitGlobalServer() error {
 		}
 	}
 	// python
-	if dir, ok := repos["python"]; ok {
-		servers["python"] = map[string]interface{}{
+	if dir, ok := repos[langPython]; ok {
+		servers[langPython] = map[string]interface{}{
 			"command":     pythonCmd,
 			"args":        pythonArgs,
 			"working_dir": dir,
@@ -132,10 +132,10 @@ func InitGlobalServer() error {
 		}
 	}
 	// java
-	if dir, ok := repos["java"]; ok {
+	if dir, ok := repos[langJava]; ok {
 		javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(dir), md5.Sum([]byte(dir))))
 		_ = os.MkdirAll(javaWorkspace, 0o755)
-		servers["java"] = map[string]interface{}{
+		servers[langJava] = map[string]interface{}{
 			"command":     "~/.lsp-gateway/tools/java/bin/jdtls",
 			"args":        []string{javaWorkspace},
 			"working_dir": dir,
@@ -158,8 +158,8 @@ func InitGlobalServer() error {
 		}
 	}
 	// kotlin
-	if dir, ok := repos["kotlin"]; ok {
-		servers["kotlin"] = map[string]interface{}{
+	if dir, ok := repos[langKotlin]; ok {
+		servers[langKotlin] = map[string]interface{}{
 			"command":     testconfig.NewKotlinServerConfig().Command,
 			"args":        []string{},
 			"working_dir": dir,
@@ -173,7 +173,7 @@ func InitGlobalServer() error {
 	pwd, _ := os.Getwd()
 	projectRoot := filepath.Dir(filepath.Dir(pwd)) // tests/e2e -> project root
 	bin := "lsp-gateway"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		bin = "lsp-gateway.exe"
 	}
 	binaryPath := filepath.Join(projectRoot, "bin", bin)
@@ -193,7 +193,7 @@ func InitGlobalServer() error {
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 	)
 	// Set process group for proper cleanup
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
 		}
@@ -231,7 +231,7 @@ func InitGlobalServer() error {
 
 	// Kick off background pre-warm for heavy JVM languages to reduce latency later
 	go func() {
-		langs := []string{"java", "kotlin"}
+		langs := []string{langJava, langKotlin}
 		for _, lang := range langs {
 			go prewarmLanguage(globalMgr, lang)
 		}
@@ -296,7 +296,7 @@ func prewarmLanguage(mgr *MultiServerManager, language string) {
 
 	// Use generous timeout for JVM-based languages
 	timeout := 90 * time.Second
-	if language == "java" || language == "kotlin" {
+	if language == langJava || language == langKotlin {
 		timeout = 120 * time.Second
 	}
 
@@ -457,7 +457,7 @@ func verifyGlobalRepositoryAccess() error {
 		return fmt.Errorf("repository manager validation failed: %w", err)
 	}
 
-	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+	if os.Getenv("LSP_GATEWAY_DEBUG") == ciTrue {
 		fmt.Printf("[INFO] Global repository access verification passed - Registered languages: %v\n", registeredLanguages)
 	}
 
@@ -497,7 +497,7 @@ func ShutdownGlobalServer() {
 	if globalMgr.gatewayCmd != nil && globalMgr.gatewayCmd.Process != nil {
 		pid := globalMgr.gatewayCmd.Process.Pid
 
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != osWindows {
 			// On Unix, kill entire process group (negative PID)
 			// This ensures all child LSP servers are terminated
 			_ = syscall.Kill(-pid, syscall.SIGTERM)
@@ -517,7 +517,7 @@ func ShutdownGlobalServer() {
 			// Process exited cleanly
 		case <-time.After(10 * time.Second):
 			// Force kill process group if still running
-			if runtime.GOOS != "windows" {
+			if runtime.GOOS != osWindows {
 				_ = syscall.Kill(-pid, syscall.SIGKILL)
 			} else {
 				_ = globalMgr.gatewayCmd.Process.Kill()

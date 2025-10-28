@@ -18,6 +18,7 @@ const (
 	ErrorTypeProtocol    ErrorType = "protocol"
 	ErrorTypeUnsupported ErrorType = "unsupported"
 	ErrorTypeGeneral     ErrorType = "general"
+	noErrors             string    = "No errors"
 )
 
 // LanguageError represents an error with language-specific context
@@ -150,7 +151,7 @@ func (ec *ErrorCollector) GetErrorSummary() string {
 	defer ec.mu.RUnlock()
 
 	if len(ec.errors) == 0 {
-		return "No errors"
+		return noErrors
 	}
 
 	errorsByType := make(map[ErrorType][]string)
