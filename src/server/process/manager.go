@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
@@ -75,14 +74,8 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 	// Create command
 	cmd := exec.Command(command, args...)
 
-	// Set process group ID on Unix to enable killing entire process tree
-	// This is critical for shell script wrappers (e.g., kotlin-lsp.sh, jdtls)
-	// that spawn child Java processes
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-		}
-	}
+	// Configure process attributes per-platform (e.g. setpgid on Unix)
+	setProcessAttributes(cmd)
 
 	// Use configured working directory if specified, otherwise use current directory
 	var actualWorkingDir string

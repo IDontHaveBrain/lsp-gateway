@@ -1,329 +1,133 @@
 # Makefile for LSP Gateway
-# Simplified build system for local development
 
-# Configuration
 BINARY_NAME := lsp-gateway
 MAIN_PATH := lsp-gateway/src/cmd/lsp-gateway
 BUILD_DIR := bin
+BUILD_TAGS := cache_enabled
 
-# Extract version from package.json if available, fallback to 'dev'
 VERSION ?= $(shell if [ -f package.json ]; then node -p "require('./package.json').version" 2>/dev/null || echo "dev"; else echo "dev"; fi)
-
-# Build info (simplified for local development)
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# LD flags - inject version information into the binary
 LDFLAGS := -s -w \
 	-X lsp-gateway/src/internal/version.Version=$(VERSION) \
 	-X lsp-gateway/src/internal/version.GitCommit=$(GIT_COMMIT) \
 	-X lsp-gateway/src/internal/version.BuildDate=$(BUILD_TIME)
 
-# Build tags for cache functionality
-BUILD_TAGS := cache_enabled
-
-# Go parameters
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
 GOCLEAN := $(GOCMD) clean
 GOMOD := $(GOCMD) mod
 
-# Platform definitions
 PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
 
 # =============================================================================
-# BUILD TARGETS
+# BUILD
 # =============================================================================
 
-.PHONY: all build local clean clean-orphans unlink
-all: build
+.PHONY: all local build clean
+all: local
 
-# Build for current platform (most common use case)
 local: $(BUILD_DIR)
-	@echo "Building for current platform with cache enabled..."
+	@echo "Building for current platform..."
 	$(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Creating npm wrapper script..."
 	@echo '#!/usr/bin/env node' > $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'const { spawn } = require("child_process");' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'const path = require("path");' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo 'const fs =  require("fs");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const fs = require("fs");' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'const binaryName = process.platform === "win32" ? "lsp-gateway.exe" : "lsp-gateway";' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'const binaryPath = path.join(__dirname, binaryName);' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'if (!fs.existsSync(binaryPath)) {' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo '  console.error("❌ LSP Gateway binary not found at:", binaryPath);' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo '  console.error("   Please run \"make local\" to build the binary");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '  console.error("Binary not found at:", binaryPath);' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '  console.error("Run \"make local\" to build");' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '  process.exit(1);' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '}' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo 'const args = process.argv.slice(2);' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo 'const child = spawn(binaryPath, args, { stdio: "inherit" });' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const child = spawn(binaryPath, process.argv.slice(2), { stdio: "inherit" });' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'process.on("SIGINT", () => child.kill("SIGINT"));' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'process.on("SIGTERM", () => child.kill("SIGTERM"));' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@echo 'child.on("close", (code) => process.exit(code || 0));' >> $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo 'child.on("error", (error) => { console.error("❌ Failed to start LSP Gateway:", error.message); process.exit(1); });' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'child.on("error", (err) => { console.error("Failed to start:", err.message); process.exit(1); });' >> $(BUILD_DIR)/$(BINARY_NAME).js
 	@chmod +x $(BUILD_DIR)/$(BINARY_NAME).js
-	@echo "✅ Wrapper script created"
-	@echo "Linking npm package globally..."
-	@if command -v npm >/dev/null 2>&1; then \
-		if [ -f package.json ]; then \
-			npm link; \
-			echo "✅ npm link completed - 'lsp-gateway' command is now available globally"; \
-		else \
-			echo "⚠️  package.json not found, skipping npm link"; \
-		fi; \
-	else \
-		echo "⚠️  npm not found, skipping npm link"; \
+	@if command -v npm >/dev/null 2>&1 && [ -f package.json ]; then \
+		npm link && echo "npm link completed"; \
 	fi
 
-# Build for all platforms
 build: $(BUILD_DIR)
 	@echo "Building for all platforms..."
 	@for platform in $(PLATFORMS); do \
 		os=$$(echo $$platform | cut -d'/' -f1); \
 		arch=$$(echo $$platform | cut -d'/' -f2); \
 		output=$(BUILD_DIR)/$(BINARY_NAME)-$$os; \
-		if [ $$os = "windows" ]; then output=$$output.exe; fi; \
-		if [ $$os = "darwin" ] && [ $$arch = "arm64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64; fi; \
-		if [ $$os = "darwin" ] && [ $$arch = "amd64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos; fi; \
-		echo "Building $$os/$$arch -> $$output with cache enabled"; \
+		[ $$os = "windows" ] && output=$$output.exe; \
+		[ $$os = "darwin" ] && [ $$arch = "arm64" ] && output=$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64; \
+		[ $$os = "darwin" ] && [ $$arch = "amd64" ] && output=$(BUILD_DIR)/$(BINARY_NAME)-macos; \
+		echo "Building $$os/$$arch -> $$output"; \
 		GOOS=$$os GOARCH=$$arch $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $$output $(MAIN_PATH); \
 	done
 
-# Individual platform builds (for convenience)
-.PHONY: linux windows macos macos-arm64
-linux: $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PATH)
-
-windows: $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PATH)
-
-macos: $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos $(MAIN_PATH)
-
-macos-arm64: $(BUILD_DIR)
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64 $(MAIN_PATH)
-
 $(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)
 
 clean:
-	@echo "Cleaning build artifacts..."
-	rm -rf $(BUILD_DIR)
-	$(GOCLEAN)
-
-# Clean orphaned LSP server processes (from failed/interrupted tests)
-clean-orphans:
-	@echo "🧹 Cleaning orphaned LSP server processes..."
-	@if [ -f scripts/cleanup-orphaned-lsp.sh ]; then \
-		./scripts/cleanup-orphaned-lsp.sh; \
-	else \
-		echo "⚠️  Cleanup script not found at scripts/cleanup-orphaned-lsp.sh"; \
-	fi
-
-# Unlink npm package globally
-unlink:
-	@echo "Unlinking npm package globally..."
-	@if command -v npm >/dev/null 2>&1; then \
-		if [ -f package.json ]; then \
-			npm unlink -g lsp-gateway 2>/dev/null || true; \
-			echo "✅ npm unlink completed - 'lsp-gateway' command removed from global scope"; \
-		else \
-			echo "⚠️  package.json not found, skipping npm unlink"; \
-		fi; \
-	else \
-		echo "⚠️  npm not found, skipping npm unlink"; \
-	fi
+	@rm -rf $(BUILD_DIR)
+	@$(GOCLEAN)
 
 # =============================================================================
-# CACHE TARGETS
+# TESTING
 # =============================================================================
 
-.PHONY: cache-verify cache-test cache-clean
-cache-verify:
-	@echo "Verifying cache dependencies..."
-	@$(GOCMD) list -m github.com/fsnotify/fsnotify
-	@echo "✅ Cache dependencies verified"
-
-cache-test:
-	@echo "Running cache tests..."
-	$(GOTEST) -v -tags "$(BUILD_TAGS)" -timeout 300s ./src/server/cache/... ./src/server/scip/...
-
-cache-clean:
-	@echo "Cleaning cache data..."
-	@rm -rf /tmp/lsp-gateway-scip-cache
-	@echo "✅ Cache data cleaned"
-
-# =============================================================================
-# DEVELOPMENT TARGETS
-# =============================================================================
-
-.PHONY: deps tidy format test test-unit test-integration test-e2e test-quick
-deps:
-	@echo "Downloading dependencies..."
-	$(GOCMD) get -v ./...
-
-tidy:
-	@echo "Tidying go modules..."
-	$(GOMOD) tidy
-
-format:
-	@echo "Formatting code..."
-	$(GOCMD) fmt ./...
-
-# Run all tests (unit + integration + e2e)
-test: test-all
-
-test-all:
-	@echo "🧪 Running all tests (unit + integration + e2e)..."
-	@echo "================================================"
-	@echo "1/3: Unit Tests"
-	@echo "================================================"
-	@$(GOTEST) -v -short -timeout 120s ./src/... || (echo "❌ Unit tests failed" && exit 1)
-	@echo ""
-	@echo "================================================"
-	@echo "2/3: Integration Tests"
-	@echo "================================================"
-	@$(GOTEST) -v -timeout 600s ./tests/integration/... || (echo "❌ Integration tests failed" && exit 1)
-	@echo ""
-	@echo "================================================"
-	@echo "3/3: E2E Tests"
-	@echo "================================================"
-	@if [ -d tests/e2e ]; then \
-		$(GOTEST) -v -timeout 1800s ./tests/e2e/... || (echo "❌ E2E tests failed" && exit 1); \
-	else \
-		echo "No E2E tests directory found, skipping"; \
-	fi
-	@echo ""
-	@echo "✅ All tests passed!"
+.PHONY: test test-unit test-integration
+test:
+	@echo "Running all tests..."
+	@$(GOTEST) -v -short -timeout 120s ./src/...
+	@$(GOTEST) -v -timeout 600s -p=2 ./tests/integration/...
 
 test-unit:
-	@echo "Running unit tests..."
 	@$(GOTEST) -v -short -timeout 120s ./src/...
 
 test-integration:
-	@echo "Running integration tests (limited parallelism to prevent memory leaks)..."
-	$(GOTEST) -v -timeout 600s -p=2 ./tests/integration/...
-
-test-e2e:
-	@echo "Running E2E tests (sequential execution to prevent memory leaks)..."
-	@if [ -d tests/e2e ]; then \
-		$(GOTEST) -v -timeout 1800s -p=1 ./tests/e2e/...; \
-	else \
-		echo "No E2E tests directory found, skipping"; \
-	fi
-
-test-quick:
-	@echo "Running quick validation tests..."
-	$(GOTEST) -v -short -timeout 120s -run "TestGetDefaultConfig|TestLoadConfig" ./simple/...
-
-# Run tests without E2E (faster for development)
-test-fast:
-	@echo "🚀 Running fast tests (unit + integration)..."
-	@$(GOTEST) -v -short -timeout 120s ./src/...
 	@$(GOTEST) -v -timeout 600s -p=2 ./tests/integration/...
-	@echo "✅ Fast tests passed!"
 
 # =============================================================================
-# CODE QUALITY
+# QUALITY
 # =============================================================================
 
-.PHONY: vet lint security quality quality-full
-vet:
-	@echo "Running go vet..."
-	$(GOCMD) vet ./src/... || echo "Some packages have import issues - continuing..."
-
+.PHONY: lint
 lint:
-	@echo "Running linter..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run -c .golangci.yml --tests=false ./src/... || echo "Linting issues found - review above for code quality improvements"
-
-security:
-	@echo "Running security analysis (optional)..."
-	@if command -v gosec >/dev/null 2>&1; then \
-		gosec -exclude=G302,G304,G115,G204 -conf .gosec.json ./src/... || echo "Security issues found - review above for production use"; \
-	else \
-		echo "gosec not found - skipping security check (install: go install github.com/securego/gosec/v2/cmd/gosec@latest)"; \
-	fi
-
-# Essential quality checks (no external dependencies)
-quality: format vet
-	@echo "Essential quality checks completed"
-
-# Full quality checks (includes external tools)
-quality-full: format vet lint security
-	@echo "Full quality checks completed"
+	@golangci-lint fmt
+	@golangci-lint run
 
 # =============================================================================
-# UTILITY TARGETS
+# UTILITY
 # =============================================================================
 
-.PHONY: install release info help
-install:
-	@echo "Installing binary with cache enabled..."
-	$(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/$(BINARY_NAME) $(MAIN_PATH)
-
+.PHONY: release help
 release:
-	@if [ "$(VERSION)" = "dev" ]; then echo "Set VERSION for release: make release VERSION=v1.0.0"; exit 1; fi
-	$(MAKE) clean && $(MAKE) build VERSION=$(VERSION)
-	@echo "Release $(VERSION) completed"
-
-info:
-	@echo "LSP Gateway Build Info:"
-	@echo "  Version: $(VERSION)"
-	@echo "  Binary:  $(BINARY_NAME)"
-	@echo "  Platforms: $(PLATFORMS)"
+	@[ "$(VERSION)" != "dev" ] || { echo "Set VERSION for release: make release VERSION=v1.0.0"; exit 1; }
+	@$(MAKE) clean && $(MAKE) build VERSION=$(VERSION)
 
 help:
-	@echo "LSP Gateway Makefile (Simplified)"
-	@echo "=================================="
+	@echo "LSP Gateway Makefile"
 	@echo ""
-	@echo "Build Commands:"
-	@echo "  local     - Build for current platform + npm link (with cache enabled)"
-	@echo "  build     - Build for all platforms (with cache enabled)"
-	@echo "  clean     - Clean build artifacts"
-	@echo "  unlink    - Remove npm global link"
+	@echo "Build:"
+	@echo "  local        Build for current platform + npm link"
+	@echo "  build        Build for all platforms"
+	@echo "  clean        Clean build artifacts"
 	@echo ""
-	@echo "Cache Commands:"
-	@echo "  cache-verify - Verify cache dependencies are available"
-	@echo "  cache-test   - Run cache tests"
-	@echo "  cache-clean  - Clean cache data"
+	@echo "Testing:"
+	@echo "  test             Run all tests"
+	@echo "  test-unit        Run unit tests only"
+	@echo "  test-integration Run integration tests only"
 	@echo ""
-	@echo "Development Commands:"
-	@echo "  deps      - Download dependencies"
-	@echo "  tidy      - Tidy go modules"
-	@echo "  format    - Format code"
+	@echo "Quality:"
+	@echo "  lint         Run golangci-lint fmt and run"
 	@echo ""
-	@echo "Testing Commands:"
-	@echo "  test               - Run all tests (unit + integration + e2e)"
-	@echo "  test-all           - Run all tests (same as 'test')"
-	@echo "  test-fast          - Run unit and integration tests only (no e2e)"
-	@echo "  test-unit          - Run unit tests only"
-	@echo "  test-integration   - Run integration tests only"
-	@echo "  test-e2e           - Run E2E tests only (30min timeout)"
-	@echo "  test-quick         - Run quick validation tests"
-	@echo ""
-	@echo "Quality Commands:"
-	@echo "  vet          - Run go vet (built-in)"
-	@echo "  lint         - Run golangci-lint"
-	@echo "  security     - Run security analysis (optional)"
-	@echo "  quality      - Essential checks (format + vet)"
-	@echo "  quality-full - All checks (format + vet + lint + security)"
-	@echo ""
-	@echo "Utility Commands:"
-	@echo "  install   - Install binary to GOPATH"
-	@echo "  release   - Create release build"
-	@echo "  info      - Show build information"
-	@echo "  help      - Show this help"
-	@echo ""
-	@echo "Example Usage:"
-	@echo "  make local         # Most common - build and install with cache enabled"
-	@echo "  make cache-verify  # Verify cache dependencies"
-	@echo "  make cache-test    # Test cache functionality"
-	@echo "  make test-quick    # Quick validation"
-	@echo "  make quality       # Essential quality checks"
-	@echo "  make quality-full  # Full quality checks"
+	@echo "Utility:"
+	@echo "  release      Create release build (set VERSION)"
+	@echo "  help         Show this help"

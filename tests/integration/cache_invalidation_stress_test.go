@@ -16,7 +16,6 @@ import (
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
-	"lsp-gateway/tests/e2e/testutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -554,7 +553,7 @@ func (c *ConsistencyTest) Method2() int {
 		predicate := func() bool {
 			return lspManager2 != nil // Manager initialized
 		}
-		err = testutils.WaitUntil(ctx, 50*time.Millisecond, 1*time.Second, predicate)
+		err = WaitUntil(ctx, 50*time.Millisecond, 1*time.Second, predicate)
 		require.NoError(t, err, "Manager initialization timeout")
 
 		// Query symbols for version 2

@@ -7,7 +7,7 @@ HTTP and MCP gateway for Language Server Protocol with 8 languages.
 ### Install from npm
 
 ```bash
-# Prerequisites: Node.js 18+
+# Prerequisites: Node.js 20+
 npm install -g lsp-gateway
 lsp-gateway install all      # Install all language servers
 lsp-gateway server           # Start HTTP Gateway on :8080
@@ -16,7 +16,7 @@ lsp-gateway server           # Start HTTP Gateway on :8080
 ### Build from source
 
 ```bash
-# Prerequisites: Go 1.23+, Node.js 18+
+# Prerequisites: Go 1.23+, Node.js 20+
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally

@@ -1,8 +1,0 @@
-servers:
-  - name: gopls-lsp
-    languages:
-      - go
-    command: ~/go/bin/gopls
-    args: []
-    transport: stdio
-port: 8080

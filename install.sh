@@ -44,7 +44,7 @@ if [ "$SHOW_HELP" = true ]; then
     echo ""
     echo "Prerequisites:"
     echo "  - Go 1.21 or later"
-    echo "  - Node.js 22.0.0 or later"
+    echo "  - Node.js 20.0.0 or later"
     echo "  - npm"
     echo "  - make"
     echo ""
@@ -122,7 +122,7 @@ print_success "Go found: $GO_VERSION"
 
 # Check Node.js
 if ! command_exists node; then
-    print_error "Node.js is not installed. Please install Node.js 22.0.0 or later."
+    print_error "Node.js is not installed. Please install Node.js 20.0.0 or later."
     print_info "Visit: https://nodejs.org/"
     exit 1
 fi
