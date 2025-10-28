@@ -1,4 +1,4 @@
-package cache
+package cache_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/tests/shared"
+	"lsp-gateway/src/tests/shared"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

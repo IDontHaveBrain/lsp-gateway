@@ -17,9 +17,9 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/tests/shared"
 	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/src/utils"
-	"lsp-gateway/tests/shared"
 
 	"runtime"
 

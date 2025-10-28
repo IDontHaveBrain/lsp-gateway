@@ -1,4 +1,4 @@
-package unit
+package scip_test
 
 import (
 	"testing"

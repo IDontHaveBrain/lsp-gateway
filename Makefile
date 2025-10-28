@@ -174,7 +174,7 @@ test-all:
 	@echo "================================================"
 	@echo "1/3: Unit Tests"
 	@echo "================================================"
-	@$(GOTEST) -v -short -timeout 120s ./tests/unit/... || (echo "❌ Unit tests failed" && exit 1)
+	@$(GOTEST) -v -short -timeout 120s ./src/... || (echo "❌ Unit tests failed" && exit 1)
 	@echo ""
 	@echo "================================================"
 	@echo "2/3: Integration Tests"
@@ -194,12 +194,7 @@ test-all:
 
 test-unit:
 	@echo "Running unit tests..."
-	@if [ -n "$$(find tests/unit -name '*_test.go' -type f 2>/dev/null)" ]; then \
-		$(GOTEST) -v -short -timeout 120s ./tests/unit/...; \
-	else \
-		echo "Running simple package configuration tests only..."; \
-		$(GOTEST) -v -short -timeout 120s -run "TestGetDefaultConfig|TestLoadConfig|TestDetectLanguageFromFile|TestServerConfig_Validation|TestConfig_GetServerForLanguage" ./simple/...; \
-	fi
+	@$(GOTEST) -v -short -timeout 120s ./src/...
 
 test-integration:
 	@echo "Running integration tests..."
@@ -220,7 +215,7 @@ test-quick:
 # Run tests without E2E (faster for development)
 test-fast:
 	@echo "🚀 Running fast tests (unit + integration)..."
-	@$(GOTEST) -v -short -timeout 120s ./tests/unit/...
+	@$(GOTEST) -v -short -timeout 120s ./src/...
 	@$(GOTEST) -v -timeout 600s ./tests/integration/...
 	@echo "✅ Fast tests passed!"
 

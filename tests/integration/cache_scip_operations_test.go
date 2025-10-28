@@ -17,7 +17,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/tests/shared"
+	"lsp-gateway/src/tests/shared"
 )
 
 func TestSCIPCacheOperations(t *testing.T) {

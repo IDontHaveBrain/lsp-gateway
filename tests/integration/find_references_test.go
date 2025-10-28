@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"lsp-gateway/src/server"
-	"lsp-gateway/tests/shared"
+	"lsp-gateway/src/tests/shared"
 )
 
 func TestFindReferencesWithSCIPCache(t *testing.T) {

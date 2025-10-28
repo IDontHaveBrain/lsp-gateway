@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"lsp-gateway/tests/shared"
+	"lsp-gateway/src/tests/shared"
 )
 
 func TestGatewayIntegration(t *testing.T) {

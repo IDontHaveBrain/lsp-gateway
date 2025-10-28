@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/tests/shared"
 	"lsp-gateway/src/utils"
-	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 )

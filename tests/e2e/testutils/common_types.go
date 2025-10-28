@@ -1,7 +1,5 @@
 package testutils
 
-import ()
-
 // SubProjectInfo represents information about a sub-project in a multi-project workspace
 type SubProjectInfo struct {
 	Language    string

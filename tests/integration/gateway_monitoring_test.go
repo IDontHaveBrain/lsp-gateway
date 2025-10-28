@@ -17,8 +17,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/tests/shared"
 	"lsp-gateway/src/utils"
-	"lsp-gateway/tests/shared"
 )
 
 func TestGatewayMonitoringEndpoints(t *testing.T) {

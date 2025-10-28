@@ -11,7 +11,7 @@ func TestMCPServerIntegration(t *testing.T) {
 	// STDIO service that reads from stdin and writes to stdout in a blocking manner.
 	// Testing this requires complex setup with pipes and goroutines that is not
 	// suitable for integration tests. The MCP functionality is adequately covered by:
-	// 1. Unit tests in tests/unit/server/mcp_server_test.go
+	// 1. Unit tests in src/server/mcp_server_test.go
 	// 2. Dual-protocol integration tests that verify MCP server creation
 	// 3. End-to-end tests that test the actual MCP protocol via CLI
 }

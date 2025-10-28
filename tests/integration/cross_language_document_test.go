@@ -316,27 +316,27 @@ suspend fun main() {
 			BackgroundIndex: false,
 		},
 		Servers: map[string]*config.ServerConfig{
-			"go": &config.ServerConfig{
+			"go": {
 				Command: "gopls",
 				Args:    []string{"serve"},
 			},
-			"python": &config.ServerConfig{
+			"python": {
 				Command: "jedi-language-server",
 				Args:    []string{},
 			},
-			"typescript": &config.ServerConfig{
+			"typescript": {
 				Command: "typescript-language-server",
 				Args:    []string{"--stdio"},
 			},
-			"javascript": &config.ServerConfig{
+			"javascript": {
 				Command: "typescript-language-server",
 				Args:    []string{"--stdio"},
 			},
-			"java": &config.ServerConfig{
+			"java": {
 				Command: "jdtls",
 				Args:    []string{},
 			},
-			"kotlin": &config.ServerConfig{
+			"kotlin": {
 				Command: getKotlinCommand(),
 				Args:    []string{},
 			},

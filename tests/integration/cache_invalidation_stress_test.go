@@ -79,7 +79,7 @@ func (s *Struct%d) Method%d() string {
 			EvictionPolicy:     "lru",
 		},
 		Servers: map[string]*config.ServerConfig{
-			"go": &config.ServerConfig{
+			"go": {
 				Command: "gopls",
 				Args:    []string{"serve"},
 			},

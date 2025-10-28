@@ -1,4 +1,4 @@
-package cache
+package cache_test
 
 import (
 	"context"
@@ -12,17 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockLSPFallback struct {
+type workspaceMockLSPFallback struct {
 	response interface{}
 	err      error
 }
 
-func (m *mockLSPFallback) ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error) {
+func (m *workspaceMockLSPFallback) ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error) {
 	return m.response, m.err
 }
 
 func TestNewWorkspaceIndexer(t *testing.T) {
-	fallback := &mockLSPFallback{}
+	fallback := &workspaceMockLSPFallback{}
 	indexer := cache.NewWorkspaceIndexer(fallback)
 
 	assert.NotNil(t, indexer)
@@ -250,7 +250,7 @@ func TestIndexWorkspaceFiles(t *testing.T) {
 				},
 			}
 
-			fallback := &mockLSPFallback{
+			fallback := &workspaceMockLSPFallback{
 				response: mockResponse,
 				err:      tt.mockErr,
 			}
@@ -278,7 +278,7 @@ func TestIndexWorkspaceFiles_ContextCancellation(t *testing.T) {
 	err = os.WriteFile(filepath.Join(tempDir, "test.go"), []byte("package main"), 0644)
 	require.NoError(t, err)
 
-	fallback := &mockLSPFallback{
+	fallback := &workspaceMockLSPFallback{
 		response: []map[string]interface{}{},
 		err:      nil,
 	}

@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"lsp-gateway/src/tests/shared"
 	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/tests/e2e/testutils"
-	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

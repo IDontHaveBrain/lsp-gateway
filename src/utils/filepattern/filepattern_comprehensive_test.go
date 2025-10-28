@@ -1,4 +1,4 @@
-package unit
+package filepattern_test
 
 import (
 	"testing"
