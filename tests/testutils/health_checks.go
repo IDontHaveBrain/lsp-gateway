@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/server/cache"
 )
 
 // HealthCheckConfig configures health check behavior
@@ -512,4 +513,36 @@ func WaitForHTTPCacheReady(t *testing.T, baseURL string, timeout time.Duration) 
 	})
 
 	require.NoError(t, err, "Cache failed to become ready within timeout %v", timeout)
+}
+
+func WaitForIndexingComplete(t *testing.T, scipCache cache.SCIPCache, timeout time.Duration) {
+	t.Helper()
+
+	if timeout == 0 {
+		timeout = 5 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := PollingCheck(ctx, 100*time.Millisecond, func() bool {
+		stats := scipCache.GetIndexStats()
+		if stats == nil {
+			return false
+		}
+
+		if stats.Status == "ready" {
+			return true
+		}
+
+		if stats.SymbolCount > 0 || stats.DocumentCount > 0 {
+			return true
+		}
+
+		return false
+	})
+
+	if err != nil {
+		t.Logf("Warning: Indexing did not complete within timeout %v, but continuing test", timeout)
+	}
 }

@@ -28,19 +28,17 @@ func (m *SCIPCacheManager) MustBeEnabled() error {
 // WithIndexResult executes the function if cache is enabled, otherwise returns a default IndexResult
 // with cache_disabled metadata.
 func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexResult, error)) (*IndexResult, error) {
-	if !m.enabled {
-		return &search.SearchResponse{
-			Type:      queryType,
-			Results:   []interface{}{},
-			Total:     0,
-			Truncated: false,
-			Metadata:  &search.SearchMetadata{CacheEnabled: false, SCIPEnabled: false, IndexStatus: "disabled"},
-			Timestamp: time.Now(),
-			Success:   false,
-			Error:     "cache disabled or SCIP storage unavailable",
-		}, nil
+	defaultResult := &search.SearchResponse{
+		Type:      queryType,
+		Results:   []interface{}{},
+		Total:     0,
+		Truncated: false,
+		Metadata:  &search.SearchMetadata{CacheEnabled: false, SCIPEnabled: false, IndexStatus: "disabled"},
+		Timestamp: time.Now(),
+		Success:   false,
+		Error:     "cache disabled or SCIP storage unavailable",
 	}
-	return fn()
+	return common.WithEnabledGuardDefault(m.enabled, fn, defaultResult)
 }
 
 // Removed: Enhanced/Symbol/Reference typed guard wrappers; search service guard handles disabled cases.
@@ -48,10 +46,7 @@ func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexRe
 // WithSliceResult executes the function if cache is enabled, otherwise returns an empty slice.
 // Useful for methods that return []interface{} when cache is disabled.
 func (m *SCIPCacheManager) WithSliceResult(fn func() ([]interface{}, error)) ([]interface{}, error) {
-	if !m.enabled {
-		return []interface{}{}, nil
-	}
-	return fn()
+	return common.WithEnabledGuardDefault(m.enabled, fn, []interface{}{})
 }
 
 // isEnabledAndStarted checks if cache is enabled and properly initialized
@@ -62,8 +57,5 @@ func (m *SCIPCacheManager) isEnabledAndStarted() bool {
 // WithManagerGuard executes the function only if the cache manager is enabled and started.
 // Returns nil values if the cache is not ready.
 func (m *SCIPCacheManager) WithManagerGuard(fn func() (interface{}, bool, error)) (interface{}, bool, error) {
-	if !m.isEnabledAndStarted() {
-		return nil, false, nil
-	}
-	return fn()
+	return common.WithEnabledGuard3(m.isEnabledAndStarted(), fn)
 }

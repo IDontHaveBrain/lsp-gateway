@@ -71,15 +71,15 @@ func (m *mockLSPClient) Supports(method string) bool {
 	return m.supports[method]
 }
 
-func TestNewLSPDocumentManager(t *testing.T) {
-	manager := NewLSPDocumentManager()
+func TestNewDocumentManager(t *testing.T) {
+	manager := NewDocumentManager()
 	if manager == nil {
-		t.Fatal("NewLSPDocumentManager returned nil")
+		t.Fatal("NewDocumentManager returned nil")
 	}
 }
 
 func TestDetectLanguage(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 
 	tests := []struct {
 		name     string
@@ -154,7 +154,7 @@ func TestDetectLanguage(t *testing.T) {
 }
 
 func TestExtractURI(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 
 	tests := []struct {
 		name        string
@@ -246,7 +246,7 @@ func TestExtractURI(t *testing.T) {
 }
 
 func TestEnsureOpen(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 	client := newMockLSPClient()
 
 	tempDir := t.TempDir()
@@ -331,7 +331,7 @@ func TestEnsureOpen(t *testing.T) {
 }
 
 func TestEnsureOpenWithFileContent(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 	client := newMockLSPClient()
 
 	tempDir := t.TempDir()
@@ -378,7 +378,7 @@ func TestEnsureOpenWithFileContent(t *testing.T) {
 }
 
 func TestLanguageDetectionInEnsureOpen(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 	client := newMockLSPClient()
 
 	tempDir := t.TempDir()
@@ -452,10 +452,7 @@ func TestLanguageDetectionInEnsureOpen(t *testing.T) {
 }
 
 func TestDocumentManagerInterface(t *testing.T) {
-	// Test that LSPDocumentManager implements DocumentManager interface
-	var _ DocumentManager = NewLSPDocumentManager()
-
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 
 	// Test DetectLanguage method
 	lang := manager.DetectLanguage("file:///test.go")
@@ -484,7 +481,7 @@ func TestDocumentManagerInterface(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 
 	// Test ExtractURI with malformed params
 	tests := []struct {
@@ -548,7 +545,7 @@ func (m *failingMockLSPClient) Supports(method string) bool {
 }
 
 func TestClientNotificationFailure(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 
 	// Create a mock client that fails on SendNotification
 	failingClient := &failingMockLSPClient{
@@ -579,7 +576,7 @@ func TestClientNotificationFailure(t *testing.T) {
 }
 
 func TestConcurrentDocumentOperations(t *testing.T) {
-	manager := NewLSPDocumentManager()
+	manager := NewDocumentManager()
 	client := newMockLSPClient()
 
 	tempDir := t.TempDir()

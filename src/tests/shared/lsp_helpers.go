@@ -34,6 +34,58 @@ func CreateBasicConfig() *config.Config {
 		MustBuild()
 }
 
+// CreateBasicCacheConfig creates a basic cache configuration for testing
+func CreateBasicCacheConfig(storagePath string) *config.CacheConfig {
+	return &config.CacheConfig{
+		Enabled:            true,
+		StoragePath:        storagePath,
+		MaxMemoryMB:        256,
+		TTLHours:           1,
+		Languages:          []string{"*"},
+		BackgroundIndex:    false,
+		HealthCheckMinutes: 60,
+		EvictionPolicy:     "lru",
+		DiskCache:          false,
+	}
+}
+
+// CreateMemOnlyCacheConfig creates an in-memory cache configuration for testing
+func CreateMemOnlyCacheConfig(storagePath string) *config.CacheConfig {
+	cfg := CreateBasicCacheConfig(storagePath)
+	cfg.DiskCache = false
+	return cfg
+}
+
+// CreateAndStartSimpleCache creates and starts a simple cache for testing
+func CreateAndStartSimpleCache(t *testing.T, memoryMB int) cache.SCIPCache {
+	if memoryMB <= 0 {
+		memoryMB = 64
+	}
+	cacheConfig := &config.CacheConfig{
+		Enabled:     true,
+		MaxMemoryMB: memoryMB,
+		TTLHours:    1,
+		StoragePath: t.TempDir(),
+		DiskCache:   false,
+	}
+	cacheManager, err := cache.NewSCIPCacheManager(cacheConfig)
+	require.NoError(t, err)
+	ctx := context.Background()
+	err = cacheManager.Start(ctx)
+	require.NoError(t, err)
+	return cacheManager
+}
+
+// StartCacheManager creates and starts a cache manager with the given config
+func StartCacheManager(t *testing.T, cacheConfig *config.CacheConfig) cache.SCIPCache {
+	cacheManager, err := cache.NewSCIPCacheManager(cacheConfig)
+	require.NoError(t, err)
+	ctx := context.Background()
+	err = cacheManager.Start(ctx)
+	require.NoError(t, err)
+	return cacheManager
+}
+
 // CreateConfigWithCache creates an LSP configuration with cache enabled
 func CreateConfigWithCache(cacheConfig *config.CacheConfig) *config.Config {
 	cfg := CreateBasicConfig()

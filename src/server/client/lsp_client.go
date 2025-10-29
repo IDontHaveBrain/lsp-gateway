@@ -17,64 +17,57 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/errors/lsp"
 	"lsp-gateway/src/internal/platform"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
 	"lsp-gateway/src/server/documents"
-	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/server/process"
 	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/utils"
 )
 
 type LSPClient struct {
-	config              types.ClientConfig
-	language            string
-	transport           Transport
-	stateMgr            *ClientStateManager
-	docManager          *documents.DocumentLifecycleManager
-	processManager      process.ProcessManager
-	processInfo         *process.ProcessInfo
-	capabilities        capabilities.ServerCapabilities
-	errorTranslator     errors.ErrorTranslator
-	capDetector         capabilities.CapabilityDetector
-	jsonrpcProtocol     protocol.JSONRPCProtocol
+	config                types.ClientConfig
+	language              string
+	transport             Transport
+	stateMgr              *ClientStateManager
+	documentManager       *documents.DocumentManager
+	processManager        process.ProcessManager
+	processInfo           *process.ProcessInfo
+	capabilities          capabilities.ServerCapabilities
+	errorTranslator       lsp.ErrorTranslator
+	capDetector           capabilities.CapabilityDetector
+	jsonrpcProtocol       protocol.JSONRPCProtocol
 	initializationOptions interface{}
-	workspaceFolders    map[string]bool
-	workspaceMu         sync.RWMutex
+	workspaceFolders      map[string]bool
+	workspaceMu           sync.RWMutex
 }
 
-func NewStdioClient(config types.ClientConfig, language string, docManager *documents.DocumentLifecycleManager) (types.LSPClient, error) {
-	client := &LSPClient{
+func newBaseClient(config types.ClientConfig, language string, documentManager *documents.DocumentManager) *LSPClient {
+	return &LSPClient{
 		config:                config,
 		language:              language,
 		stateMgr:              NewClientStateManager(),
-		docManager:            docManager,
+		documentManager:       documentManager,
 		processManager:        process.NewLSPProcessManager(),
-		errorTranslator:       errors.NewLSPErrorTranslator(),
+		errorTranslator:       lsp.NewLSPErrorTranslator(),
 		capDetector:           capabilities.NewLSPCapabilityDetector(),
 		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
 		initializationOptions: config.InitializationOptions,
 		workspaceFolders:      make(map[string]bool),
 	}
+}
+
+func NewStdioClient(config types.ClientConfig, language string, documentManager *documents.DocumentManager) (types.LSPClient, error) {
+	client := newBaseClient(config, language, documentManager)
 	return client, nil
 }
 
-func NewSocketClient(config types.ClientConfig, language string, addr string, docManager *documents.DocumentLifecycleManager) (types.LSPClient, error) {
-	client := &LSPClient{
-		config:                config,
-		language:              language,
-		stateMgr:              NewClientStateManager(),
-		docManager:            docManager,
-		processManager:        process.NewLSPProcessManager(),
-		errorTranslator:       errors.NewLSPErrorTranslator(),
-		capDetector:           capabilities.NewLSPCapabilityDetector(),
-		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
-		initializationOptions: config.InitializationOptions,
-		workspaceFolders:      make(map[string]bool),
-		transport:             NewSocketTransport(addr),
-	}
+func NewSocketClient(config types.ClientConfig, language string, addr string, documentManager *documents.DocumentManager) (types.LSPClient, error) {
+	client := newBaseClient(config, language, documentManager)
+	client.transport = NewSocketTransport(addr)
 	return client, nil
 }
 

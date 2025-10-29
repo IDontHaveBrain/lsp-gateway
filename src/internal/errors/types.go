@@ -158,138 +158,89 @@ func NewProcessError(language, command, errorType string, cause error) *ProcessE
 
 // Error classification functions
 
-// IsConnectionError checks if the error is a connection-related error
-func IsConnectionError(err error) bool {
+// ClassifyError classifies an error using type assertions and pattern matching
+func ClassifyError(err error) ErrorClassification {
 	if err == nil {
-		return false
+		return ClassUnknown
 	}
 
+	// Try type assertions first (most specific)
 	var ce *ConnectionError
 	if stderrors.As(err, &ce) {
-		return true
-	}
-
-	// Check error message patterns
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "connection") ||
-		strings.Contains(errMsg, "connect") ||
-		strings.Contains(errMsg, "network") ||
-		strings.Contains(errMsg, "dial") ||
-		strings.Contains(errMsg, "refused") ||
-		strings.Contains(errMsg, "unreachable") ||
-		strings.Contains(errMsg, "broken pipe")
-}
-
-// IsValidationError checks if the error is a validation error
-func IsValidationError(err error) bool {
-	if err == nil {
-		return false
+		return ClassConnection
 	}
 
 	var ve *ValidationError
 	if stderrors.As(err, &ve) {
-		return true
-	}
-
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "validation") ||
-		strings.Contains(errMsg, "parameter") ||
-		strings.Contains(errMsg, "invalid params")
-}
-
-// IsTimeoutError checks if the error is a timeout error
-func IsTimeoutError(err error) bool {
-	if err == nil {
-		return false
+		return ClassValidation
 	}
 
 	var te *TimeoutError
 	if stderrors.As(err, &te) {
-		return true
-	}
-
-	if stderrors.Is(err, context.DeadlineExceeded) {
-		return true
-	}
-
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "timeout") ||
-		strings.Contains(errMsg, "deadline exceeded") ||
-		strings.Contains(errMsg, "context deadline exceeded")
-}
-
-// IsCancellationError checks if the error is a cancellation error
-func IsCancellationError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if stderrors.Is(err, context.Canceled) {
-		return true
-	}
-
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "canceled") ||
-		strings.Contains(errMsg, "cancelled") ||
-		strings.Contains(errMsg, "context canceled")
-}
-
-// IsMethodNotSupportedError checks if the error indicates an unsupported method
-func IsMethodNotSupportedError(err error) bool {
-	if err == nil {
-		return false
+		return ClassTimeout
 	}
 
 	var me *MethodNotSupportedError
 	if stderrors.As(err, &me) {
-		return true
-	}
-
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "not supported") ||
-		strings.Contains(errMsg, "unsupported") ||
-		strings.Contains(errMsg, "method not found") ||
-		strings.Contains(errMsg, "methodnotfound") ||
-		strings.Contains(errMsg, "not implemented") ||
-		strings.Contains(errMsg, "capability not available")
-}
-
-// IsProcessError checks if the error is a process-related error
-func IsProcessError(err error) bool {
-	if err == nil {
-		return false
+		return ClassMethodNotSupported
 	}
 
 	var pe *ProcessError
 	if stderrors.As(err, &pe) {
-		return true
-	}
-
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "process") ||
-		strings.Contains(errMsg, "executable") ||
-		strings.Contains(errMsg, "no such file")
-}
-
-// IsProtocolError checks if the error is a protocol-related error (JSON-RPC, parsing, etc.)
-func IsProtocolError(err error) bool {
-	if err == nil {
-		return false
+		return ClassProcess
 	}
 
 	var le *LSPError
 	if stderrors.As(err, &le) {
-		return true
+		return ClassProtocol
 	}
 
-	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "json") ||
-		strings.Contains(errMsg, "rpc") ||
-		strings.Contains(errMsg, "protocol") ||
-		strings.Contains(errMsg, "invalid response") ||
-		strings.Contains(errMsg, "parse") ||
-		strings.Contains(errMsg, "unmarshal") ||
-		strings.Contains(errMsg, "decode")
+	// Check for standard context errors
+	if stderrors.Is(err, context.DeadlineExceeded) {
+		return ClassTimeout
+	}
+
+	if stderrors.Is(err, context.Canceled) {
+		return ClassCancellation
+	}
+
+	// Fallback to pattern matching
+	return ClassifyByPattern(err)
+}
+
+// IsConnectionError checks if the error is a connection-related error
+func IsConnectionError(err error) bool {
+	return ClassifyError(err) == ClassConnection
+}
+
+// IsValidationError checks if the error is a validation error
+func IsValidationError(err error) bool {
+	return ClassifyError(err) == ClassValidation
+}
+
+// IsTimeoutError checks if the error is a timeout error
+func IsTimeoutError(err error) bool {
+	return ClassifyError(err) == ClassTimeout
+}
+
+// IsCancellationError checks if the error is a cancellation error
+func IsCancellationError(err error) bool {
+	return ClassifyError(err) == ClassCancellation
+}
+
+// IsMethodNotSupportedError checks if the error indicates an unsupported method
+func IsMethodNotSupportedError(err error) bool {
+	return ClassifyError(err) == ClassMethodNotSupported
+}
+
+// IsProcessError checks if the error is a process-related error
+func IsProcessError(err error) bool {
+	return ClassifyError(err) == ClassProcess
+}
+
+// IsProtocolError checks if the error is a protocol-related error (JSON-RPC, parsing, etc.)
+func IsProtocolError(err error) bool {
+	return ClassifyError(err) == ClassProtocol
 }
 
 // Error wrapping utilities

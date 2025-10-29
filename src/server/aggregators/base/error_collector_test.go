@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	internalErrors "lsp-gateway/src/internal/errors"
 )
 
 // TestNewErrorCollector tests the constructor
@@ -73,7 +75,7 @@ func TestErrorCollector_NilErrorHandling(t *testing.T) {
 	collector.Add("go", nil)
 
 	// Add nil error using AddTyped
-	collector.AddTyped("python", nil, ErrorTypeGeneral)
+	collector.AddTyped("python", nil, internalErrors.ClassUnknown)
 
 	if collector.HasErrors() {
 		t.Error("Collector should not have errors after adding nil errors")
@@ -89,45 +91,45 @@ func TestErrorCollector_AutomaticTypeDetection(t *testing.T) {
 	testCases := []struct {
 		name         string
 		error        error
-		expectedType ErrorType
+		expectedType internalErrors.ErrorClassification
 	}{
 		// Timeout errors
-		{"context.DeadlineExceeded", context.DeadlineExceeded, ErrorTypeTimeout},
-		{"timeout message", fmt.Errorf("operation timeout occurred"), ErrorTypeTimeout},
-		{"deadline exceeded message", fmt.Errorf("deadline exceeded"), ErrorTypeTimeout},
-		{"context deadline exceeded", fmt.Errorf("context deadline exceeded"), ErrorTypeTimeout},
-		{"request timeout", fmt.Errorf("request timeout"), ErrorTypeTimeout},
+		{"context.DeadlineExceeded", context.DeadlineExceeded, internalErrors.ClassTimeout},
+		{"timeout message", fmt.Errorf("operation timeout occurred"), internalErrors.ClassTimeout},
+		{"deadline exceeded message", fmt.Errorf("deadline exceeded"), internalErrors.ClassTimeout},
+		{"context deadline exceeded", fmt.Errorf("context deadline exceeded"), internalErrors.ClassTimeout},
+		{"request timeout", fmt.Errorf("request timeout"), internalErrors.ClassTimeout},
 
 		// Connection errors
-		{"connection refused", fmt.Errorf("connection refused"), ErrorTypeConnection},
-		{"network unreachable", fmt.Errorf("network unreachable"), ErrorTypeConnection},
-		{"dial failed", fmt.Errorf("dial failed"), ErrorTypeConnection},
-		{"broken pipe", fmt.Errorf("broken pipe"), ErrorTypeConnection},
-		{"no such file", fmt.Errorf("no such file or directory"), ErrorTypeConnection},
-		{"process not found", fmt.Errorf("process not found"), ErrorTypeConnection},
-		{"executable not found", fmt.Errorf("executable file not found"), ErrorTypeConnection},
-		{"connect error", fmt.Errorf("failed to connect"), ErrorTypeConnection},
+		{"connection refused", fmt.Errorf("connection refused"), internalErrors.ClassConnection},
+		{"network unreachable", fmt.Errorf("network unreachable"), internalErrors.ClassConnection},
+		{"dial failed", fmt.Errorf("dial failed"), internalErrors.ClassConnection},
+		{"broken pipe", fmt.Errorf("broken pipe"), internalErrors.ClassConnection},
+		{"no such file", fmt.Errorf("no such file or directory"), internalErrors.ClassProcess},
+		{"process not found", fmt.Errorf("process not found"), internalErrors.ClassProcess},
+		{"executable not found", fmt.Errorf("executable file not found"), internalErrors.ClassProcess},
+		{"connect error", fmt.Errorf("failed to connect"), internalErrors.ClassConnection},
 
 		// Protocol errors
-		{"json parse error", fmt.Errorf("json parse error"), ErrorTypeProtocol},
-		{"rpc error", fmt.Errorf("rpc protocol error"), ErrorTypeProtocol},
-		{"protocol violation", fmt.Errorf("protocol violation"), ErrorTypeProtocol},
-		{"invalid response", fmt.Errorf("invalid response format"), ErrorTypeProtocol},
-		{"unmarshal failed", fmt.Errorf("unmarshal failed"), ErrorTypeProtocol},
-		{"decode error", fmt.Errorf("decode error"), ErrorTypeProtocol},
+		{"json parse error", fmt.Errorf("json parse error"), internalErrors.ClassProtocol},
+		{"rpc error", fmt.Errorf("rpc protocol error"), internalErrors.ClassProtocol},
+		{"protocol violation", fmt.Errorf("protocol violation"), internalErrors.ClassProtocol},
+		{"invalid response", fmt.Errorf("invalid response format"), internalErrors.ClassProtocol},
+		{"unmarshal failed", fmt.Errorf("unmarshal failed"), internalErrors.ClassProtocol},
+		{"decode error", fmt.Errorf("decode error"), internalErrors.ClassProtocol},
 
 		// Unsupported errors
-		{"method not found", fmt.Errorf("method not found"), ErrorTypeUnsupported},
-		{"not supported", fmt.Errorf("operation not supported"), ErrorTypeUnsupported},
-		{"unsupported feature", fmt.Errorf("unsupported feature"), ErrorTypeUnsupported},
-		{"not implemented", fmt.Errorf("not implemented"), ErrorTypeUnsupported},
-		{"capability missing", fmt.Errorf("capability not available"), ErrorTypeUnsupported},
-		{"methodnotfound", fmt.Errorf("methodnotfound"), ErrorTypeUnsupported},
+		{"method not found", fmt.Errorf("method not found"), internalErrors.ClassMethodNotSupported},
+		{"not supported", fmt.Errorf("operation not supported"), internalErrors.ClassMethodNotSupported},
+		{"unsupported feature", fmt.Errorf("unsupported feature"), internalErrors.ClassMethodNotSupported},
+		{"not implemented", fmt.Errorf("not implemented"), internalErrors.ClassMethodNotSupported},
+		{"capability missing", fmt.Errorf("capability not available"), internalErrors.ClassMethodNotSupported},
+		{"methodnotfound", fmt.Errorf("methodnotfound"), internalErrors.ClassMethodNotSupported},
 
 		// General errors (fallback)
-		{"generic error", fmt.Errorf("something went wrong"), ErrorTypeGeneral},
-		{"database error", fmt.Errorf("database query failed"), ErrorTypeGeneral},
-		{"unknown error", fmt.Errorf("unknown error occurred"), ErrorTypeGeneral},
+		{"generic error", fmt.Errorf("something went wrong"), internalErrors.ClassUnknown},
+		{"database error", fmt.Errorf("database query failed"), internalErrors.ClassUnknown},
+		{"unknown error", fmt.Errorf("unknown error occurred"), internalErrors.ClassUnknown},
 	}
 
 	for _, tc := range testCases {
@@ -140,20 +142,20 @@ func TestErrorCollector_AutomaticTypeDetection(t *testing.T) {
 				t.Errorf("Expected 1 error of type %s, got %d", tc.expectedType, len(errors))
 
 				// Debug: show what type was actually detected
-				allErrors := collector.GetErrorsByType(ErrorTypeTimeout)
-				allErrors = append(allErrors, collector.GetErrorsByType(ErrorTypeConnection)...)
-				allErrors = append(allErrors, collector.GetErrorsByType(ErrorTypeProtocol)...)
-				allErrors = append(allErrors, collector.GetErrorsByType(ErrorTypeUnsupported)...)
-				allErrors = append(allErrors, collector.GetErrorsByType(ErrorTypeGeneral)...)
+				allErrors := collector.GetErrorsByType(internalErrors.ClassTimeout)
+				allErrors = append(allErrors, collector.GetErrorsByType(internalErrors.ClassConnection)...)
+				allErrors = append(allErrors, collector.GetErrorsByType(internalErrors.ClassProtocol)...)
+				allErrors = append(allErrors, collector.GetErrorsByType(internalErrors.ClassMethodNotSupported)...)
+				allErrors = append(allErrors, collector.GetErrorsByType(internalErrors.ClassUnknown)...)
 
 				if len(allErrors) > 0 {
-					t.Errorf("Error was classified as type %s instead", allErrors[0].ErrorType)
+					t.Errorf("Error was classified as type %s instead", allErrors[0].Classification)
 				}
 				return
 			}
 
-			if errors[0].ErrorType != tc.expectedType {
-				t.Errorf("Expected error type %s, got %s", tc.expectedType, errors[0].ErrorType)
+			if errors[0].Classification != tc.expectedType {
+				t.Errorf("Expected error type %s, got %s", tc.expectedType, errors[0].Classification)
 			}
 
 			if errors[0].Error.Error() != tc.error.Error() {
@@ -173,15 +175,15 @@ func TestErrorCollector_AddTyped(t *testing.T) {
 
 	// Add error with explicit type that differs from what would be auto-detected
 	timeoutErr := fmt.Errorf("general error message")
-	collector.AddTyped("go", timeoutErr, ErrorTypeTimeout)
+	collector.AddTyped("go", timeoutErr, internalErrors.ClassTimeout)
 
 	// Verify it uses the explicit type, not auto-detection
-	timeoutErrors := collector.GetErrorsByType(ErrorTypeTimeout)
+	timeoutErrors := collector.GetErrorsByType(internalErrors.ClassTimeout)
 	if len(timeoutErrors) != 1 {
 		t.Errorf("Expected 1 timeout error, got %d", len(timeoutErrors))
 	}
 
-	generalErrors := collector.GetErrorsByType(ErrorTypeGeneral)
+	generalErrors := collector.GetErrorsByType(internalErrors.ClassUnknown)
 	if len(generalErrors) != 0 {
 		t.Errorf("Expected 0 general errors, got %d", len(generalErrors))
 	}
@@ -191,9 +193,9 @@ func TestErrorCollector_AddTyped(t *testing.T) {
 func TestErrorCollector_ThreadSafety(t *testing.T) {
 	collector := NewErrorCollector()
 	languages := []string{"go", "python", "typescript", "java", "rust"}
-	errorTypes := []ErrorType{
-		ErrorTypeTimeout, ErrorTypeConnection, ErrorTypeProtocol,
-		ErrorTypeUnsupported, ErrorTypeGeneral,
+	errorTypes := []internalErrors.ErrorClassification{
+		internalErrors.ClassTimeout, internalErrors.ClassConnection, internalErrors.ClassProtocol,
+		internalErrors.ClassMethodNotSupported, internalErrors.ClassUnknown,
 	}
 
 	var wg sync.WaitGroup
@@ -270,11 +272,11 @@ func TestErrorCollector_ErrorRetrieval(t *testing.T) {
 	collector := NewErrorCollector()
 
 	// Add multiple errors with different types and languages
-	collector.AddTyped("go", fmt.Errorf("timeout in go"), ErrorTypeTimeout)
-	collector.AddTyped("python", fmt.Errorf("connection failed"), ErrorTypeConnection)
-	collector.AddTyped("go", fmt.Errorf("protocol error"), ErrorTypeProtocol)
-	collector.AddTyped("java", fmt.Errorf("not supported"), ErrorTypeUnsupported)
-	collector.AddTyped("rust", fmt.Errorf("general error"), ErrorTypeGeneral)
+	collector.AddTyped("go", fmt.Errorf("timeout in go"), internalErrors.ClassTimeout)
+	collector.AddTyped("python", fmt.Errorf("connection failed"), internalErrors.ClassConnection)
+	collector.AddTyped("go", fmt.Errorf("protocol error"), internalErrors.ClassProtocol)
+	collector.AddTyped("java", fmt.Errorf("not supported"), internalErrors.ClassMethodNotSupported)
+	collector.AddTyped("rust", fmt.Errorf("general error"), internalErrors.ClassUnknown)
 
 	// Test GetErrors
 	errors := collector.GetErrors()
@@ -298,7 +300,7 @@ func TestErrorCollector_ErrorRetrieval(t *testing.T) {
 	}
 
 	// Test GetErrorsByType
-	timeoutErrors := collector.GetErrorsByType(ErrorTypeTimeout)
+	timeoutErrors := collector.GetErrorsByType(internalErrors.ClassTimeout)
 	if len(timeoutErrors) != 1 {
 		t.Errorf("Expected 1 timeout error, got %d", len(timeoutErrors))
 	}
@@ -348,10 +350,10 @@ func TestErrorCollector_ErrorSummary(t *testing.T) {
 	}
 
 	// Add errors of different types
-	collector.AddTyped("go", fmt.Errorf("timeout error"), ErrorTypeTimeout)
-	collector.AddTyped("python", fmt.Errorf("connection error"), ErrorTypeConnection)
-	collector.AddTyped("java", fmt.Errorf("another timeout"), ErrorTypeTimeout)
-	collector.AddTyped("rust", fmt.Errorf("protocol issue"), ErrorTypeProtocol)
+	collector.AddTyped("go", fmt.Errorf("timeout error"), internalErrors.ClassTimeout)
+	collector.AddTyped("python", fmt.Errorf("connection error"), internalErrors.ClassConnection)
+	collector.AddTyped("java", fmt.Errorf("another timeout"), internalErrors.ClassTimeout)
+	collector.AddTyped("rust", fmt.Errorf("protocol issue"), internalErrors.ClassProtocol)
 
 	summary = collector.GetErrorSummary()
 
@@ -436,7 +438,7 @@ func TestErrorCollector_TimestampHandling(t *testing.T) {
 	collector.Add("go", fmt.Errorf("test error"))
 	after := time.Now()
 
-	errors := collector.GetErrorsByType(ErrorTypeGeneral)
+	errors := collector.GetErrorsByType(internalErrors.ClassUnknown)
 	if len(errors) != 1 {
 		t.Fatalf("Expected 1 error, got %d", len(errors))
 	}
@@ -456,13 +458,13 @@ func TestErrorCollector_TimestampHandling(t *testing.T) {
 		go func(index int) {
 			defer wg.Done()
 			time.Sleep(time.Microsecond * time.Duration(index)) // Small delay variation
-			collector.AddTyped("test", fmt.Errorf("error %d", index), ErrorTypeGeneral)
+			collector.AddTyped("test", fmt.Errorf("error %d", index), internalErrors.ClassUnknown)
 		}(i)
 	}
 
 	wg.Wait()
 
-	allErrors := collector.GetErrorsByType(ErrorTypeGeneral)
+	allErrors := collector.GetErrorsByType(internalErrors.ClassUnknown)
 	if len(allErrors) != 100 {
 		t.Errorf("Expected 100 errors, got %d", len(allErrors))
 	}

@@ -2,10 +2,8 @@ package installer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,7 +76,7 @@ func (c *CSharpInstaller) IsInstalled() bool {
 	dllPath := filepath.Join(installBin, "OmniSharp.dll")
 	if _, err := os.Stat(dllPath); err == nil {
 		wrapper := "omnisharp"
-		if runtime.GOOS == osWindows {
+		if c.platform.IsWindows() {
 			wrapper = "omnisharp.cmd"
 		}
 		if _, err := os.Stat(filepath.Join(installBin, wrapper)); err == nil {
@@ -113,7 +111,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 	} else {
 		// Fallback to wrapper inside bin for dll layout
 		installBin := filepath.Join(c.GetInstallPath(), "bin")
-		if runtime.GOOS == osWindows {
+		if c.platform.IsWindows() {
 			if _, err := os.Stat(filepath.Join(installBin, "omnisharp.cmd")); err == nil {
 				executablePath = filepath.Join(installBin, "omnisharp.cmd")
 			}
@@ -149,10 +147,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 
 func (c *CSharpInstaller) Uninstall() error {
 	installBin := filepath.Join(c.GetInstallPath(), "bin")
-	bin := filepath.Join(installBin, "omnisharp")
-	if runtime.GOOS == osWindows {
-		bin = bin + ".exe"
-	}
+	bin := filepath.Join(installBin, c.platform.FormatBinaryName("omnisharp"))
 	_ = os.Remove(bin)
 	return nil
 }
@@ -167,14 +162,11 @@ func (c *CSharpInstaller) linkFromPath(installBin string) error {
 			return fmt.Errorf("unable to locate OmniSharp in PATH despite detection")
 		}
 	}
-	target := filepath.Join(installBin, "omnisharp")
-	if runtime.GOOS == osWindows {
-		target = target + ".exe"
-	}
+	target := filepath.Join(installBin, c.platform.FormatBinaryName("omnisharp"))
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
-	if runtime.GOOS != osWindows {
+	if !c.platform.IsWindows() {
 		if err := os.Symlink(found, target); err == nil {
 			return nil
 		}
@@ -183,28 +175,26 @@ func (c *CSharpInstaller) linkFromPath(installBin string) error {
 }
 
 func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, error) {
-	platform := runtime.GOOS
-	arch := runtime.GOARCH
 	plat := ""
 	ext := ""
-	switch platform {
-	case osLinux:
+	if c.platform.IsLinux() {
 		if isMusl() {
 			plat = "linux-musl"
 		} else {
-			plat = osLinux
+			plat = "linux"
 		}
 		ext = ".tar.gz"
-	case osDarwin:
+	} else if c.platform.IsDarwin() {
 		plat = "osx"
 		ext = ".zip"
-	case osWindows:
+	} else if c.platform.IsWindows() {
 		plat = "win"
 		ext = ".zip"
-	default:
-		return "", fmt.Errorf("unsupported platform: %s", platform)
+	} else {
+		return "", fmt.Errorf("unsupported platform: %s", c.platform.GetPlatform())
 	}
 
+	arch := c.platform.GetArch()
 	archMap := map[string]string{
 		"amd64": "x64",
 		"arm64": "arm64",
@@ -215,53 +205,40 @@ func (c *CSharpInstaller) resolveLatestAssetURL(ctx context.Context) (string, er
 		return "", fmt.Errorf("unsupported architecture: %s", arch)
 	}
 
-	apiURL := "https://api.github.com/repos/OmniSharp/omnisharp-roslyn/releases/latest"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	fetcher := NewGitHubReleaseFetcher("OmniSharp", "omnisharp-roslyn")
+	release, err := fetcher.FetchLatestRelease(ctx)
 	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "lsp-gateway-installer")
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("failed to fetch releases: %s", resp.Status)
-	}
-	var data struct {
-		Assets []struct {
-			Name string `json:"name"`
-			URL  string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch OmniSharp release: %w", err)
 	}
 
 	var candidates []string
 	base := fmt.Sprintf("omnisharp-%s-%s", plat, archTag)
 	candidates = append(candidates, base+ext)
 	candidates = append(candidates, base+"-net6.0"+ext)
-	if platform == osDarwin {
+	if c.platform.IsDarwin() {
 		candidates = append(candidates, "omnisharp-osx"+ext)
 	}
-	for _, asset := range data.Assets {
-		for _, cand := range candidates {
-			if strings.EqualFold(asset.Name, cand) {
-				return asset.URL, nil
-			}
+
+	for _, cand := range candidates {
+		url, err := fetcher.FindAssetURL(release, func(name string) bool {
+			return strings.EqualFold(name, cand)
+		})
+		if err == nil {
+			return url, nil
 		}
 	}
-	for _, asset := range data.Assets {
-		name := strings.ToLower(asset.Name)
-		if strings.Contains(name, plat) && strings.Contains(name, archTag) && strings.HasSuffix(name, strings.ToLower(ext)) && !strings.Contains(name, ".http-") {
-			return asset.URL, nil
-		}
+
+	url, err := fetcher.FindAssetURL(release, func(name string) bool {
+		lowerName := strings.ToLower(name)
+		return strings.Contains(lowerName, plat) &&
+			strings.Contains(lowerName, archTag) &&
+			strings.HasSuffix(lowerName, strings.ToLower(ext)) &&
+			!strings.Contains(lowerName, ".http-")
+	})
+	if err != nil {
+		return "", errors.New("no suitable OmniSharp asset found")
 	}
-	return "", errors.New("no suitable OmniSharp asset found")
+	return url, nil
 }
 
 // copyDirContents copies all files from srcDir into dstDir recursively
@@ -294,7 +271,7 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 	var foundBinary string
 	var candidates []string
 
-	if runtime.GOOS == osWindows {
+	if c.platform.IsWindows() {
 		candidates = []string{"OmniSharp.exe", "omnisharp.exe", "OmniSharp.dll"}
 	} else {
 		candidates = []string{"OmniSharp", "omnisharp", "OmniSharp.dll"}
@@ -341,7 +318,7 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 	}
 
 	// For native binaries, ensure they're executable
-	if runtime.GOOS != osWindows {
+	if !c.platform.IsWindows() {
 		if err := os.Chmod(foundBinary, 0700); err != nil {
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
@@ -366,34 +343,26 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 
 // createDotNetWrapper creates a wrapper script for .dll based OmniSharp
 func (c *CSharpInstaller) createDotNetWrapper(dllPath string, installBin string) error {
-	wrapperPath := filepath.Join(installBin, "omnisharp")
+	wrapperName := "omnisharp" + c.platform.GetScriptExtension()
+	wrapperPath := filepath.Join(installBin, wrapperName)
 
-	if runtime.GOOS == osWindows {
-		wrapperPath += ".cmd"
-		content := fmt.Sprintf(`@echo off
-dotnet "%s" %%*
-`, dllPath)
-		if err := os.WriteFile(wrapperPath, []byte(content), 0600); err != nil {
-			return err
-		}
-		return nil
-	} else {
-		content := fmt.Sprintf(`#!/bin/sh
-exec dotnet "%s" "$@"
-`, dllPath)
-		if err := os.WriteFile(wrapperPath, []byte(content), 0600); err != nil {
-			return err
-		}
-		if err := os.Chmod(wrapperPath, 0700); err != nil {
-			return err
-		}
-		// Also create OmniSharp symlink
+	builder := NewWrapperScriptBuilder(c.platform, "csharp")
+	builder.SetExecutable("dotnet").SetArgs(dllPath)
+
+	if err := builder.WriteToFile(wrapperPath); err != nil {
+		return err
+	}
+
+	// Also create OmniSharp symlink on Unix
+	if !c.platform.IsWindows() {
 		symlinkPath := filepath.Join(installBin, "OmniSharp")
 		if err := os.Remove(symlinkPath); err != nil && !os.IsNotExist(err) {
 			common.CLILogger.Warn("Failed to remove existing symlink: %v", err)
 		}
-		return os.Symlink("omnisharp", symlinkPath)
+		return os.Symlink("omnisharp"+c.platform.GetScriptExtension(), symlinkPath)
 	}
+
+	return nil
 }
 
 func isMusl() bool {

@@ -9,24 +9,16 @@ import (
 	internalErrors "lsp-gateway/src/internal/errors"
 )
 
-// ErrorType represents different categories of errors that can occur
-type ErrorType string
-
 const (
-	ErrorTypeTimeout     ErrorType = "timeout"
-	ErrorTypeConnection  ErrorType = "connection"
-	ErrorTypeProtocol    ErrorType = "protocol"
-	ErrorTypeUnsupported ErrorType = "unsupported"
-	ErrorTypeGeneral     ErrorType = "general"
-	noErrors             string    = "No errors"
+	noErrors string = "No errors"
 )
 
 // LanguageError represents an error with language-specific context
 type LanguageError struct {
-	Language  string
-	Error     error
-	ErrorType ErrorType
-	Timestamp time.Time
+	Language       string
+	Error          error
+	Classification internalErrors.ErrorClassification
+	Timestamp      time.Time
 }
 
 // ErrorCollector provides thread-safe collection and reporting of language-specific errors
@@ -42,18 +34,18 @@ func NewErrorCollector() *ErrorCollector {
 	}
 }
 
-// Add adds an error with language context and automatic type detection
+// Add adds an error with language context and automatic classification
 func (ec *ErrorCollector) Add(language string, err error) {
 	if err == nil {
 		return
 	}
 
-	errorType := ec.detectErrorType(err)
-	ec.AddTyped(language, err, errorType)
+	classification := internalErrors.ClassifyError(err)
+	ec.AddTyped(language, err, classification)
 }
 
-// AddTyped adds an error with explicit type classification
-func (ec *ErrorCollector) AddTyped(language string, err error, errorType ErrorType) {
+// AddTyped adds an error with explicit classification
+func (ec *ErrorCollector) AddTyped(language string, err error, classification internalErrors.ErrorClassification) {
 	if err == nil {
 		return
 	}
@@ -62,10 +54,10 @@ func (ec *ErrorCollector) AddTyped(language string, err error, errorType ErrorTy
 	defer ec.mu.Unlock()
 
 	languageError := LanguageError{
-		Language:  language,
-		Error:     err,
-		ErrorType: errorType,
-		Timestamp: time.Now(),
+		Language:       language,
+		Error:          err,
+		Classification: classification,
+		Timestamp:      time.Now(),
 	}
 
 	ec.errors = append(ec.errors, languageError)
@@ -88,14 +80,14 @@ func (ec *ErrorCollector) GetErrors() []string {
 	return errorMessages
 }
 
-// GetErrorsByType returns errors filtered by type
-func (ec *ErrorCollector) GetErrorsByType(errorType ErrorType) []LanguageError {
+// GetErrorsByType returns errors filtered by classification
+func (ec *ErrorCollector) GetErrorsByType(classification internalErrors.ErrorClassification) []LanguageError {
 	ec.mu.RLock()
 	defer ec.mu.RUnlock()
 
 	var filtered []LanguageError
 	for _, langErr := range ec.errors {
-		if langErr.ErrorType == errorType {
+		if langErr.Classification == classification {
 			filtered = append(filtered, langErr)
 		}
 	}
@@ -145,7 +137,7 @@ func (ec *ErrorCollector) GetLanguagesWithErrors() []string {
 	return languages
 }
 
-// GetErrorSummary returns a formatted summary of all errors by type
+// GetErrorSummary returns a formatted summary of all errors by classification
 func (ec *ErrorCollector) GetErrorSummary() string {
 	ec.mu.RLock()
 	defer ec.mu.RUnlock()
@@ -154,18 +146,18 @@ func (ec *ErrorCollector) GetErrorSummary() string {
 		return noErrors
 	}
 
-	errorsByType := make(map[ErrorType][]string)
+	errorsByClass := make(map[internalErrors.ErrorClassification][]string)
 	for _, langErr := range ec.errors {
-		errorsByType[langErr.ErrorType] = append(
-			errorsByType[langErr.ErrorType],
+		errorsByClass[langErr.Classification] = append(
+			errorsByClass[langErr.Classification],
 			fmt.Sprintf("%s: %v", langErr.Language, langErr.Error),
 		)
 	}
 
 	var summaryParts []string
-	for errorType, errorList := range errorsByType {
+	for classification, errorList := range errorsByClass {
 		summaryParts = append(summaryParts, fmt.Sprintf("%s (%d): %s",
-			errorType, len(errorList), strings.Join(errorList, "; ")))
+			classification, len(errorList), strings.Join(errorList, "; ")))
 	}
 
 	return strings.Join(summaryParts, " | ")
@@ -177,32 +169,4 @@ func (ec *ErrorCollector) Clear() {
 	defer ec.mu.Unlock()
 
 	ec.errors = ec.errors[:0]
-}
-
-// detectErrorType automatically determines error type based on error content
-// Uses centralized error classification from internal/errors package
-func (ec *ErrorCollector) detectErrorType(err error) ErrorType {
-	if err == nil {
-		return ErrorTypeGeneral
-	}
-
-	// Use centralized error classification functions
-	if internalErrors.IsTimeoutError(err) {
-		return ErrorTypeTimeout
-	}
-
-	if internalErrors.IsConnectionError(err) || internalErrors.IsProcessError(err) {
-		return ErrorTypeConnection
-	}
-
-	// Check for protocol errors (JSON-RPC, parsing, etc.)
-	if internalErrors.IsProtocolError(err) {
-		return ErrorTypeProtocol
-	}
-
-	if internalErrors.IsMethodNotSupportedError(err) {
-		return ErrorTypeUnsupported
-	}
-
-	return ErrorTypeGeneral
 }

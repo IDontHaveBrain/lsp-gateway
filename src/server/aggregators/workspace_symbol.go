@@ -1,4 +1,3 @@
-// Package aggregators provides aggregation logic for LSP results.
 package aggregators
 
 import (
@@ -6,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"lsp-gateway/src/internal/errors/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/aggregators/base"
-	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/utils/jsonutil"
 )
 
@@ -17,15 +16,13 @@ type WorkspaceSymbolAggregator interface {
 	ProcessWorkspaceSymbol(ctx context.Context, clients map[string]interface{}, params interface{}) (interface{}, error)
 }
 
-// LSPWorkspaceSymbolAggregator implements workspace symbol aggregation
 type LSPWorkspaceSymbolAggregator struct {
-	errorTranslator errors.ErrorTranslator
+	errorTranslator lsp.ErrorTranslator
 }
 
-// NewWorkspaceSymbolAggregator creates a new workspace symbol aggregator
 func NewWorkspaceSymbolAggregator() *LSPWorkspaceSymbolAggregator {
 	return &LSPWorkspaceSymbolAggregator{
-		errorTranslator: errors.NewLSPErrorTranslator(),
+		errorTranslator: lsp.NewLSPErrorTranslator(),
 	}
 }
 

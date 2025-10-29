@@ -1,5 +1,4 @@
-// Package errors provides server-side error translation utilities.
-package errors
+package lsp
 
 import (
 	"strings"
@@ -141,35 +140,62 @@ func (t *LSPErrorTranslator) TranslateToUnifiedError(serverName string, err erro
 		return nil
 	}
 
-	// Check if already a unified error type
-	if errors.IsConnectionError(err) || errors.IsValidationError(err) ||
-		errors.IsTimeoutError(err) || errors.IsMethodNotSupportedError(err) {
-		return err
-	}
+	// Classify the error using centralized classification
+	classification := errors.ClassifyError(err)
 
-	errMsg := err.Error()
-
-	// Classify and wrap the error appropriately
-	if errors.IsConnectionError(err) || strings.Contains(errMsg, "connection") || strings.Contains(errMsg, "process") {
+	// If already classified as a known type, check if it needs wrapping
+	switch classification {
+	case errors.ClassConnection:
+		// Already a connection error or classified as one
+		if errors.IsConnectionError(err) {
+			return err
+		}
 		return errors.NewConnectionError(serverName, err)
-	}
 
-	if errors.IsTimeoutError(err) {
+	case errors.ClassTimeout:
+		// Already a timeout error or classified as one
+		if errors.IsTimeoutError(err) {
+			return err
+		}
 		return errors.NewTimeoutError("lsp_operation", serverName, 0, err)
-	}
 
-	if strings.Contains(errMsg, "not supported") || strings.Contains(errMsg, "method not found") {
-		method := t.extractMethodFromError(errMsg)
+	case errors.ClassMethodNotSupported:
+		// Already a method not supported error or classified as one
+		if errors.IsMethodNotSupportedError(err) {
+			return err
+		}
+		method := t.extractMethodFromError(err.Error())
 		suggestion := t.GetMethodSuggestion(serverName, method)
 		return errors.NewMethodNotSupportedError(serverName, method, suggestion)
-	}
 
-	if strings.Contains(errMsg, "validation") || strings.Contains(errMsg, "parameter") {
-		return errors.NewValidationError("unknown", errMsg)
-	}
+	case errors.ClassValidation:
+		// Already a validation error or classified as one
+		if errors.IsValidationError(err) {
+			return err
+		}
+		return errors.NewValidationError("unknown", err.Error())
 
-	// Default to generic LSP error
-	return errors.NewLSPError(errors.InternalError, errMsg, map[string]string{
-		"server": serverName,
-	})
+	case errors.ClassProcess:
+		// Process errors are related to connection issues
+		return errors.NewProcessError(serverName, "", "process", err)
+
+	case errors.ClassProtocol:
+		// Protocol errors are already LSPError types
+		if errors.IsProtocolError(err) {
+			return err
+		}
+		return errors.NewLSPError(errors.InternalError, err.Error(), map[string]string{
+			"server": serverName,
+		})
+
+	case errors.ClassCancellation:
+		// Return as-is for cancellation
+		return err
+
+	default:
+		// Unknown classification - wrap as generic LSP error
+		return errors.NewLSPError(errors.InternalError, err.Error(), map[string]string{
+			"server": serverName,
+		})
+	}
 }

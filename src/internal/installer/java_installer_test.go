@@ -52,6 +52,40 @@ func (m *MockPlatformInfo) GetNodeInstallCommand() []string {
 	return []string{"echo", "mock node install"}
 }
 
+func (m *MockPlatformInfo) IsWindows() bool {
+	return m.platform == "windows"
+}
+
+func (m *MockPlatformInfo) IsLinux() bool {
+	return m.platform == "linux"
+}
+
+func (m *MockPlatformInfo) IsDarwin() bool {
+	return m.platform == "darwin"
+}
+
+func (m *MockPlatformInfo) GetBinaryExtension() string {
+	if m.IsWindows() {
+		return ".exe"
+	}
+	return ""
+}
+
+func (m *MockPlatformInfo) GetScriptExtension() string {
+	if m.IsWindows() {
+		return ".bat"
+	}
+	return ".sh"
+}
+
+func (m *MockPlatformInfo) FormatBinaryName(name string) string {
+	ext := m.GetBinaryExtension()
+	if ext != "" && !strings.HasSuffix(name, ext) {
+		return name + ext
+	}
+	return name
+}
+
 // MockJavaInstaller extends JavaInstaller with mock functionality for testing
 type MockJavaInstaller struct {
 	*JavaInstaller

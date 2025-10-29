@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -32,7 +31,7 @@ func NewKotlinInstaller(platform PlatformInfo) *KotlinInstaller {
 	command := kotlinLSPName
 	args := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
 
-	if runtime.GOOS == osWindows {
+	if platform.IsWindows() {
 		command = kotlinLanguageServerBin
 		args = []string{} // fwcd kotlin-language-server defaults to stdio mode
 	}
@@ -54,7 +53,7 @@ func (k *KotlinInstaller) Install(ctx context.Context, options InstallOptions) e
 	}
 
 	// Try brew installation on macOS first
-	if runtime.GOOS == osDarwin {
+	if k.platform.IsDarwin() {
 		if err := k.tryBrewInstall(ctx); err == nil {
 			if k.testKotlinLSP(ctx) {
 				common.CLILogger.Info("kotlin-lsp installed successfully via brew")
@@ -90,7 +89,7 @@ func (k *KotlinInstaller) tryBrewInstall(ctx context.Context) error {
 
 // installFromGitHub downloads and installs from GitHub releases
 func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options InstallOptions) error {
-	if runtime.GOOS == osWindows {
+	if k.platform.IsWindows() {
 		common.CLILogger.Info("Installing kotlin-language-server from fwcd/kotlin-language-server GitHub releases...")
 	} else {
 		common.CLILogger.Info("Installing kotlin-lsp from JetBrains GitHub releases...")
@@ -144,15 +143,25 @@ func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options Install
 
 // getGitHubReleaseURL gets the download URL for the latest release
 func (k *KotlinInstaller) getGitHubReleaseURL(ctx context.Context) (string, error) {
-	var apiURL string
-
 	// Use fwcd/kotlin-language-server on Windows, JetBrains version on other platforms
-	if runtime.GOOS == osWindows {
-		apiURL = "https://api.github.com/repos/fwcd/kotlin-language-server/releases/latest"
-	} else {
-		apiURL = "https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
+	if k.platform.IsWindows() {
+		fetcher := NewGitHubReleaseFetcher("fwcd", "kotlin-language-server")
+		release, err := fetcher.FetchLatestRelease(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch fwcd/kotlin-language-server release: %w", err)
+		}
+
+		url, err := fetcher.FindAssetURL(release, func(name string) bool {
+			return name == "server.zip"
+		})
+		if err != nil {
+			return "", fmt.Errorf("no server.zip found in kotlin-language-server release")
+		}
+		return url, nil
 	}
 
+	// JetBrains Kotlin LSP requires custom parsing of release body
+	apiURL := "https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return "", err
@@ -172,75 +181,51 @@ func (k *KotlinInstaller) getGitHubReleaseURL(ctx context.Context) (string, erro
 		return "", fmt.Errorf("failed to fetch releases: %s", resp.Status)
 	}
 
-	// Handle different release formats based on the repository
-	if runtime.GOOS == osWindows {
-		// fwcd/kotlin-language-server has assets in the release
-		var release struct {
-			Assets []struct {
-				Name               string `json:"name"`
-				BrowserDownloadURL string `json:"browser_download_url"`
-			} `json:"assets"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return "", err
-		}
-
-		// fwcd/kotlin-language-server provides a platform-independent server.zip
-		for _, asset := range release.Assets {
-			if asset.Name == "server.zip" {
-				return asset.BrowserDownloadURL, nil
-			}
-		}
-
-		return "", fmt.Errorf("no server.zip found in kotlin-language-server release")
-	} else {
-		// JetBrains Kotlin LSP for other platforms
-		var release struct {
-			Body string `json:"body"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return "", err
-		}
-
-		// Extract the standalone zip URL from the release body
-		// Looking for [Download](URL) pattern in markdown
-		lines := strings.Split(release.Body, "\n")
-		for _, line := range lines {
-			// Look for lines containing "Standalone" and check the next download link
-			if strings.Contains(line, "Standalone") || strings.Contains(line, "kotlin-lsp") {
-				// Extract URL from markdown link format [Download](URL)
-				if strings.Contains(line, "[Download](") {
-					start := strings.Index(line, "[Download](") + len("[Download](")
-					end := strings.Index(line[start:], ")")
-					if end > 0 {
-						url := line[start : start+end]
-						if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
-							return url, nil
-						}
-					}
-				}
-			}
-			// Also check for direct download links in the line
-			if strings.Contains(line, "download-cdn.jetbrains.com/kotlin-lsp") {
-				// Try to extract URL from markdown link
-				startIdx := strings.Index(line, "(https://")
-				if startIdx != -1 {
-					startIdx += 1 // Skip the opening parenthesis
-					endIdx := strings.Index(line[startIdx:], ")")
-					if endIdx > 0 {
-						url := line[startIdx : startIdx+endIdx]
-						if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
-							return url, nil
-						}
-					}
-				}
-			}
-		}
-
-		return "", fmt.Errorf("no suitable kotlin-lsp download URL found in release")
+	// JetBrains Kotlin LSP for other platforms
+	var release struct {
+		Body string `json:"body"`
 	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", err
+	}
+
+	// Extract the standalone zip URL from the release body
+	// Looking for [Download](URL) pattern in markdown
+	lines := strings.Split(release.Body, "\n")
+	for _, line := range lines {
+		// Look for lines containing "Standalone" and check the next download link
+		if strings.Contains(line, "Standalone") || strings.Contains(line, "kotlin-lsp") {
+			// Extract URL from markdown link format [Download](URL)
+			if strings.Contains(line, "[Download](") {
+				start := strings.Index(line, "[Download](") + len("[Download](")
+				end := strings.Index(line[start:], ")")
+				if end > 0 {
+					url := line[start : start+end]
+					if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
+						return url, nil
+					}
+				}
+			}
+		}
+		// Also check for direct download links in the line
+		if strings.Contains(line, "download-cdn.jetbrains.com/kotlin-lsp") {
+			// Try to extract URL from markdown link
+			startIdx := strings.Index(line, "(https://")
+			if startIdx != -1 {
+				startIdx += 1
+				endIdx := strings.Index(line[startIdx:], ")")
+				if endIdx > 0 {
+					url := line[startIdx : startIdx+endIdx]
+					if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
+						return url, nil
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable kotlin-lsp download URL found in release")
 }
 
 // setupBinary finds and sets up the kotlin-lsp binary and required files
@@ -257,7 +242,7 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 	}
 
 	// Set up the appropriate command based on platform
-	if runtime.GOOS == osWindows {
+	if k.platform.IsWindows() {
 		// fwcd/kotlin-language-server structure: the extracted server has bin/kotlin-language-server.bat
 		// First check if there's a server subdirectory (common extraction pattern)
 		serverDir := filepath.Join(installPath, "server")
@@ -318,7 +303,7 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 	}
 
 	// Set correct args based on the server type
-	if runtime.GOOS == osWindows {
+	if k.platform.IsWindows() {
 		// fwcd kotlin-language-server defaults to stdio mode
 		k.serverConfig.Args = []string{}
 	} else {
@@ -368,7 +353,7 @@ func (k *KotlinInstaller) testKotlinLSP(ctx context.Context) bool {
 		return true
 	}
 
-	if runtime.GOOS == osWindows {
+	if k.platform.IsWindows() {
 		// Check for fwcd kotlin-language-server first
 		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-language-server", "--version"); err == nil {
 			k.serverConfig.Command = "kotlin-language-server"

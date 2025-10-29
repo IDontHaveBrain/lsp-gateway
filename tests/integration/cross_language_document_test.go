@@ -566,7 +566,7 @@ suspend fun main() {
 			t.Fatal("Concurrent multi-language operations timeout")
 		}
 
-		dm := documents.NewLSPDocumentManager()
+		dm := documents.NewDocumentManager()
 		availableOps := 0
 		for _, op := range operations {
 			uri := utils.FilePathToURI(filepath.Join(testDir, op.file))
@@ -613,7 +613,7 @@ suspend fun main() {
 			"src/main/kotlin/com/example/Gateway.kt": "kotlin",
 		}
 
-		documentManager := documents.NewLSPDocumentManager()
+		documentManager := documents.NewDocumentManager()
 		for filename, expectedLang := range expectedLanguages {
 			uri := utils.FilePathToURI(filepath.Join(testDir, filename))
 			detectedLang := documentManager.DetectLanguage(uri)

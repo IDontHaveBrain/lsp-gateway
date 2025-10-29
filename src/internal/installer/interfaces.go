@@ -118,4 +118,22 @@ type PlatformInfo interface {
 
 	// GetNodeInstallCommand returns the command to install Node.js/npm if needed
 	GetNodeInstallCommand() []string
+
+	// IsWindows returns true if running on Windows
+	IsWindows() bool
+
+	// IsLinux returns true if running on Linux
+	IsLinux() bool
+
+	// IsDarwin returns true if running on macOS
+	IsDarwin() bool
+
+	// GetBinaryExtension returns the binary file extension (.exe on Windows, empty otherwise)
+	GetBinaryExtension() string
+
+	// GetScriptExtension returns the script file extension (.bat on Windows, .sh otherwise)
+	GetScriptExtension() string
+
+	// FormatBinaryName adds platform-specific extension to binary name
+	FormatBinaryName(name string) string
 }

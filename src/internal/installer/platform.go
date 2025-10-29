@@ -156,3 +156,43 @@ func (p *LSPPlatformInfo) GetNodeInstallCommand() []string {
 		return []string{"echo", "Platform not supported for automatic Node.js installation"}
 	}
 }
+
+// IsWindows returns true if running on Windows
+func (p *LSPPlatformInfo) IsWindows() bool {
+	return p.GetPlatform() == osWindows
+}
+
+// IsLinux returns true if running on Linux
+func (p *LSPPlatformInfo) IsLinux() bool {
+	return p.GetPlatform() == osLinux
+}
+
+// IsDarwin returns true if running on macOS
+func (p *LSPPlatformInfo) IsDarwin() bool {
+	return p.GetPlatform() == osDarwin
+}
+
+// GetBinaryExtension returns the binary file extension (.exe on Windows, empty otherwise)
+func (p *LSPPlatformInfo) GetBinaryExtension() string {
+	if p.IsWindows() {
+		return ".exe"
+	}
+	return ""
+}
+
+// GetScriptExtension returns the script file extension (.bat on Windows, .sh otherwise)
+func (p *LSPPlatformInfo) GetScriptExtension() string {
+	if p.IsWindows() {
+		return ".bat"
+	}
+	return ".sh"
+}
+
+// FormatBinaryName adds platform-specific extension to binary name
+func (p *LSPPlatformInfo) FormatBinaryName(name string) string {
+	ext := p.GetBinaryExtension()
+	if ext != "" && !strings.HasSuffix(name, ext) {
+		return name + ext
+	}
+	return name
+}

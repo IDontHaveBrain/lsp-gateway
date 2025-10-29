@@ -403,92 +403,17 @@ func (m *AllOrNothingMerger[T]) MergeWithMetadata(results map[string][]T) MergeR
 
 // getOrderedLanguages returns languages in priority order
 func (m *SliceMerger[T]) getOrderedLanguages(results map[string][]T) []string {
-	if len(m.Config.LanguagePriority) == 0 {
-		// No priority specified, return in map iteration order
-		langs := make([]string, 0, len(results))
-		for lang := range results {
-			langs = append(langs, lang)
-		}
-		return langs
-	}
-
-	ordered := make([]string, 0, len(results))
-	seen := make(map[string]bool)
-
-	// Add languages in priority order
-	for _, priority := range m.Config.LanguagePriority {
-		if _, exists := results[priority]; exists {
-			ordered = append(ordered, priority)
-			seen[priority] = true
-		}
-	}
-
-	// Add remaining languages not in priority list
-	for lang := range results {
-		if !seen[lang] {
-			ordered = append(ordered, lang)
-		}
-	}
-
-	return ordered
+	return OrderLanguagesByPriority(results, m.Config.LanguagePriority)
 }
 
 // getOrderedLanguages for MapMerger
 func (m *MapMerger[K, V]) getOrderedLanguages(results map[string]map[K]V) []string {
-	if len(m.Config.LanguagePriority) == 0 {
-		langs := make([]string, 0, len(results))
-		for lang := range results {
-			langs = append(langs, lang)
-		}
-		return langs
-	}
-
-	ordered := make([]string, 0, len(results))
-	seen := make(map[string]bool)
-
-	for _, priority := range m.Config.LanguagePriority {
-		if _, exists := results[priority]; exists {
-			ordered = append(ordered, priority)
-			seen[priority] = true
-		}
-	}
-
-	for lang := range results {
-		if !seen[lang] {
-			ordered = append(ordered, lang)
-		}
-	}
-
-	return ordered
+	return OrderLanguagesByPriority(results, m.Config.LanguagePriority)
 }
 
 // getOrderedLanguages for FirstSuccessMerger
 func (m *FirstSuccessMerger[T]) getOrderedLanguages(results map[string]T) []string {
-	if len(m.Config.LanguagePriority) == 0 {
-		langs := make([]string, 0, len(results))
-		for lang := range results {
-			langs = append(langs, lang)
-		}
-		return langs
-	}
-
-	ordered := make([]string, 0, len(results))
-	seen := make(map[string]bool)
-
-	for _, priority := range m.Config.LanguagePriority {
-		if _, exists := results[priority]; exists {
-			ordered = append(ordered, priority)
-			seen[priority] = true
-		}
-	}
-
-	for lang := range results {
-		if !seen[lang] {
-			ordered = append(ordered, lang)
-		}
-	}
-
-	return ordered
+	return OrderLanguagesByPriority(results, m.Config.LanguagePriority)
 }
 
 // extractDeduplicationKey extracts a key for deduplication

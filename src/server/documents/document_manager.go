@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"go.lsp.dev/protocol"
@@ -16,25 +17,48 @@ import (
 	"lsp-gateway/src/utils"
 )
 
-// DocumentManager interface for document-related operations
-type DocumentManager interface {
-	DetectLanguage(uri string) string
-	ExtractURI(params interface{}) (string, error)
-	EnsureOpen(client types.LSPClient, uri string, params interface{}) error
+type DocumentState struct {
+	URI        string
+	Language   string
+	Version    int
+	OpenedBy   map[string]bool
+	Content    string
+	LastAccess time.Time
 }
 
-// LSPDocumentManager implements document management functionality
-type LSPDocumentManager struct {
-	// Minimal state - could be extended in the future if needed
+func (ds *DocumentState) IsOpenForLanguage(language string) bool {
+	return ds.OpenedBy[language]
 }
 
-// NewLSPDocumentManager creates a new document manager
-func NewLSPDocumentManager() *LSPDocumentManager {
-	return &LSPDocumentManager{}
+func (ds *DocumentState) OpenForLanguage(language string) {
+	if ds.OpenedBy == nil {
+		ds.OpenedBy = make(map[string]bool)
+	}
+	ds.OpenedBy[language] = true
+	ds.LastAccess = time.Now()
 }
 
-// DetectLanguage detects the programming language from a file URI
-func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
+func (ds *DocumentState) CloseForLanguage(language string) {
+	delete(ds.OpenedBy, language)
+	ds.LastAccess = time.Now()
+}
+
+func (ds *DocumentState) IsClosed() bool {
+	return len(ds.OpenedBy) == 0
+}
+
+type DocumentManager struct {
+	documents map[string]*DocumentState
+	mu        sync.RWMutex
+}
+
+func NewDocumentManager() *DocumentManager {
+	return &DocumentManager{
+		documents: make(map[string]*DocumentState),
+	}
+}
+
+func (dm *DocumentManager) DetectLanguage(uri string) string {
 	path := utils.URIToFilePathCached(uri)
 	ext := strings.ToLower(filepath.Ext(path))
 	if lang, ok := registry.GetLanguageByExtension(ext); ok {
@@ -43,13 +67,11 @@ func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 	return ""
 }
 
-// ExtractURI extracts the file URI from request parameters
-func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
+func (dm *DocumentManager) ExtractURI(params interface{}) (string, error) {
 	if params == nil {
 		return "", errors.NewValidationError("params", "no parameters provided")
 	}
 
-	// Handle typed protocol structs first (most efficient for tests)
 	switch p := params.(type) {
 	case *protocol.DefinitionParams:
 		return string(p.TextDocument.URI), nil
@@ -72,10 +94,9 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 	case protocol.CompletionParams:
 		return string(p.TextDocument.URI), nil
 	case *protocol.WorkspaceSymbolParams:
-		return "", nil // Workspace symbols don't have a specific URI
+		return "", nil
 	case protocol.WorkspaceSymbolParams:
-		return "", nil // Workspace symbols don't have a specific URI
-	// Support internal LSP model params used by CLI context commands
+		return "", nil
 	case *lsp.DocumentSymbolParams:
 		return p.TextDocument.URI, nil
 	case lsp.DocumentSymbolParams:
@@ -98,20 +119,17 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return p.TextDocument.URI, nil
 	}
 
-	// Handle untyped map parameters (from HTTP gateway)
 	paramsMap, err := errors.ValidateParamMap(params)
 	if err != nil {
 		return "", errors.WrapWithContext("failed to validate params", err)
 	}
 
-	// Try textDocument.uri first
 	if textDoc, ok := paramsMap["textDocument"].(map[string]interface{}); ok {
 		if uri, ok := textDoc["uri"].(string); ok {
 			return uri, nil
 		}
 	}
 
-	// Try direct uri parameter
 	if uri, ok := paramsMap["uri"].(string); ok {
 		return uri, nil
 	}
@@ -119,14 +137,10 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 	return "", errors.NewValidationError("parameter", "no URI found in parameters")
 }
 
-// EnsureOpen sends a textDocument/didOpen notification if needed
-func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
-
-	// Read actual file content for proper LSP functionality
+func (dm *DocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
 	var fileContent string
 	language := dm.DetectLanguage(uri)
 
-	// Extract file path from URI
 	if strings.HasPrefix(uri, "file://") {
 		filePath := utils.URIToFilePathCached(uri)
 		if data, err := common.SafeReadFile(filePath); err == nil {
@@ -144,19 +158,97 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 			"uri":        uri,
 			"languageId": language,
 			"version":    1,
-			"text":       fileContent, // Use actual file content
+			"text":       fileContent,
 		},
 	}
 
-	// Send notification (ignore errors as this is optional)
 	err := client.SendNotification(context.Background(), types.MethodTextDocumentDidOpen, didOpenParams)
 	if err != nil {
 		common.LSPLogger.Error("Failed to send didOpen notification for %s: %v", uri, err)
 		return errors.WrapWithContext("failed to send didOpen notification", err)
 	}
 
-	// Apply language-aware document analysis delay
 	time.Sleep(constants.GetDocumentAnalysisDelay(language))
 
 	return nil
+}
+
+func (dm *DocumentManager) IsOpen(uri string, language string) bool {
+	dm.mu.RLock()
+	defer dm.mu.RUnlock()
+
+	doc, exists := dm.documents[uri]
+	if !exists {
+		return false
+	}
+	return doc.IsOpenForLanguage(language)
+}
+
+func (dm *DocumentManager) MarkOpen(uri string, language string, content string, version int) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	doc, exists := dm.documents[uri]
+	if !exists {
+		doc = &DocumentState{
+			URI:      uri,
+			Language: language,
+			Version:  version,
+			Content:  content,
+			OpenedBy: make(map[string]bool),
+		}
+		dm.documents[uri] = doc
+	}
+	doc.OpenForLanguage(language)
+}
+
+func (dm *DocumentManager) MarkClosed(uri string, language string) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	doc, exists := dm.documents[uri]
+	if exists {
+		doc.CloseForLanguage(language)
+		if doc.IsClosed() {
+			delete(dm.documents, uri)
+		}
+	}
+}
+
+func (dm *DocumentManager) UpdateContent(uri string, content string, version int) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	doc, exists := dm.documents[uri]
+	if exists {
+		doc.Content = content
+		doc.Version = version
+		doc.LastAccess = time.Now()
+	}
+}
+
+func (dm *DocumentManager) GetDocument(uri string) (*DocumentState, bool) {
+	dm.mu.RLock()
+	defer dm.mu.RUnlock()
+
+	doc, exists := dm.documents[uri]
+	return doc, exists
+}
+
+func (dm *DocumentManager) GetAllDocuments() []*DocumentState {
+	dm.mu.RLock()
+	defer dm.mu.RUnlock()
+
+	docs := make([]*DocumentState, 0, len(dm.documents))
+	for _, doc := range dm.documents {
+		docs = append(docs, doc)
+	}
+	return docs
+}
+
+func (dm *DocumentManager) Clear() {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	dm.documents = make(map[string]*DocumentState)
 }

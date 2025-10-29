@@ -367,7 +367,6 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			}
 		}
 		if platform.IsWindows() || isFWCD {
-			// Use stdio path below
 		} else if isJetBrains || !platform.IsWindows() {
 			addr := "127.0.0.1:9999"
 			if ln, e := net.Listen("tcp", addr); e == nil {
@@ -386,7 +385,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
 				return fmt.Errorf("%s: invalid LSP server command: %w", language, err)
 			}
-			socketClient, err := client.NewSocketClient(clientConfig, language, addr, m.docLifecycleManager)
+			socketClient, err := client.NewSocketClient(clientConfig, language, addr, m.documentManager)
 			if err == nil {
 				if errStart := socketClient.Start(ctx); errStart == nil {
 					m.mu.Lock()
@@ -414,8 +413,8 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			stdioArgs := []string{"--stdio"}
 			stdioCfg := types.ClientConfig{Command: resolvedCommand, Args: stdioArgs, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 			if err := security.ValidateCommand(resolvedCommand, stdioArgs); err == nil {
-				if stdClient, e2 := client.NewStdioClient(stdioCfg, language, m.docLifecycleManager); e2 == nil {
-					if startErr := stdClient.Start(ctx); startErr == nil{
+				if stdClient, e2 := client.NewStdioClient(stdioCfg, language, m.documentManager); e2 == nil {
+					if startErr := stdClient.Start(ctx); startErr == nil {
 						m.mu.Lock()
 						m.clients[language] = stdClient
 						m.mu.Unlock()
@@ -431,7 +430,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			if p2, e2 := exec.LookPath("kotlin-language-server"); e2 == nil {
 				altCfg := types.ClientConfig{Command: p2, Args: []string{}, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 				if err := security.ValidateCommand(p2, nil); err == nil {
-					if fwcdClient, e3 := client.NewStdioClient(altCfg, language, m.docLifecycleManager); e3 == nil {
+					if fwcdClient, e3 := client.NewStdioClient(altCfg, language, m.documentManager); e3 == nil {
 						if startErr := fwcdClient.Start(ctx); startErr == nil {
 							common.LSPLogger.Info("Using fwcd kotlin-language-server via stdio as fallback")
 							m.mu.Lock()
@@ -524,7 +523,7 @@ func (m *LSPManager) tryStartCandidate(ctx context.Context, language string, cfg
 		InitializationOptions: cfg.InitializationOptions,
 	}
 
-	lspClient, err := client.NewStdioClient(clientConfig, language, m.docLifecycleManager)
+	lspClient, err := client.NewStdioClient(clientConfig, language, m.documentManager)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -573,8 +572,6 @@ func (m *LSPManager) getClient(language string) (types.LSPClient, error) {
 func (m *LSPManager) GetClient(language string) (types.LSPClient, error) {
 	return m.getClient(language)
 }
-
-func (m *LSPManager) GetConfiguredServers() map[string]*config.ServerConfig { return m.config.Servers }
 
 func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 	projectMarkers := []struct {

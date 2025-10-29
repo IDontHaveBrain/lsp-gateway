@@ -39,80 +39,66 @@ func (g *SearchGuard) MustBeEnabled() error {
 // WithSliceResult executes the function if enabled, otherwise returns an empty slice.
 // Useful for methods that return []interface{} when disabled.
 func (g *SearchGuard) WithSliceResult(fn func() ([]interface{}, error)) ([]interface{}, error) {
-	if !g.enabled {
-		return []interface{}{}, nil
-	}
-	return fn()
+	return common.WithEnabledGuardDefault(g.enabled, fn, []interface{}{})
 }
 
 // WithErrorResult executes the function if enabled, otherwise returns an error.
 // Use for operations that must fail when service is disabled.
 func (g *SearchGuard) WithErrorResult(fn func() ([]interface{}, error)) ([]interface{}, error) {
-	if err := g.MustBeEnabled(); err != nil {
-		return nil, err
-	}
-	return fn()
+	return common.WithEnabledGuardOrError(g.enabled, fn, "cache disabled or SCIP storage unavailable")
 }
 
 // WithSearchResponse executes the function if enabled, otherwise returns a default SearchResponse
 // with cache_disabled metadata.
 func (g *SearchGuard) WithSearchResponse(searchType SearchType, fn func() (*SearchResponse, error)) (*SearchResponse, error) {
-	if !g.enabled {
-		builder := &DefaultResultBuilder{}
-		return builder.BuildDisabledResponse(searchType), nil
-	}
-	return fn()
+	builder := &DefaultResultBuilder{}
+	defaultResponse := builder.BuildDisabledResponse(searchType)
+	return common.WithEnabledGuardDefault(g.enabled, fn, defaultResponse)
 }
 
 // WithEnhancedSymbolResult executes the function if enabled, otherwise returns a default
 // EnhancedSymbolSearchResponse with cache_disabled metadata.
 func (g *SearchGuard) WithEnhancedSymbolResult(query *EnhancedSymbolQuery, fn func() (*EnhancedSymbolSearchResponse, error)) (*EnhancedSymbolSearchResponse, error) {
-	if !g.enabled {
-		return &EnhancedSymbolSearchResponse{
-			Symbols:   []EnhancedSymbolResult{},
-			Total:     0,
-			Truncated: false,
-			Query:     query,
-			Metadata:  &SearchMetadata{CacheEnabled: false},
-			Timestamp: time.Now(),
-		}, nil
+	defaultResponse := &EnhancedSymbolSearchResponse{
+		Symbols:   []EnhancedSymbolResult{},
+		Total:     0,
+		Truncated: false,
+		Query:     query,
+		Metadata:  &SearchMetadata{CacheEnabled: false},
+		Timestamp: time.Now(),
 	}
-	return fn()
+	return common.WithEnabledGuardDefault(g.enabled, fn, defaultResponse)
 }
 
 // WithReferenceResult executes the function if enabled, otherwise returns a default
 // ReferenceSearchResponse with cache_disabled metadata.
 func (g *SearchGuard) WithReferenceResult(symbolName string, options *ReferenceSearchOptions, fn func() (*ReferenceSearchResponse, error)) (*ReferenceSearchResponse, error) {
-	if !g.enabled {
-		return &ReferenceSearchResponse{
-			SymbolName: symbolName,
-			References: []SCIPOccurrenceInfo{},
-			TotalCount: 0,
-			FileCount:  0,
-			Options:    options,
-			Metadata:   &SearchMetadata{CacheEnabled: false},
-			Timestamp:  time.Now(),
-		}, nil
+	defaultResponse := &ReferenceSearchResponse{
+		SymbolName: symbolName,
+		References: []SCIPOccurrenceInfo{},
+		TotalCount: 0,
+		FileCount:  0,
+		Options:    options,
+		Metadata:   &SearchMetadata{CacheEnabled: false},
+		Timestamp:  time.Now(),
 	}
-	return fn()
+	return common.WithEnabledGuardDefault(g.enabled, fn, defaultResponse)
 }
 
 // WithSymbolInfoResult executes the function if enabled, otherwise returns a default
 // SymbolInfoResponse with cache_disabled metadata.
 func (g *SearchGuard) WithSymbolInfoResult(symbolName string, fn func() (*SymbolInfoResponse, error)) (*SymbolInfoResponse, error) {
-	if !g.enabled {
-		return &SymbolInfoResponse{
-			SymbolName:      symbolName,
-			Kind:            scip.SCIPSymbolKindUnknown,
-			Documentation:   []string{},
-			Occurrences:     []SCIPOccurrenceInfo{},
-			OccurrenceCount: 0,
-			DefinitionCount: 0,
-			ReferenceCount:  0,
-			FileCount:       0,
-			Metadata:        &SearchMetadata{CacheEnabled: false},
-			Timestamp:       time.Now(),
-		}, nil
+	defaultResponse := &SymbolInfoResponse{
+		SymbolName:      symbolName,
+		Kind:            scip.SCIPSymbolKindUnknown,
+		Documentation:   []string{},
+		Occurrences:     []SCIPOccurrenceInfo{},
+		OccurrenceCount: 0,
+		DefinitionCount: 0,
+		ReferenceCount:  0,
+		FileCount:       0,
+		Metadata:        &SearchMetadata{CacheEnabled: false},
+		Timestamp:       time.Now(),
 	}
-	return fn()
+	return common.WithEnabledGuardDefault(g.enabled, fn, defaultResponse)
 }
