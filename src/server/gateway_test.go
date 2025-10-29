@@ -192,11 +192,11 @@ func TestNewHTTPGateway(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "with nil config creates default with cache",
+			name:        "with nil config returns error",
 			addr:        ":8082",
 			config:      nil,
 			lspOnly:     false,
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name:        "lspOnly mode enabled",
@@ -206,11 +206,11 @@ func TestNewHTTPGateway(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "cache disabled config gets enabled",
+			name: "with cache enabled config",
 			addr: ":8084",
 			config: &config.Config{
 				Servers: map[string]*config.ServerConfig{"go": {Command: "gopls"}},
-				Cache:   &config.CacheConfig{Enabled: false},
+				Cache:   &config.CacheConfig{Enabled: true, StoragePath: "/tmp/test", MaxMemoryMB: 64, TTLHours: 1, HealthCheckMinutes: 1, EvictionPolicy: "lru", Languages: []string{"go"}},
 			},
 			lspOnly:     false,
 			expectError: false,

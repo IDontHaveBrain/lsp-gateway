@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"lsp-gateway/src/internal/constants"
 )
 
 type WalkFunc func(path string, d os.DirEntry, err error) error
@@ -121,19 +123,11 @@ func FilterPaths(paths []string, rootDir string) []string {
 }
 
 func ShouldSkipDirectory(name string) bool {
-	skipDirs := []string{
-		".git", ".svn", ".hg", ".bzr",
-		"node_modules", "vendor",
-		"__pycache__", "target",
-		"build", "dist", "out",
-		".idea", ".vscode",
+	if name == "." {
+		return false
 	}
-
-	for _, skip := range skipDirs {
-		if name == skip {
-			return true
-		}
+	if constants.SkipDirectories[name] {
+		return true
 	}
-
-	return strings.HasPrefix(name, ".") && name != "."
+	return strings.HasPrefix(name, ".")
 }

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"lsp-gateway/src/internal/constants"
 )
 
 type Manager struct {
@@ -128,20 +130,11 @@ func (m *Manager) LoadGitIgnoreForDirectory(dir string) error {
 	return nil
 }
 
-var defaultPatterns = []string{
-	".git",
-	".svn",
-	".hg",
-	".bzr",
-	"node_modules",
-	"vendor",
-	"__pycache__",
+var filePatterns = []string{
 	"*.pyc",
 	"*.pyo",
 	".DS_Store",
 	"Thumbs.db",
-	".idea",
-	".vscode",
 	"*.swp",
 	"*.swo",
 	"*~",
@@ -151,19 +144,17 @@ var defaultPatterns = []string{
 func (m *Manager) ShouldIgnoreDefault(path string) bool {
 	base := filepath.Base(path)
 
-	// Check base name against patterns
-	for _, pattern := range defaultPatterns {
+	// Check base name against file patterns
+	for _, pattern := range filePatterns {
 		if matched, _ := filepath.Match(pattern, base); matched {
 			return true
 		}
 	}
 
-	// Also check if path contains default ignored directories
+	// Check if path contains standard skip directories
 	pathParts := strings.Split(filepath.ToSlash(path), "/")
 	for _, part := range pathParts {
-		if part == ".git" || part == ".svn" || part == ".hg" || part == ".bzr" ||
-			part == "node_modules" || part == "vendor" || part == "__pycache__" ||
-			part == ".idea" || part == ".vscode" {
+		if constants.SkipDirectories[part] {
 			return true
 		}
 	}

@@ -38,15 +38,11 @@ type HTTPGateway struct {
 
 // NewHTTPGateway creates a new simple HTTP gateway with mandatory cache
 func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway, error) {
-	// Ensure cache is enabled - HTTP gateway requires cache for performance
 	if cfg == nil {
-		cfg = config.GetDefaultConfigWithCache()
-		cfg.EnableCache()
-	} else if !cfg.IsCacheEnabled() {
-		cfg.EnableCache()
+		return nil, fmt.Errorf("configuration required for HTTP gateway")
 	}
 
-	// Create LSP manager - cache is now always created internally
+	// Create LSP manager - cache configuration already applied by config.Load()
 	lspManager, err := NewLSPManager(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LSP manager: %w", err)

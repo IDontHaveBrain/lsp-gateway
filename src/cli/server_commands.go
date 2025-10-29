@@ -10,6 +10,7 @@ import (
 	"time"
 
 	clicommon "lsp-gateway/src/cli/common"
+	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
@@ -19,7 +20,10 @@ import (
 
 // RunServer starts the simplified LSP gateway server
 func RunServer(addr string, configPath string, lspOnly bool) error {
-	cfg := clicommon.LoadConfigForServer(configPath)
+	cfg, err := config.Load(configPath, config.ModeHTTPGateway)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
 
 	// Create and start gateway
 	gateway, err := server.NewHTTPGateway(addr, cfg, lspOnly)
@@ -76,18 +80,8 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 
 // RunMCPServer starts the MCP server
 func RunMCPServer(configPath string) error {
-	// Display cache status before starting MCP server
-	cfg := clicommon.LoadConfigForServer(configPath)
-	manager, err := clicommon.CreateLSPManager(cfg)
-	if err == nil {
-		clicommon.DisplayCacheStatus(common.CLILogger, manager.GetCache(), "mcp")
-	} else {
-		common.CLILogger.Info("Starting MCP Server...")
-		common.CLILogger.Warn("SCIP Cache: Unable to check status (%v)", err)
-	}
+	common.CLILogger.Info("Starting MCP Server...")
 	common.CLILogger.Info("MCP Server ready for AI assistant integration")
-
-	// Always run in enhanced mode
 	return server.RunMCPServer(configPath)
 }
 

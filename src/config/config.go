@@ -48,6 +48,17 @@ type CacheConfig struct {
 	DiskCache          bool     `yaml:"disk_cache"`           // Enable disk persistence
 }
 
+// ConfigMode defines different configuration profiles for various use cases
+type ConfigMode int
+
+const (
+	ModeDefault ConfigMode = iota
+	ModeHTTPGateway
+	ModeMCPServer
+	ModeCLICommand
+	ModeTest
+)
+
 // expandServerPaths expands ~ paths in server configurations
 func expandServerPaths(config *Config) error {
 	for serverName, serverConfig := range config.Servers {
@@ -244,6 +255,89 @@ func GetDefaultConfigPath() string {
 	return filepath.Join(home, constants.DefaultLSPToolsDir, constants.DefaultConfigFileName)
 }
 
+// Load loads configuration with the specified mode, applying mode-specific settings
+func Load(configPath string, mode ConfigMode) (*Config, error) {
+	var cfg *Config
+	var err error
+
+	if configPath != "" {
+		cfg, err = LoadConfig(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config from %s: %w", configPath, err)
+		}
+	} else {
+		defaultPath := GetDefaultConfigPath()
+		if common.FileExists(defaultPath) {
+			cfg, err = LoadConfig(defaultPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load config from %s: %w", defaultPath, err)
+			}
+		}
+	}
+
+	if cfg == nil {
+		wd, _ := os.Getwd()
+		cfg = DetectAndGenerateConfig(wd, func(dir string) ([]string, error) {
+			return detectAvailableLanguages(dir)
+		})
+		if cfg == nil || len(cfg.Servers) == 0 {
+			common.CLILogger.Debug("Using default configuration for mode %v", mode)
+			cfg = GetDefaultConfig()
+		}
+	}
+
+	if wd, err := os.Getwd(); err == nil {
+		projectPath := GetProjectSpecificCachePath(wd)
+		cfg.SetCacheStoragePath(projectPath)
+	}
+
+	applyModeSettings(cfg, mode)
+	return cfg, nil
+}
+
+// applyModeSettings applies mode-specific configuration adjustments
+func applyModeSettings(cfg *Config, mode ConfigMode) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.ensureCache()
+
+	switch mode {
+	case ModeHTTPGateway:
+		cfg.Cache.Enabled = true
+		cfg.Cache.BackgroundIndex = true
+
+	case ModeMCPServer:
+		cfg.Cache.Enabled = true
+		cfg.Cache.MaxMemoryMB = constants.MCPCacheMemoryMB
+		cfg.Cache.TTLHours = constants.MCPCacheTTLHours
+		cfg.Cache.BackgroundIndex = true
+		cfg.Cache.HealthCheckMinutes = constants.MCPHealthCheckMinutes
+		cfg.Cache.Languages = GetAllSupportedLanguages()
+
+	case ModeCLICommand:
+		if cfg.Cache != nil {
+			cfg.Cache.BackgroundIndex = false
+		}
+
+	case ModeTest:
+		if cfg.Cache != nil {
+			cfg.Cache.MaxMemoryMB = constants.TestCacheMemoryMB
+			cfg.Cache.TTLHours = constants.TestCacheTTLHours
+			cfg.Cache.BackgroundIndex = constants.TestBackgroundIndexing
+			cfg.Cache.HealthCheckMinutes = constants.TestHealthCheckMinutes
+		}
+
+	case ModeDefault:
+	}
+}
+
+// detectAvailableLanguages is a placeholder for language detection
+func detectAvailableLanguages(dir string) ([]string, error) {
+	return nil, fmt.Errorf("language detection not available in config package")
+}
+
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
@@ -301,9 +395,8 @@ func GetProjectSpecificCachePath(workingDir string) string {
 }
 
 // GetDefaultConfigWithCache returns a default configuration with SCIP cache settings
-// Cache is enabled by default with standard production settings
+// Deprecated: Use GetDefaultConfig() or Load() instead. Cache is enabled by default.
 func GetDefaultConfigWithCache() *Config {
-	// GetDefaultConfig() now includes cache by default, so just return it
 	return GetDefaultConfig()
 }
 

@@ -3,17 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/types"
 	versionpkg "lsp-gateway/src/internal/version"
-	"lsp-gateway/src/utils/configloader"
 )
 
 // MCPSymbolService defines the contract required by MCP tools to discover symbols
@@ -59,19 +56,10 @@ type MCPServer struct {
 // NewMCPServer constructs a go-sdk backed MCP server that reuses the shared LSP manager.
 func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 	if cfg == nil {
-		cfg = config.GetDefaultConfig()
+		return nil, fmt.Errorf("configuration required for MCP server")
 	}
 
-	// Ensure cache is enabled and tuned for MCP requests.
-	if !cfg.IsCacheEnabled() {
-		cfg.EnableCache()
-	}
-	cfg.Cache.MaxMemoryMB = constants.MCPCacheMemoryMB
-	cfg.Cache.TTLHours = constants.MCPCacheTTLHours
-	cfg.Cache.BackgroundIndex = true
-	cfg.Cache.HealthCheckMinutes = constants.MCPHealthCheckMinutes
-	cfg.Cache.Languages = config.GetAllSupportedLanguages()
-
+	// Cache configuration already applied by config.Load() with ModeMCPServer
 	lspManager, err := NewLSPManager(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LSP manager: %w", err)
@@ -193,13 +181,9 @@ func (s *MCPServer) ToolDefinition(name string) *mcp.Tool {
 
 // RunMCPServer launches the stdio server using process stdio handles.
 func RunMCPServer(configPath string) error {
-	cfg := configloader.LoadOrAuto(configPath)
-
-	if cfg != nil && cfg.Cache != nil {
-		if wd, err := os.Getwd(); err == nil {
-			projectPath := config.GetProjectSpecificCachePath(wd)
-			cfg.SetCacheStoragePath(projectPath)
-		}
+	cfg, err := config.Load(configPath, config.ModeMCPServer)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	server, err := NewMCPServer(cfg)
