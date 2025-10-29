@@ -247,22 +247,22 @@ func NewRPCError(code int, message string, data interface{}) *RPCError {
 
 // NewParseError creates a parse error (-32700)
 func NewParseError(data interface{}) *RPCError {
-	return NewRPCError(ParseError, "Parse error", data)
+	return NewRPCError(ParseError, errors.GetErrorCodeMessage(ParseError), data)
 }
 
 // NewInvalidRequestError creates an invalid request error (-32600)
 func NewInvalidRequestError(data interface{}) *RPCError {
-	return NewRPCError(InvalidRequest, "Invalid Request", data)
+	return NewRPCError(InvalidRequest, errors.GetErrorCodeMessage(InvalidRequest), data)
 }
 
 // NewMethodNotFoundError creates a method not found error (-32601)
 func NewMethodNotFoundError(data interface{}) *RPCError {
-	return NewRPCError(MethodNotFound, "Method not found", data)
+	return NewRPCError(MethodNotFound, errors.GetErrorCodeMessage(MethodNotFound), data)
 }
 
 // NewInternalError creates an internal error (-32603)
 func NewInternalError(data interface{}) *RPCError {
-	return NewRPCError(InternalError, "Internal error", data)
+	return NewRPCError(InternalError, errors.GetErrorCodeMessage(InternalError), data)
 }
 
 // IsExpectedSuppressibleError checks if an error should be suppressed based on its structure and message

@@ -21,6 +21,20 @@ import (
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/aggregators/base"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/client"
+)
+
+const (
+	langJava             = "java"
+	langKotlin           = "kotlin"
+	langRust             = "rust"
+	langPython           = "python"
+	serverPyrightLS      = "pyright-langserver"
+	serverBasedPyrightLS = "basedpyright-langserver"
+	serverJediLS         = "jedi-language-server"
+	pmUVX                = "uvx"
+	namePyright          = "pyright"
+	nameBasedPyright     = "basedpyright"
 )
 
 type ClientStatus struct {
@@ -372,7 +386,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
 				return fmt.Errorf("%s: invalid LSP server command: %w", language, err)
 			}
-			socketClient, err := NewSocketClient(clientConfig, language, addr)
+			socketClient, err := client.NewSocketClient(clientConfig, language, addr, m.docLifecycleManager)
 			if err == nil {
 				if errStart := socketClient.Start(ctx); errStart == nil {
 					m.mu.Lock()
@@ -400,8 +414,8 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			stdioArgs := []string{"--stdio"}
 			stdioCfg := types.ClientConfig{Command: resolvedCommand, Args: stdioArgs, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 			if err := security.ValidateCommand(resolvedCommand, stdioArgs); err == nil {
-				if stdClient, e2 := NewStdioClient(stdioCfg, language); e2 == nil {
-					if startErr := stdClient.Start(ctx); startErr == nil {
+				if stdClient, e2 := client.NewStdioClient(stdioCfg, language, m.docLifecycleManager); e2 == nil {
+					if startErr := stdClient.Start(ctx); startErr == nil{
 						m.mu.Lock()
 						m.clients[language] = stdClient
 						m.mu.Unlock()
@@ -417,7 +431,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			if p2, e2 := exec.LookPath("kotlin-language-server"); e2 == nil {
 				altCfg := types.ClientConfig{Command: p2, Args: []string{}, WorkingDir: cfg.WorkingDir, InitializationOptions: cfg.InitializationOptions}
 				if err := security.ValidateCommand(p2, nil); err == nil {
-					if fwcdClient, e3 := NewStdioClient(altCfg, language); e3 == nil {
+					if fwcdClient, e3 := client.NewStdioClient(altCfg, language, m.docLifecycleManager); e3 == nil {
 						if startErr := fwcdClient.Start(ctx); startErr == nil {
 							common.LSPLogger.Info("Using fwcd kotlin-language-server via stdio as fallback")
 							m.mu.Lock()
@@ -510,38 +524,38 @@ func (m *LSPManager) tryStartCandidate(ctx context.Context, language string, cfg
 		InitializationOptions: cfg.InitializationOptions,
 	}
 
-	client, err := NewStdioClient(clientConfig, language)
+	lspClient, err := client.NewStdioClient(clientConfig, language, m.docLifecycleManager)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	if err := client.Start(ctx); err != nil {
+	if err := lspClient.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start client: %w", err)
 	}
 
-	if activeClient, ok := client.(interface{ IsActive() bool }); ok {
+	if activeClient, ok := lspClient.(interface{ IsActive() bool }); ok {
 		maxWaitIterations := m.getClientActiveWaitIterations(language)
 		for i := 0; i < maxWaitIterations; i++ {
 			select {
 			case <-ctx.Done():
-				_ = client.Stop()
+				_ = lspClient.Stop()
 				return fmt.Errorf("context cancelled while waiting for client to become active")
 			default:
 				if activeClient.IsActive() {
 					m.mu.Lock()
-					m.clients[language] = client
+					m.clients[language] = lspClient
 					m.mu.Unlock()
 					return nil
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
-		_ = client.Stop()
+		_ = lspClient.Stop()
 		return fmt.Errorf("client did not become active within timeout")
 	}
 
 	m.mu.Lock()
-	m.clients[language] = client
+	m.clients[language] = lspClient
 	m.mu.Unlock()
 	return nil
 }

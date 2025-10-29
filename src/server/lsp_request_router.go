@@ -54,7 +54,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		return nil, errorspkg.NewMethodNotSupportedError(language, method, errorTranslator.GetMethodSuggestion(language, method))
 	}
 	if method != types.MethodWorkspaceSymbol {
-		m.ensureDocumentOpen(client, uri, params)
+		m.ensureDocumentOpen(client, uri, language, params)
 	}
 	result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
 	if err == nil {
@@ -98,7 +98,7 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 			}
 			delay := time.Duration(attempt+1) * baseDelay
 			time.Sleep(delay)
-			m.ensureDocumentOpen(client, uri, params)
+			m.ensureDocumentOpen(client, uri, language, params)
 			continue
 		}
 		if !isNoViewsRPCError(res) {
@@ -110,7 +110,7 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 		if attempt == 0 {
 			common.LSPLogger.Debug("Encountered 'no views' error for %s, retrying...", uri)
 		}
-		m.ensureDocumentOpen(client, uri, params)
+		m.ensureDocumentOpen(client, uri, language, params)
 		delay := time.Duration(attempt+1) * baseDelay
 		var b [1]byte
 		_, _ = cryptoRand.Read(b[:])

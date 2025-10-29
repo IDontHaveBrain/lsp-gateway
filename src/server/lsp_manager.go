@@ -18,20 +18,21 @@ import (
 )
 
 type LSPManager struct {
-	clients             map[string]types.LSPClient
-	clientErrors        map[string]error
-	config              *config.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	mu                  sync.RWMutex
-	documentManager     documents.DocumentManager
-	workspaceAggregator aggregators.WorkspaceSymbolAggregator
-	cacheIntegrator     *cache.CacheIntegrator
-	scipCache           cache.SCIPCache
-	projectInfo         *project.PackageInfo
-	fileWatcher         *watcher.FileWatcher
-	watcherMu           sync.Mutex
-	indexLimiter        chan struct{}
+	clients                map[string]types.LSPClient
+	clientErrors           map[string]error
+	config                 *config.Config
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	mu                     sync.RWMutex
+	documentManager        documents.DocumentManager
+	docLifecycleManager    *documents.DocumentLifecycleManager
+	workspaceAggregator    aggregators.WorkspaceSymbolAggregator
+	cacheIntegrator        *cache.CacheIntegrator
+	scipCache              cache.SCIPCache
+	projectInfo            *project.PackageInfo
+	fileWatcher            *watcher.FileWatcher
+	watcherMu              sync.Mutex
+	indexLimiter           chan struct{}
 }
 
 func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
@@ -47,6 +48,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		ctx:                 ctx,
 		cancel:              cancel,
 		documentManager:     documents.NewLSPDocumentManager(),
+		docLifecycleManager: documents.NewDocumentLifecycleManager(),
 		workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
 		cacheIntegrator:     cacheIntegrator,
 		scipCache:           cacheIntegrator.GetCache(),

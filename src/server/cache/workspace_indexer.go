@@ -29,45 +29,34 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 	for k := range symbolsByFile {
 		files = append(files, k)
 	}
-	// Determine worker count based on environment and project type
+	// Process references using worker pool
 	workers := computeWorkers(hasJavaInLangs(languages))
-	jobs := make(chan int, workers)
-	var wg sync.WaitGroup
-	for wkr := 0; wkr < workers; wkr++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				fileURI := files[idx]
-				fileSymbols := symbolsByFile[fileURI]
-				// Rely on LSP manager to ensure didOpen via DocumentManager
-				localRefs := make(map[string][]scip.SCIPOccurrence)
-				for _, symbol := range fileSymbols {
-					refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
-					if err != nil {
-						continue
-					}
-					for _, ref := range refs {
-						if w.isSelfReference(ref, symbol) {
-							continue
-						}
-						occ := w.createReferenceOccurrence(ref, symbol)
-						localRefs[ref.URI] = append(localRefs[ref.URI], occ)
-					}
-				}
-				// Flush per-doc to storage to bound memory (no global lock needed)
-				for uri, occs := range localRefs {
-					occs = dedupOccurrences(occs)
-					_ = scipCache.AddOccurrences(ctx, uri, occs)
-				}
+	pool := NewWorkerPool(workers)
+	pool.Execute(len(files), func(idx int) error {
+		fileURI := files[idx]
+		fileSymbols := symbolsByFile[fileURI]
+		// Rely on LSP manager to ensure didOpen via DocumentManager
+		localRefs := make(map[string][]scip.SCIPOccurrence)
+		for _, symbol := range fileSymbols {
+			refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+			if err != nil {
+				continue
 			}
-		}()
-	}
-	for i := range files {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
+			for _, ref := range refs {
+				if w.isSelfReference(ref, symbol) {
+					continue
+				}
+				occ := w.createReferenceOccurrence(ref, symbol)
+				localRefs[ref.URI] = append(localRefs[ref.URI], occ)
+			}
+		}
+		// Flush per-doc to storage to bound memory (no global lock needed)
+		for uri, occs := range localRefs {
+			occs = dedupOccurrences(occs)
+			_ = scipCache.AddOccurrences(ctx, uri, occs)
+		}
+		return nil
+	})
 	common.LSPLogger.Debug("Indexing complete: %d symbols (references flushed per doc)", len(symbols))
 	return nil
 }
@@ -89,55 +78,45 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferencesProgress(ctx context
 	if progress != nil {
 		progress("references_start", 0, len(symbols), "")
 	}
-	// Determine worker count based on environment and project type
+	// Process references using worker pool with progress
 	workers := computeWorkers(hasJavaInLangs(languages))
+	pool := NewWorkerPool(workers)
 	var mu sync.Mutex
-	jobs := make(chan int, workers)
 	processed := 0
 	totalSymbols := len(symbols)
-	var wg sync.WaitGroup
-	for wkr := 0; wkr < workers; wkr++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				fileURI := files[idx]
-				fileSymbols := symbolsByFile[fileURI]
-				// Rely on LSPManager.ensureDocumentOpen via ProcessRequest
-				localRefs := make(map[string][]scip.SCIPOccurrence)
-				for _, symbol := range fileSymbols {
-					refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
-					if err != nil {
-						continue
-					}
-					for _, ref := range refs {
-						if w.isSelfReference(ref, symbol) {
-							continue
-						}
-						occ := w.createReferenceOccurrence(ref, symbol)
-						localRefs[ref.URI] = append(localRefs[ref.URI], occ)
-					}
-				}
-				// Flush per-doc to storage to bound memory (no global lock needed)
-				for uri, occs := range localRefs {
-					occs = dedupOccurrences(occs)
-					_ = scipCache.AddOccurrences(ctx, uri, occs)
-				}
-				// No explicit didClose; let LSP manager track lifecycle
-				mu.Lock()
-				processed += len(fileSymbols)
-				if progress != nil {
-					progress("references", processed, totalSymbols, "")
-				}
-				mu.Unlock()
+
+	pool.Execute(len(files), func(idx int) error {
+		fileURI := files[idx]
+		fileSymbols := symbolsByFile[fileURI]
+		// Rely on LSPManager.ensureDocumentOpen via ProcessRequest
+		localRefs := make(map[string][]scip.SCIPOccurrence)
+		for _, symbol := range fileSymbols {
+			refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+			if err != nil {
+				continue
 			}
-		}()
-	}
-	for i := range files {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
+			for _, ref := range refs {
+				if w.isSelfReference(ref, symbol) {
+					continue
+				}
+				occ := w.createReferenceOccurrence(ref, symbol)
+				localRefs[ref.URI] = append(localRefs[ref.URI], occ)
+			}
+		}
+		// Flush per-doc to storage to bound memory (no global lock needed)
+		for uri, occs := range localRefs {
+			occs = dedupOccurrences(occs)
+			_ = scipCache.AddOccurrences(ctx, uri, occs)
+		}
+		// No explicit didClose; let LSP manager track lifecycle
+		mu.Lock()
+		processed += len(fileSymbols)
+		if progress != nil {
+			progress("references", processed, totalSymbols, "")
+		}
+		mu.Unlock()
+		return nil
+	})
 	if progress != nil {
 		// We don't track exact added count after dedup/flush; report completion
 		progress("references_complete", processed, totalSymbols, "")

@@ -12,7 +12,6 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/tests/shared/testconfig"
 
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +28,10 @@ type LSPManagerSetup struct {
 
 // CreateBasicConfig creates a basic LSP configuration
 func CreateBasicConfig() *config.Config {
-	return testconfig.NewBasicGoConfig()
+	return config.NewTestConfigBuilder().
+		WithLanguages("go").
+		WithCachePath("/tmp/test-cache").
+		MustBuild()
 }
 
 // CreateConfigWithCache creates an LSP configuration with cache enabled
@@ -41,7 +43,10 @@ func CreateConfigWithCache(cacheConfig *config.CacheConfig) *config.Config {
 
 // CreateMultiLangConfig creates a configuration for multiple languages
 func CreateMultiLangConfig() *config.Config {
-	return testconfig.NewMultiLangConfig([]string{"go", "python", "typescript"})
+	return config.NewTestConfigBuilder().
+		WithLanguages("go", "python", "typescript").
+		WithCachePath("/tmp/test-cache").
+		MustBuild()
 }
 
 // CreateLSPManagerSetup creates and initializes an LSP manager setup

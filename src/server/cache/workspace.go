@@ -76,57 +76,46 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 	failedFiles := []string{}
 	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
 
-	// Determine worker count based on environment and project type
+	// Process files using worker pool
 	workers := computeWorkers(hasJavaInLangs(languages))
+	pool := NewWorkerPool(workers)
 	var mu sync.Mutex
-	jobs := make(chan int, workers)
 	total := len(files)
 
-	var wg sync.WaitGroup
-	for wkr := 0; wkr < workers; wkr++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				file := files[idx]
-				absPath, err := filepath.Abs(file)
-				if err != nil {
-					mu.Lock()
-					failedFiles = append(failedFiles, file)
-					if progress != nil {
-						progress("index_file", idx+1, total, file)
-					}
-					mu.Unlock()
-					continue
-				}
-				uri := utils.FilePathToURI(absPath)
-				// Use shared context to avoid missing indexes due to per-file timeouts
-				fctx, cancel := context.WithCancel(ctx)
-				params := map[string]interface{}{
-					"textDocument": map[string]interface{}{
-						"uri": uri,
-					},
-				}
-				result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
-				cancel()
-				mu.Lock()
-				if err != nil {
-					failedFiles = append(failedFiles, file)
-				} else if result != nil {
-					indexedCount++
-				}
-				if progress != nil {
-					progress("index_file", idx+1, total, file)
-				}
-				mu.Unlock()
+	pool.Execute(total, func(idx int) error {
+		file := files[idx]
+		absPath, err := filepath.Abs(file)
+		if err != nil {
+			mu.Lock()
+			failedFiles = append(failedFiles, file)
+			if progress != nil {
+				progress("index_file", idx+1, total, file)
 			}
-		}()
-	}
-	for i := range files {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
+			mu.Unlock()
+			return nil
+		}
+		uri := utils.FilePathToURI(absPath)
+		// Use shared context to avoid missing indexes due to per-file timeouts
+		fctx, cancel := context.WithCancel(ctx)
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": uri,
+			},
+		}
+		result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
+		cancel()
+		mu.Lock()
+		if err != nil {
+			failedFiles = append(failedFiles, file)
+		} else if result != nil {
+			indexedCount++
+		}
+		if progress != nil {
+			progress("index_file", idx+1, total, file)
+		}
+		mu.Unlock()
+		return nil
+	})
 	if len(failedFiles) > 0 {
 		common.LSPLogger.Warn("Failed to index %d out of %d files", len(failedFiles), len(files))
 		if len(failedFiles) <= 10 {
@@ -249,59 +238,47 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 
 	// Determine worker count based on environment and file types
 	workers := computeWorkers(hasJavaInFiles(files))
+	pool := NewWorkerPool(workers)
 
 	var mu sync.Mutex
-	jobs := make(chan int, workers)
 	total := len(files)
 
-	var wg sync.WaitGroup
-	for wkr := 0; wkr < workers; wkr++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				file := files[idx]
-				absPath, err := filepath.Abs(file)
-				if err != nil {
-					mu.Lock()
-					failedFiles = append(failedFiles, file)
-					if progress != nil {
-						progress("index_file", idx+1, total, file)
-					}
-					mu.Unlock()
-					continue
-				}
-
-				uri := utils.FilePathToURI(absPath)
-				fctx, cancel := context.WithCancel(ctx)
-				params := map[string]interface{}{
-					"textDocument": map[string]interface{}{
-						"uri": uri,
-					},
-				}
-
-				result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
-				cancel()
-
-				mu.Lock()
-				if err != nil {
-					failedFiles = append(failedFiles, file)
-				} else if result != nil {
-					indexedCount++
-				}
-				if progress != nil {
-					progress("index_file", idx+1, total, file)
-				}
-				mu.Unlock()
+	pool.Execute(total, func(idx int) error {
+		file := files[idx]
+		absPath, err := filepath.Abs(file)
+		if err != nil {
+			mu.Lock()
+			failedFiles = append(failedFiles, file)
+			if progress != nil {
+				progress("index_file", idx+1, total, file)
 			}
-		}()
-	}
+			mu.Unlock()
+			return nil
+		}
 
-	for i := range files {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
+		uri := utils.FilePathToURI(absPath)
+		fctx, cancel := context.WithCancel(ctx)
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": uri,
+			},
+		}
+
+		result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
+		cancel()
+
+		mu.Lock()
+		if err != nil {
+			failedFiles = append(failedFiles, file)
+		} else if result != nil {
+			indexedCount++
+		}
+		if progress != nil {
+			progress("index_file", idx+1, total, file)
+		}
+		mu.Unlock()
+		return nil
+	})
 
 	if len(failedFiles) > 0 {
 		common.LSPLogger.Warn("Failed to index %d out of %d files", len(failedFiles), len(files))

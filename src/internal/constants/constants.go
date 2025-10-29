@@ -32,11 +32,20 @@ const (
 
 // Cache configuration constants
 const (
-	// Default cache settings
-	DefaultCacheMemoryMB      = 512
-	DefaultCacheTTLHours      = 24
-	DefaultHealthCheckMinutes = 5
-	DefaultEvictionPolicy     = "lru"
+	// Production cache settings
+	DefaultCacheMemoryMB       = 512
+	DefaultCacheTTLHours       = 24
+	DefaultHealthCheckMinutes  = 5
+	DefaultEvictionPolicy      = "lru"
+	DefaultBackgroundIndexing  = true
+	DefaultDiskCachePersistence = true
+
+	// Test cache settings (smaller, faster for tests)
+	TestCacheMemoryMB       = 64
+	TestCacheTTLHours       = 1
+	TestHealthCheckMinutes  = 2
+	TestBackgroundIndexing  = false
+	TestDiskCachePersistence = true
 
 	// MCP server optimized cache settings
 	MCPCacheMemoryMB        = 512
@@ -61,6 +70,11 @@ const (
 
 	// Debounce delay for file watching
 	FileWatchDebounceDelay = 500 * time.Millisecond
+
+	// Default paths
+	DefaultConfigFileName = "config.yaml"
+	DefaultLSPToolsDir    = ".lsp-gateway"
+	DefaultCacheDirName   = "scip-cache"
 )
 
 // Protocol constants

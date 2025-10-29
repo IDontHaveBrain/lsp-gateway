@@ -12,7 +12,6 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/src/utils"
 
 	"github.com/stretchr/testify/require"
@@ -42,8 +41,12 @@ type LSPManagerBuilder struct {
 
 // NewLSPManagerBuilder creates a new builder for LSP manager configuration
 func NewLSPManagerBuilder() *LSPManagerBuilder {
+	cfg := config.NewTestConfigBuilder().
+		WithLanguages("go").
+		WithCachePath("/tmp/test-cache").
+		MustBuild()
 	return &LSPManagerBuilder{
-		config:  testconfig.NewBasicGoConfig(),
+		config:  cfg,
 		timeout: 30 * time.Second,
 	}
 }
@@ -99,12 +102,18 @@ func (b *LSPManagerBuilder) BuildAndStart(t *testing.T) *LSPManagerTestSetup {
 func (b *LSPManagerBuilder) createSetup(t *testing.T, autoStart bool) *LSPManagerTestSetup {
 	cfg := b.config
 	if cfg == nil {
-		cfg = testconfig.NewBasicGoConfig()
+		cfg = config.NewTestConfigBuilder().
+			WithLanguages("go").
+			WithCachePath("/tmp/test-cache").
+			MustBuild()
 	}
 
 	// Handle multi-language configuration
 	if len(b.languages) > 0 {
-		cfg = testconfig.NewMultiLangConfig(b.languages)
+		cfg = config.NewTestConfigBuilder().
+			WithLanguages(b.languages...).
+			WithCachePath("/tmp/test-cache").
+			MustBuild()
 	}
 
 	// Setup temporary directory

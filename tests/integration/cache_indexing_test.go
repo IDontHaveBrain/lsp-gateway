@@ -65,18 +65,17 @@ func (u *User) Validate() bool {
 		require.NoError(t, err)
 	}
 
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     64,
-		TTLHours:        1,
-		Languages:       []string{"go"},
-		BackgroundIndex: true,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
-	}
+	cfg := config.NewTestConfigBuilder().
+		WithCachePath(cacheDir).
+		WithCacheMemory(64).
+		WithCacheTTL(1).
+		WithLanguages("go").
+		WithBackgroundIndexing(true).
+		WithDiskCache(true).
+		WithEvictionPolicy("lru").
+		MustBuild()
 
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
+	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
 	require.NotNil(t, scipCache)
 
@@ -217,18 +216,17 @@ func Process` + file[:len(file)-3] + `() error {
 		require.NoError(t, err)
 	}
 
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     64,
-		TTLHours:        1,
-		Languages:       []string{"go"},
-		BackgroundIndex: true,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
-	}
+	cfg := config.NewTestConfigBuilder().
+		WithCachePath(cacheDir).
+		WithCacheMemory(64).
+		WithCacheTTL(1).
+		WithLanguages("go").
+		WithBackgroundIndexing(true).
+		WithDiskCache(true).
+		WithEvictionPolicy("lru").
+		MustBuild()
 
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
+	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
 
 	ctx := context.Background()

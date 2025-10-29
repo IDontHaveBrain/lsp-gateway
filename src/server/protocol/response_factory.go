@@ -1,6 +1,10 @@
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"lsp-gateway/src/internal/errors"
+)
 
 // ResponseFactory provides a centralized way to create JSON-RPC responses
 // eliminating duplication and ensuring consistent response formatting
@@ -89,4 +93,24 @@ func (rf *ResponseFactory) CreateCustomError(id interface{}, rpcErr *RPCError) J
 		ID:      id,
 		Error:   rpcErr,
 	}
+}
+
+// CreateConnectionError creates a JSON-RPC response for connection errors
+func (rf *ResponseFactory) CreateConnectionError(id interface{}, err error) JSONRPCResponse {
+	return rf.CreateError(id, errors.ConnectionFailure, err.Error())
+}
+
+// CreateTimeoutError creates a JSON-RPC response for timeout errors
+func (rf *ResponseFactory) CreateTimeoutError(id interface{}, err error) JSONRPCResponse {
+	return rf.CreateError(id, errors.OperationTimeout, err.Error())
+}
+
+// CreateValidationError creates a JSON-RPC response for validation errors
+func (rf *ResponseFactory) CreateValidationError(id interface{}, err error) JSONRPCResponse {
+	return rf.CreateError(id, errors.InvalidParams, err.Error())
+}
+
+// CreateProcessError creates a JSON-RPC response for process errors
+func (rf *ResponseFactory) CreateProcessError(id interface{}, err error) JSONRPCResponse {
+	return rf.CreateError(id, errors.ProcessStartFailure, err.Error())
 }

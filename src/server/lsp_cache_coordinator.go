@@ -61,16 +61,10 @@ func (m *LSPManager) SetCache(cache cache.SCIPCache) {
 }
 
 // ensureDocumentOpen sends a textDocument/didOpen notification if needed
-func (m *LSPManager) ensureDocumentOpen(client types.LSPClient, uri string, params interface{}) {
-	// Check if this is a StdioClient with document tracking capability
-	if stdioClient, ok := client.(*StdioClient); ok {
-		// Check if document is already open to prevent duplicate didOpen
-		stdioClient.mu.Lock()
-		if stdioClient.openDocs[uri] {
-			stdioClient.mu.Unlock()
-			return
-		}
-		stdioClient.mu.Unlock()
+func (m *LSPManager) ensureDocumentOpen(client types.LSPClient, uri string, language string, params interface{}) {
+	// Check if document is already open using DocumentLifecycleManager
+	if m.docLifecycleManager.IsOpen(uri, language) {
+		return
 	}
 
 	// Use document manager to ensure document is open
@@ -80,10 +74,6 @@ func (m *LSPManager) ensureDocumentOpen(client types.LSPClient, uri string, para
 		return
 	}
 
-	// Mark document as open AFTER successful didOpen (preserve tracking functionality)
-	if stdioClient, ok := client.(*StdioClient); ok {
-		stdioClient.mu.Lock()
-		stdioClient.openDocs[uri] = true
-		stdioClient.mu.Unlock()
-	}
+	// Mark document as open in DocumentLifecycleManager (works for all client types)
+	m.docLifecycleManager.MarkOpen(uri, language, "", 0)
 }

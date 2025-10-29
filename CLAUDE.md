@@ -145,12 +145,6 @@ results := aggregator.Execute(ctx, clients, request, executor)
 
 **Fast workflow**: `make test` runs unit + integration tests
 
-### Quality Gates
-
-```bash
-make lint           # Format + lint (golangci-lint)
-```
-
 ### Configuration
 
 - **Default path**: `~/.lsp-gateway/config.yaml`
@@ -162,8 +156,7 @@ make lint           # Format + lint (golangci-lint)
 
 1. **Always check for nil** before using optional components (`if cache != nil`)
 2. **Use STDIO-safe logging** exclusively (import `common` package loggers)
-3. **Validate all commands** through `security.ValidateCommand()` before execution
-4. **Never assume cache availability** - it's optional by design
+3. **Never assume cache availability** - it's optional by design
 
 ---
 

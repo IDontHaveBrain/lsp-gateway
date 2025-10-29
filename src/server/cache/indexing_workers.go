@@ -57,72 +57,53 @@ func (w *WorkspaceIndexer) IndexSpecificFilesWithReferences(ctx context.Context,
 		filesToProcess = append(filesToProcess, k)
 	}
 
-	// Determine worker count - limit for Java projects to prevent LSP overload
+	// Process references using worker pool
 	workers := computeWorkers(hasJavaInURIs(filesToProcess))
+	pool := NewWorkerPool(workers)
 
-	// Process references
-	var wg sync.WaitGroup
-	fileChan := make(chan string, len(filesToProcess))
-	progressChan := make(chan int, workers)
+	var progressMu sync.Mutex
+	processed := 0
+	total := len(symbols)
 
-	// Progress reporter
-	if progress != nil {
-		go func() {
-			processed := 0
-			total := len(symbols)
-			for range progressChan {
+	pool.Execute(len(filesToProcess), func(idx int) error {
+		fileURI := filesToProcess[idx]
+		fileSymbols := symbolsByFile[fileURI]
+		// Process references for symbols in this file
+		localRefs := make(map[string][]scip.SCIPOccurrence)
+		for _, symbol := range fileSymbols {
+			refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+			if err != nil {
+				if progress != nil {
+					progressMu.Lock()
+					processed++
+					progress("references", processed, total, "")
+					progressMu.Unlock()
+				}
+				continue
+			}
+			for _, ref := range refs {
+				if w.isSelfReference(ref, symbol) {
+					continue
+				}
+				occ := w.createReferenceOccurrence(ref, symbol)
+				localRefs[ref.URI] = append(localRefs[ref.URI], occ)
+			}
+			if progress != nil {
+				progressMu.Lock()
 				processed++
 				progress("references", processed, total, "")
+				progressMu.Unlock()
 			}
-		}()
-	}
+		}
+		// Flush per-doc to storage to bound memory
+		for uri, occs := range localRefs {
+			occs = dedupOccurrences(occs)
+			_ = scipCache.AddOccurrences(ctx, uri, occs)
+		}
+		return nil
+	})
 
-	// Worker goroutines
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for fileURI := range fileChan {
-				fileSymbols := symbolsByFile[fileURI]
-				// Process references for symbols in this file
-				localRefs := make(map[string][]scip.SCIPOccurrence)
-				for _, symbol := range fileSymbols {
-					refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
-					if err != nil {
-						if progress != nil {
-							progressChan <- 1
-						}
-						continue
-					}
-					for _, ref := range refs {
-						if w.isSelfReference(ref, symbol) {
-							continue
-						}
-						occ := w.createReferenceOccurrence(ref, symbol)
-						localRefs[ref.URI] = append(localRefs[ref.URI], occ)
-					}
-					if progress != nil {
-						progressChan <- 1
-					}
-				}
-				// Flush per-doc to storage to bound memory
-				for uri, occs := range localRefs {
-					occs = dedupOccurrences(occs)
-					_ = scipCache.AddOccurrences(ctx, uri, occs)
-				}
-			}
-		}()
-	}
-
-	// Send work to workers
-	for _, fileURI := range filesToProcess {
-		fileChan <- fileURI
-	}
-	close(fileChan)
-
-	wg.Wait()
 	if progress != nil {
-		close(progressChan)
 		progress("references_complete", len(symbols), 0, "")
 	}
 

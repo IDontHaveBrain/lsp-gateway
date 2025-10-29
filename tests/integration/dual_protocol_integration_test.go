@@ -17,7 +17,6 @@ import (
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/tests/shared"
-	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/src/utils"
 
 	"runtime"
@@ -75,18 +74,16 @@ func handleError(err error) {
 	// Create proper URI for HTTP requests
 	testFileURI := utils.FilePathToURI(testFile)
 
-	cfg := testconfig.NewMultiLangConfig([]string{"go", "python", "typescript"})
-	cfg.Cache = &config.CacheConfig{
-		Enabled:            true,
-		StoragePath:        t.TempDir(),
-		MaxMemoryMB:        128,
-		TTLHours:           1,
-		BackgroundIndex:    false,
-		HealthCheckMinutes: 5,
-		EvictionPolicy:     "lru",
-		Languages:          []string{"go", "python", "typescript"},
-		DiskCache:          false,
-	}
+	cfg := config.NewTestConfigBuilder().
+		WithCachePath(t.TempDir()).
+		WithCacheMemory(128).
+		WithCacheTTL(1).
+		WithLanguages("go", "python", "typescript").
+		WithBackgroundIndexing(false).
+		WithHealthCheckInterval(5).
+		WithEvictionPolicy("lru").
+		WithDiskCache(false).
+		MustBuild()
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
@@ -255,8 +252,12 @@ func TestDualProtocolResourceContention(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	cfg := testconfig.NewBasicGoConfig()
-	cfg.Cache = testconfig.NewCustomCacheConfig(true, 8, 1, t.TempDir())
+	cfg := config.NewTestConfigBuilder().
+		WithLanguages("go").
+		WithCachePath(t.TempDir()).
+		WithCacheMemory(8).
+		WithCacheTTL(1).
+		MustBuild()
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)

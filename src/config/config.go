@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/registry"
 )
 
@@ -240,75 +241,29 @@ func validateCacheConfig(cache *CacheConfig) error {
 // GetDefaultConfigPath returns the default configuration file path
 func GetDefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".lsp-gateway", "config.yaml")
+	return filepath.Join(home, constants.DefaultLSPToolsDir, constants.DefaultConfigFileName)
 }
 
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
-	// Platform-specific Kotlin LSP configuration
-	kotlinCommand := "kotlin-lsp"
-	kotlinArgs := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999
-
-	if runtime.GOOS == "windows" {
-		kotlinCommand = "kotlin-language-server" // fwcd version
-		kotlinArgs = []string{}                  // fwcd defaults to stdio mode
-	}
-
-	return &Config{
-		Servers: map[string]*ServerConfig{
-			"go": {
-				Command: "gopls",
-				Args:    []string{"serve"},
-			},
-			"python": {
-				Command: "basedpyright-langserver",
-				Args:    []string{"--stdio"},
-			},
-			"javascript": {
-				Command: "typescript-language-server",
-				Args:    []string{"--stdio"},
-			},
-			"typescript": {
-				Command: "typescript-language-server",
-				Args:    []string{"--stdio"},
-			},
-			"java": {
-				Command: "jdtls",
-				Args:    []string{},
-			},
-			"rust": {
-				Command: "rust-analyzer",
-				Args:    []string{},
-			},
-			"csharp": {
-				Command: "omnisharp",
-				Args:    []string{"-lsp"},
-			},
-			"kotlin": {
-				Command: kotlinCommand,
-				Args:    kotlinArgs,
-			},
-		},
-		// Cache is enabled by default with standard settings
-		Cache: GetDefaultCacheConfig(),
-		MCP:   &MCPConfig{},
-	}
+	cfg, _ := NewConfigBuilder().Build()
+	return cfg
 }
 
 // GetDefaultCacheConfig returns a default cache configuration with simple units (enabled by default)
 func GetDefaultCacheConfig() *CacheConfig {
 	home, _ := os.UserHomeDir()
 	return &CacheConfig{
-		Enabled:            true, // Enabled by default for improved performance
-		StoragePath:        filepath.Join(home, ".lsp-gateway", "scip-cache"),
-		MaxMemoryMB:        512,
-		TTLHours:           24,            // 24 hours for daily development workflow
-		Languages:          []string{"*"}, // Wildcard for all supported languages
-		BackgroundIndex:    true,
-		HealthCheckMinutes: 5, // 5 minutes
-		EvictionPolicy:     "lru",
-		DiskCache:          true, // Enable disk persistence by default for index data
+		Enabled:            true,
+		StoragePath:        filepath.Join(home, constants.DefaultLSPToolsDir, constants.DefaultCacheDirName),
+		MaxMemoryMB:        constants.DefaultCacheMemoryMB,
+		TTLHours:           constants.DefaultCacheTTLHours,
+		Languages:          []string{"*"},
+		BackgroundIndex:    constants.DefaultBackgroundIndexing,
+		HealthCheckMinutes: constants.DefaultHealthCheckMinutes,
+		EvictionPolicy:     constants.DefaultEvictionPolicy,
+		DiskCache:          constants.DefaultDiskCachePersistence,
 	}
 }
 
