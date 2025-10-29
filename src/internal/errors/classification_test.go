@@ -7,9 +7,9 @@ import (
 
 func TestClassifyByPattern(t *testing.T) {
 	tests := []struct {
-		name           string
-		err            error
-		wantClass      ErrorClassification
+		name      string
+		err       error
+		wantClass ErrorClassification
 	}{
 		{
 			name:      "nil error",

@@ -21,8 +21,6 @@ import (
 	"lsp-gateway/src/utils/lspconv"
 )
 
-
-
 func (m *LSPManager) scheduleIndexing(method, uri, language string, params, result interface{}) {
 	go func() {
 		m.indexLimiter <- struct{}{}
@@ -120,7 +118,6 @@ func (m *LSPManager) performIncrementalReindex(files []string) {
 		}
 	}
 }
-
 
 // SymbolReferenceQuery defines parameters for searching symbol references
 type SymbolReferenceQuery struct {
@@ -840,7 +837,6 @@ func (m *LSPManager) compareReferenceRelevance(a, b ReferenceInfo) bool {
 	}
 	return a.LineNumber < b.LineNumber
 }
-
 
 // performSCIPIndexing performs SCIP indexing based on LSP method and response using occurrence-centric approach
 func (m *LSPManager) performSCIPIndexing(ctx context.Context, method, uri, language string, params, result interface{}) {
@@ -1814,4 +1810,3 @@ func (m *LSPManager) findDocumentURIForOccurrence(ctx context.Context, storage s
 	}
 	return ""
 }
-

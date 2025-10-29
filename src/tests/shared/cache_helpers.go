@@ -103,6 +103,6 @@ func CreateReferencesTestData() (string, map[string]interface{}, interface{}) {
 
 func CleanupCache(scipCache cache.SCIPCache) {
 	if scipCache != nil {
-		scipCache.Stop()
+		_ = scipCache.Stop()
 	}
 }

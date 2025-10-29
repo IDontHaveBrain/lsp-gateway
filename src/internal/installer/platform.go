@@ -14,6 +14,9 @@ const (
 	archARM64 = "arm64"
 	archX64   = "x64"
 	jdkTag    = "jdk-21.0.4+7"
+	scriptBat = ".bat"
+	scriptSh  = ".sh"
+	binaryExe = ".exe"
 )
 
 // LSPPlatformInfo implements PlatformInfo interface
@@ -175,7 +178,7 @@ func (p *LSPPlatformInfo) IsDarwin() bool {
 // GetBinaryExtension returns the binary file extension (.exe on Windows, empty otherwise)
 func (p *LSPPlatformInfo) GetBinaryExtension() string {
 	if p.IsWindows() {
-		return ".exe"
+		return binaryExe
 	}
 	return ""
 }
@@ -183,9 +186,9 @@ func (p *LSPPlatformInfo) GetBinaryExtension() string {
 // GetScriptExtension returns the script file extension (.bat on Windows, .sh otherwise)
 func (p *LSPPlatformInfo) GetScriptExtension() string {
 	if p.IsWindows() {
-		return ".bat"
+		return scriptBat
 	}
-	return ".sh"
+	return scriptSh
 }
 
 // FormatBinaryName adds platform-specific extension to binary name

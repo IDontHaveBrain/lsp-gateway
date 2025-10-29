@@ -53,15 +53,15 @@ func (m *MockPlatformInfo) GetNodeInstallCommand() []string {
 }
 
 func (m *MockPlatformInfo) IsWindows() bool {
-	return m.platform == "windows"
+	return m.platform == osWindows
 }
 
 func (m *MockPlatformInfo) IsLinux() bool {
-	return m.platform == "linux"
+	return m.platform == osLinux
 }
 
 func (m *MockPlatformInfo) IsDarwin() bool {
-	return m.platform == "darwin"
+	return m.platform == osDarwin
 }
 
 func (m *MockPlatformInfo) GetBinaryExtension() string {

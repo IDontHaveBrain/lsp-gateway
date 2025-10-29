@@ -17,6 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	indexStatusReady = "ready"
+)
+
 // LSPManagerTestSetup provides comprehensive LSP manager testing utilities
 type LSPManagerTestSetup struct {
 	Manager     *server.LSPManager
@@ -397,11 +401,11 @@ func WaitForIndexing(t *testing.T, manager *server.LSPManager, timeout time.Dura
 			stats := manager.GetIndexStats()
 			switch s := stats.(type) {
 			case *cache.IndexStats:
-				if s.Status == "ready" || s.SymbolCount > 0 {
+				if s.Status == indexStatusReady || s.SymbolCount > 0 {
 					return
 				}
 			case map[string]interface{}:
-				if st, ok := s["status"].(string); ok && st == "ready" {
+				if st, ok := s["status"].(string); ok && st == indexStatusReady {
 					return
 				}
 				// Optional numeric check if provided in map form

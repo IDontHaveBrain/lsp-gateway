@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -41,8 +40,6 @@ type LSPClient struct {
 	capDetector           capabilities.CapabilityDetector
 	jsonrpcProtocol       protocol.JSONRPCProtocol
 	initializationOptions interface{}
-	workspaceFolders      map[string]bool
-	workspaceMu           sync.RWMutex
 }
 
 func newBaseClient(config types.ClientConfig, language string, documentManager *documents.DocumentManager) *LSPClient {
@@ -56,7 +53,6 @@ func newBaseClient(config types.ClientConfig, language string, documentManager *
 		capDetector:           capabilities.NewLSPCapabilityDetector(),
 		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
 		initializationOptions: config.InitializationOptions,
-		workspaceFolders:      make(map[string]bool),
 	}
 }
 

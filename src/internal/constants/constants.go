@@ -33,18 +33,18 @@ const (
 // Cache configuration constants
 const (
 	// Production cache settings
-	DefaultCacheMemoryMB       = 512
-	DefaultCacheTTLHours       = 24
-	DefaultHealthCheckMinutes  = 5
-	DefaultEvictionPolicy      = "lru"
-	DefaultBackgroundIndexing  = true
+	DefaultCacheMemoryMB        = 512
+	DefaultCacheTTLHours        = 24
+	DefaultHealthCheckMinutes   = 5
+	DefaultEvictionPolicy       = "lru"
+	DefaultBackgroundIndexing   = true
 	DefaultDiskCachePersistence = true
 
 	// Test cache settings (smaller, faster for tests)
-	TestCacheMemoryMB       = 64
-	TestCacheTTLHours       = 1
-	TestHealthCheckMinutes  = 2
-	TestBackgroundIndexing  = false
+	TestCacheMemoryMB        = 64
+	TestCacheTTLHours        = 1
+	TestHealthCheckMinutes   = 2
+	TestBackgroundIndexing   = false
 	TestDiskCachePersistence = true
 
 	// MCP server optimized cache settings

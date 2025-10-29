@@ -7,30 +7,38 @@ import (
 	"testing"
 )
 
+const (
+	testPlatformLinux   = "linux"
+	testPlatformDarwin  = "darwin"
+	testPlatformWindows = "windows"
+	scriptExtBat        = ".bat"
+	scriptExtSh         = ".sh"
+)
+
 type testPlatformInfo struct {
 	os string
 }
 
-func (t *testPlatformInfo) GetPlatform() string                             { return t.os }
-func (t *testPlatformInfo) GetArch() string                                 { return "amd64" }
-func (t *testPlatformInfo) GetPlatformString() string                       { return t.os + "-amd64" }
-func (t *testPlatformInfo) IsSupported() bool                               { return true }
+func (t *testPlatformInfo) GetPlatform() string                               { return t.os }
+func (t *testPlatformInfo) GetArch() string                                   { return "amd64" }
+func (t *testPlatformInfo) GetPlatformString() string                         { return t.os + "-amd64" }
+func (t *testPlatformInfo) IsSupported() bool                                 { return true }
 func (t *testPlatformInfo) GetJavaDownloadURL(string) (string, string, error) { return "", "", nil }
-func (t *testPlatformInfo) GetNodeInstallCommand() []string                 { return nil }
-func (t *testPlatformInfo) IsWindows() bool                                 { return t.os == "windows" }
-func (t *testPlatformInfo) IsLinux() bool                                   { return t.os == "linux" }
-func (t *testPlatformInfo) IsDarwin() bool                                  { return t.os == "darwin" }
+func (t *testPlatformInfo) GetNodeInstallCommand() []string                   { return nil }
+func (t *testPlatformInfo) IsWindows() bool                                   { return t.os == testPlatformWindows }
+func (t *testPlatformInfo) IsLinux() bool                                     { return t.os == testPlatformLinux }
+func (t *testPlatformInfo) IsDarwin() bool                                    { return t.os == testPlatformDarwin }
 func (t *testPlatformInfo) GetBinaryExtension() string {
 	if t.IsWindows() {
-		return ".exe"
+		return exeSuffix
 	}
 	return ""
 }
 func (t *testPlatformInfo) GetScriptExtension() string {
 	if t.IsWindows() {
-		return ".bat"
+		return scriptExtBat
 	}
-	return ".sh"
+	return scriptExtSh
 }
 func (t *testPlatformInfo) FormatBinaryName(name string) string {
 	if t.IsWindows() && !strings.HasSuffix(name, ".exe") {

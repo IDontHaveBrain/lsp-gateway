@@ -127,8 +127,8 @@ func (w *WrapperScriptBuilder) buildWindowsWrapper() string {
 	// Execute the actual binary
 	sb.WriteString("REM Execute the language server\n")
 	exeName := filepath.Base(w.executablePath)
-	if !strings.HasSuffix(exeName, ".exe") {
-		exeName += ".exe"
+	if !strings.HasSuffix(exeName, exeSuffix) {
+		exeName += exeSuffix
 	}
 	sb.WriteString(fmt.Sprintf("\"%%SCRIPT_DIR%%\\%s\"", exeName))
 

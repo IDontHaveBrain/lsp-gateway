@@ -35,10 +35,10 @@ func TestFindAssetURL(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		pattern       func(string) bool
-		expectURL     string
-		expectError   bool
+		name        string
+		pattern     func(string) bool
+		expectURL   string
+		expectError bool
 	}{
 		{
 			name:        "Linux asset",
