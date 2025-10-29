@@ -53,13 +53,10 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:        "basedpyright-langserver",
 		DefaultArgs:           []string{"--stdio"},
 		InstallerRequired:     true,
-		InitializationOptions: map[string]interface{}{
-			// Basedpyright expects empty initialization options
-			// Configuration is sent via workspace/didChangeConfiguration after initialization
-		},
-		RequestTimeout:    30 * time.Second,
-		InitializeTimeout: 45 * time.Second, // Basedpyright can take longer to initialize
-		EnvironmentVars:   map[string]string{},
+		InitializationOptions: map[string]interface{}{},
+		RequestTimeout:        30 * time.Second,
+		InitializeTimeout:     45 * time.Second,
+		EnvironmentVars:       map[string]string{},
 		ErrorPatterns: []ErrorPattern{
 			{
 				Pattern: types.MethodWorkspaceSymbol,
@@ -68,54 +65,6 @@ var languageRegistry = map[string]LanguageInfo{
 			{
 				Pattern: "semanticTokens",
 				Message: "Ensure 'basedpyright' is installed via 'pip install basedpyright'",
-			},
-		},
-	},
-	"python-jedi": {
-		Name:              "python",
-		Extensions:        []string{".py", ".pyi"},
-		DefaultCommand:    "jedi-language-server",
-		DefaultArgs:       []string{},
-		InstallerRequired: true,
-		InitializationOptions: map[string]interface{}{
-			"usePlaceholders":    false,
-			"completeUnimported": true,
-		},
-		RequestTimeout:    30 * time.Second,
-		InitializeTimeout: 30 * time.Second,
-		EnvironmentVars:   map[string]string{},
-		ErrorPatterns: []ErrorPattern{
-			{
-				Pattern: types.MethodWorkspaceSymbol,
-				Message: "Ensure 'jedi-language-server' is installed via 'pip install jedi-language-server'",
-			},
-			{
-				Pattern: "semanticTokens",
-				Message: "Ensure 'jedi-language-server' is installed via 'pip install jedi-language-server'",
-			},
-		},
-	},
-	"python-pyright": {
-		Name:                  "python",
-		Extensions:            []string{".py", ".pyi"},
-		DefaultCommand:        "pyright-langserver",
-		DefaultArgs:           []string{"--stdio"},
-		InstallerRequired:     true,
-		InitializationOptions: map[string]interface{}{
-			// Pyright expects empty initialization options
-			// Configuration is sent via workspace/didChangeConfiguration after initialization
-		},
-		RequestTimeout:    30 * time.Second,
-		InitializeTimeout: 45 * time.Second, // Pyright can take longer to initialize
-		EnvironmentVars:   map[string]string{},
-		ErrorPatterns: []ErrorPattern{
-			{
-				Pattern: types.MethodWorkspaceSymbol,
-				Message: "Ensure 'pyright' is installed via 'npm install -g pyright'",
-			},
-			{
-				Pattern: "semanticTokens",
-				Message: "Ensure 'pyright' is installed via 'npm install -g pyright'",
 			},
 		},
 	},
@@ -217,14 +166,14 @@ var languageRegistry = map[string]LanguageInfo{
 		Name:              "kotlin",
 		Extensions:        []string{".kt", ".kts"},
 		DefaultCommand:    "kotlin-lsp",
-		DefaultArgs:       []string{}, // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
+		DefaultArgs:       []string{"--stdio"},
 		InstallerRequired: true,
 		InitializationOptions: map[string]interface{}{
 			"usePlaceholders":    false,
 			"completeUnimported": true,
 		},
 		RequestTimeout:    30 * time.Second,
-		InitializeTimeout: 150 * time.Second, // Increased for Windows CI stability
+		InitializeTimeout: 150 * time.Second,
 		EnvironmentVars:   map[string]string{},
 		ErrorPatterns:     []ErrorPattern{},
 	},
@@ -319,10 +268,6 @@ var allowedCommands = []string{
 	"kotlin-lsp.bat",
 	"kotlin-lsp.cmd",
 	"kotlin-lsp.exe",
-	"kotlin-language-server",
-	"kotlin-language-server.bat",
-	"kotlin-language-server.cmd",
-	"kotlin-language-server.exe",
 }
 
 // GetSupportedLanguages returns all supported language information

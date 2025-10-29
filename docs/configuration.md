@@ -57,7 +57,7 @@ servers:
 | Language   | Command                        | Default Args     | Purpose |
 |------------|--------------------------------|------------------|---------|
 | `go`       | `gopls`                        | `["serve"]`      | Go language server |
-| `python`   | `jedi-language-server`         | `[]`             | Python LSP server (default; supports workspace/symbol) |
+| `python`   | `basedpyright-langserver`      | `["--stdio"]`    | Python LSP server (basedpyright) |
 | `javascript` | `typescript-language-server` | `["--stdio"]`    | JavaScript support |
 | `typescript` | `typescript-language-server` | `["--stdio"]`    | TypeScript support |
 | `java`     | `jdtls`                        | `[]`             | Java language server |
@@ -416,4 +416,4 @@ To create an explicit configuration file, start with the templates in `config-te
 
 ## Python Server
 
-Default server: `jedi-language-server` (supports `workspace/symbol`).
+Default server: `basedpyright-langserver` (supports `workspace/symbol`).

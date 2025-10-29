@@ -263,12 +263,13 @@ var (
 	installPythonCmd = &cobra.Command{
 		Use:   "python",
 		Short: "Install Python language server",
-		Long: `Install Python language server. Supports both jedi-language-server (default) and pyright.
+		Long: `Install Python language server. Supports basedpyright (default), pyright, and jedi.
 
 Examples:
-  lsp-gateway install python                  # Install jedi-language-server (default)
-  lsp-gateway install python --server jedi    # Install jedi-language-server
-  lsp-gateway install python --server pyright # Install pyright`,
+  lsp-gateway install python                       # Install basedpyright (default)
+  lsp-gateway install python --server basedpyright # Install basedpyright
+  lsp-gateway install python --server pyright      # Install pyright
+  lsp-gateway install python --server jedi         # Install jedi-language-server`,
 		RunE: runInstallPythonCmd,
 	}
 

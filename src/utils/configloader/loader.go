@@ -138,21 +138,11 @@ func autoDetectInstalledServers(cfg *config.Config) {
 
 	// Check Kotlin server specifically
 	if kotlinServer, exists := cfg.Servers["kotlin"]; exists {
-		// Auto-detect for JetBrains kotlin-lsp (Linux/macOS)
 		if kotlinServer.Command == "kotlin-lsp" {
 			if _, err := exec.LookPath("kotlin-lsp"); err != nil {
 				if installedKotlinLSPPath := getInstalledKotlinLSPPath(homeDir); installedKotlinLSPPath != "" {
 					common.CLILogger.Info("Auto-detected installed kotlin-lsp at: %s", installedKotlinLSPPath)
 					kotlinServer.Command = installedKotlinLSPPath
-				}
-			}
-		}
-		// Auto-detect for fwcd kotlin-language-server (Windows)
-		if kotlinServer.Command == "kotlin-language-server" {
-			if _, err := exec.LookPath("kotlin-language-server"); err != nil {
-				if installedFwcdPath := getInstalledKotlinLanguageServerPath(homeDir); installedFwcdPath != "" {
-					common.CLILogger.Info("Auto-detected installed kotlin-language-server at: %s", installedFwcdPath)
-					kotlinServer.Command = installedFwcdPath
 				}
 			}
 		}
@@ -214,19 +204,13 @@ func getInstalledOmniSharpPath(homeDir string) string {
 
 // getInstalledKotlinLSPPath returns the path to installed kotlin-lsp if it exists
 func getInstalledKotlinLSPPath(homeDir string) string {
-	// Preferred installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-lsp(.cmd/.bat)
-	// Also support legacy layout without bin and .sh script
 	candidates := []string{}
 	if platform.IsWindows() {
-		// Prefer native .exe if available (more reliable for stdio on Windows)
 		candidates = append(candidates,
 			common.GetLSPToolPath("kotlin", "kotlin-lsp.exe"),
-		)
-		candidates = append(candidates,
 			common.GetLSPToolPath("kotlin", "kotlin-lsp.cmd"),
 			common.GetLSPToolPath("kotlin", "kotlin-lsp.bat"),
 		)
-		// Legacy (no bin)
 		root := common.GetLSPToolRoot("kotlin")
 		candidates = append(candidates,
 			filepath.Join(root, "kotlin-lsp.exe"),
@@ -237,7 +221,6 @@ func getInstalledKotlinLSPPath(homeDir string) string {
 		candidates = append(candidates,
 			common.GetLSPToolPath("kotlin", "kotlin-lsp"),
 		)
-		// Legacy (no bin) + direct .sh
 		root := common.GetLSPToolRoot("kotlin")
 		candidates = append(candidates,
 			filepath.Join(root, "kotlin-lsp"),
@@ -258,44 +241,3 @@ func getInstalledKotlinLSPPath(homeDir string) string {
 
 	return ""
 }
-
-// getInstalledKotlinLanguageServerPath returns the path to installed fwcd kotlin-language-server if it exists
-func getInstalledKotlinLanguageServerPath(homeDir string) string {
-	// Standard installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-language-server(.bat/.exe)
-	candidates := []string{}
-	if platform.IsWindows() {
-		candidates = append(candidates,
-			common.GetLSPToolPath("kotlin", "kotlin-language-server.bat"),
-			common.GetLSPToolPath("kotlin", "kotlin-language-server.exe"),
-			common.GetLSPToolPath("kotlin", "kotlin-language-server"),
-		)
-		// Legacy (no bin)
-		root := common.GetLSPToolRoot("kotlin")
-		candidates = append(candidates,
-			filepath.Join(root, "kotlin-language-server.bat"),
-			filepath.Join(root, "kotlin-language-server.exe"),
-			filepath.Join(root, "kotlin-language-server"),
-		)
-	} else {
-		candidates = append(candidates,
-			common.GetLSPToolPath("kotlin", "kotlin-language-server"),
-		)
-		root := common.GetLSPToolRoot("kotlin")
-		candidates = append(candidates,
-			filepath.Join(root, "kotlin-language-server"),
-		)
-	}
-	for _, p := range candidates {
-		if info, err := os.Stat(p); err == nil {
-			if platform.IsWindows() {
-				return p
-			}
-			if info.Mode()&0111 != 0 {
-				return p
-			}
-		}
-	}
-	return ""
-}
-
-//

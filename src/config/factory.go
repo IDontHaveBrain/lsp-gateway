@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"lsp-gateway/src/internal/constants"
 )
@@ -55,14 +54,6 @@ func getTestDefaultConfig() *Config {
 }
 
 func getDefaultServerConfigs() map[string]*ServerConfig {
-	kotlinCommand := "kotlin-lsp"
-	kotlinArgs := []string{}
-
-	if runtime.GOOS == "windows" {
-		kotlinCommand = "kotlin-language-server"
-		kotlinArgs = []string{}
-	}
-
 	return map[string]*ServerConfig{
 		"go": {
 			Command: "gopls",
@@ -93,8 +84,8 @@ func getDefaultServerConfigs() map[string]*ServerConfig {
 			Args:    []string{"-lsp"},
 		},
 		"kotlin": {
-			Command: kotlinCommand,
-			Args:    kotlinArgs,
+			Command: "kotlin-lsp",
+			Args:    []string{"--stdio"},
 		},
 	}
 }

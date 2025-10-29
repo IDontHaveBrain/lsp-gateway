@@ -13,10 +13,10 @@ servers:
     working_dir: ""
     initialization_options: {}
 
-  # Python Language Server  
+  # Python Language Server
   python:
-    command: "jedi-language-server"
-    args: []
+    command: "basedpyright-langserver"
+    args: ["--stdio"]
     working_dir: ""
     initialization_options: {}
 
@@ -58,7 +58,7 @@ servers:
   # Kotlin Language Server (official JetBrains)
   kotlin:
     command: "kotlin-lsp"
-    args: []
+    args: ["--stdio"]
     working_dir: ""
     initialization_options: {}
 
@@ -90,7 +90,7 @@ cache:
 # 2. Server Commands:
 #    - Ensure language servers are installed on your system
 #    - gopls: go install golang.org/x/tools/gopls@latest
-#    - jedi-language-server: pip install jedi-language-server
+#    - basedpyright-langserver: pip install basedpyright
 #    - typescript-language-server: npm install -g typescript-language-server typescript
 #    - jdtls: Download from Eclipse JDT LS releases
 #    - rust-analyzer: rustup component add rust-analyzer

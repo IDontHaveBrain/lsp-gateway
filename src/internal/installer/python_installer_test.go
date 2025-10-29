@@ -18,15 +18,31 @@ func TestPythonInstallerPyrightSupport(t *testing.T) {
 		expectError  bool
 	}{
 		{
-			name:         "default to jedi",
+			name:         "default to basedpyright",
 			serverOption: "",
-			expectedCmd:  "jedi-language-server",
-			expectedArgs: []string{},
-			expectedPkg:  "jedi-language-server",
+			expectedCmd:  "basedpyright-langserver",
+			expectedArgs: []string{"--stdio"},
+			expectedPkg:  "basedpyright",
 			expectedMgr:  "pip",
 		},
 		{
-			name:         "explicit jedi",
+			name:         "explicit basedpyright",
+			serverOption: "basedpyright",
+			expectedCmd:  "basedpyright-langserver",
+			expectedArgs: []string{"--stdio"},
+			expectedPkg:  "basedpyright",
+			expectedMgr:  "pip",
+		},
+		{
+			name:         "basedpyright-langserver",
+			serverOption: "basedpyright-langserver",
+			expectedCmd:  "basedpyright-langserver",
+			expectedArgs: []string{"--stdio"},
+			expectedPkg:  "basedpyright",
+			expectedMgr:  "pip",
+		},
+		{
+			name:         "jedi",
 			serverOption: "jedi",
 			expectedCmd:  "jedi-language-server",
 			expectedArgs: []string{},

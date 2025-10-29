@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	kotlinLSPName           = "kotlin-lsp"
-	kotlinLanguageServerBin = "kotlin-language-server"
+	kotlinLSPName = "kotlin-lsp"
 )
 
 // KotlinInstaller handles Kotlin language server installation
@@ -27,16 +26,7 @@ type KotlinInstaller struct {
 
 // NewKotlinInstaller creates a new Kotlin installer
 func NewKotlinInstaller(platform PlatformInfo) *KotlinInstaller {
-	// Use kotlin-language-server on Windows, kotlin-lsp on other platforms
-	command := kotlinLSPName
-	args := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
-
-	if platform.IsWindows() {
-		command = kotlinLanguageServerBin
-		args = []string{} // fwcd kotlin-language-server defaults to stdio mode
-	}
-
-	base := CreateSimpleInstaller("kotlin", command, args, platform)
+	base := CreateSimpleInstaller("kotlin", kotlinLSPName, []string{"--stdio"}, platform)
 	return &KotlinInstaller{BaseInstaller: base}
 }
 
@@ -65,8 +55,7 @@ func (k *KotlinInstaller) Install(ctx context.Context, options InstallOptions) e
 		}
 	}
 
-	// Fallback to GitHub binary download
-	// Use fwcd/kotlin-language-server on Windows, JetBrains version on other platforms
+	// Fallback to GitHub binary download (JetBrains kotlin-lsp on all platforms)
 	return k.installFromGitHub(ctx, options)
 }
 
@@ -89,11 +78,7 @@ func (k *KotlinInstaller) tryBrewInstall(ctx context.Context) error {
 
 // installFromGitHub downloads and installs from GitHub releases
 func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options InstallOptions) error {
-	if k.platform.IsWindows() {
-		common.CLILogger.Info("Installing kotlin-language-server from fwcd/kotlin-language-server GitHub releases...")
-	} else {
-		common.CLILogger.Info("Installing kotlin-lsp from JetBrains GitHub releases...")
-	}
+	common.CLILogger.Info("Installing kotlin-lsp from JetBrains GitHub releases...")
 
 	installPath := k.GetInstallPath()
 	if options.InstallPath != "" {
@@ -143,23 +128,6 @@ func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options Install
 
 // getGitHubReleaseURL gets the download URL for the latest release
 func (k *KotlinInstaller) getGitHubReleaseURL(ctx context.Context) (string, error) {
-	// Use fwcd/kotlin-language-server on Windows, JetBrains version on other platforms
-	if k.platform.IsWindows() {
-		fetcher := NewGitHubReleaseFetcher("fwcd", "kotlin-language-server")
-		release, err := fetcher.FetchLatestRelease(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to fetch fwcd/kotlin-language-server release: %w", err)
-		}
-
-		url, err := fetcher.FindAssetURL(release, func(name string) bool {
-			return name == "server.zip"
-		})
-		if err != nil {
-			return "", fmt.Errorf("no server.zip found in kotlin-language-server release")
-		}
-		return url, nil
-	}
-
 	// JetBrains Kotlin LSP requires custom parsing of release body
 	apiURL := "https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
@@ -241,75 +209,41 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Set up the appropriate command based on platform
-	if k.platform.IsWindows() {
-		// fwcd/kotlin-language-server structure: the extracted server has bin/kotlin-language-server.bat
-		// First check if there's a server subdirectory (common extraction pattern)
-		serverDir := filepath.Join(installPath, "server")
-		if _, err := os.Stat(serverDir); err == nil {
-			// Move contents of server directory to installPath
-			if err := copyDirContents(serverDir, installPath); err == nil {
-				if rmErr := os.RemoveAll(serverDir); rmErr != nil && !os.IsNotExist(rmErr) {
-					common.CLILogger.Warn("Failed to remove server temp dir: %v", rmErr)
-				}
-			}
-		}
+	// Set up the command for all platforms (JetBrains kotlin-lsp)
+	shPath := filepath.Join(installPath, "kotlin-lsp.sh")
+	if _, err := os.Stat(shPath); err != nil {
+		return fmt.Errorf("kotlin-lsp.sh not found in extracted content")
+	}
 
-		// Now look for the batch file or executable
-		fwcdBatPath := filepath.Join(installPath, "bin", "kotlin-language-server.bat")
-		fwcdExePath := filepath.Join(installPath, "bin", "kotlin-language-server")
+	// Make executable
+	if err := os.Chmod(shPath, 0700); err != nil {
+		return fmt.Errorf("failed to make kotlin-lsp.sh executable: %w", err)
+	}
 
-		if _, err := os.Stat(fwcdBatPath); err == nil {
-			k.serverConfig.Command = fwcdBatPath
-		} else if _, err := os.Stat(fwcdExePath); err == nil {
-			// Unix-style script might work with Git Bash/WSL on Windows
-			k.serverConfig.Command = fwcdExePath
+	// Create a symlink in bin without .sh extension
+	linkPath := filepath.Join(binDir, "kotlin-lsp")
+	if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
+		common.CLILogger.Warn("Failed to remove existing link: %v", err)
+	}
+	if err := os.Symlink(shPath, linkPath); err != nil {
+		// If symlink fails, copy the script as bin/kotlin-lsp
+		common.CLILogger.Warn("Failed to create symlink, copying script to bin: %v", err)
+		if err := copyFile(shPath, linkPath); err != nil {
+			// Fallback: use the .sh path directly
+			k.serverConfig.Command = shPath
 		} else {
-			return fmt.Errorf("kotlin-language-server executable not found")
-		}
-	} else {
-		// Unix-like systems use the .sh script
-		shPath := filepath.Join(installPath, "kotlin-lsp.sh")
-		if _, err := os.Stat(shPath); err != nil {
-			return fmt.Errorf("kotlin-lsp.sh not found in extracted content")
-		}
-
-		// Make executable
-		if err := os.Chmod(shPath, 0700); err != nil {
-			return fmt.Errorf("failed to make kotlin-lsp.sh executable: %w", err)
-		}
-
-		// Create a symlink in bin without .sh extension
-		linkPath := filepath.Join(binDir, "kotlin-lsp")
-		if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
-			common.CLILogger.Warn("Failed to remove existing link: %v", err)
-		}
-		if err := os.Symlink(shPath, linkPath); err != nil {
-			// If symlink fails, copy the script as bin/kotlin-lsp
-			common.CLILogger.Warn("Failed to create symlink, copying script to bin: %v", err)
-			if err := copyFile(shPath, linkPath); err != nil {
-				// Fallback: use the .sh path directly
-				k.serverConfig.Command = shPath
+			if err := os.Chmod(linkPath, 0700); err == nil {
+				k.serverConfig.Command = linkPath
 			} else {
-				if err := os.Chmod(linkPath, 0700); err == nil {
-					k.serverConfig.Command = linkPath
-				} else {
-					k.serverConfig.Command = shPath
-				}
+				k.serverConfig.Command = shPath
 			}
-		} else {
-			k.serverConfig.Command = linkPath
 		}
+	} else {
+		k.serverConfig.Command = linkPath
 	}
 
-	// Set correct args based on the server type
-	if k.platform.IsWindows() {
-		// fwcd kotlin-language-server defaults to stdio mode
-		k.serverConfig.Args = []string{}
-	} else {
-		// JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
-		k.serverConfig.Args = []string{}
-	}
+	// Use STDIO mode on all platforms
+	k.serverConfig.Args = []string{"--stdio"}
 
 	// Log the actual command that will be used
 	common.CLILogger.Info("Kotlin Language Server setup completed at %s", installPath)
@@ -354,24 +288,6 @@ func (k *KotlinInstaller) testKotlinLSP(ctx context.Context) bool {
 	}
 
 	if k.platform.IsWindows() {
-		// Check for fwcd kotlin-language-server first
-		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-language-server", "--version"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server"
-			return true
-		}
-		if _, err := exec.LookPath("kotlin-language-server"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server"
-			return true
-		}
-		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-language-server.bat", "--version"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server.bat"
-			return true
-		}
-		if _, err := exec.LookPath("kotlin-language-server.bat"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server.bat"
-			return true
-		}
-		// Then check for JetBrains kotlin-lsp as fallback
 		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.cmd", "--version"); err == nil {
 			k.serverConfig.Command = "kotlin-lsp.cmd"
 			return true
@@ -399,9 +315,7 @@ func (k *KotlinInstaller) testKotlinLSP(ctx context.Context) bool {
 	}
 
 	installPath := k.GetInstallPath()
-	// Check for both kotlin-language-server and kotlin-lsp
-	candidates := []string{"kotlin-language-server", "kotlin-lsp"}
-	if cmd := common.FirstExistingExecutable(installPath, candidates); cmd != "" {
+	if cmd := common.FirstExistingExecutable(installPath, []string{"kotlin-lsp"}); cmd != "" {
 		if _, err := k.RunCommandWithOutput(testCtx, cmd, "--version"); err == nil {
 			k.serverConfig.Command = cmd
 			return true

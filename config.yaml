@@ -9,10 +9,10 @@ servers:
     working_dir: ""
     initialization_options: {}
 
-  # Python Language Server  
+  # Python Language Server
   python:
-    command: "jedi-language-server"
-    args: []
+    command: "basedpyright-langserver"
+    args: ["--stdio"]
     working_dir: ""
     initialization_options: {}
 

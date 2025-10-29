@@ -64,7 +64,7 @@ func (m *LSPManager) resolveWindowsJDTLS(command string) string {
 func (m *LSPManager) resolveCustomLanguageMap(command string) string {
 	switch command {
 	case "gopls", "pylsp", serverJediLS, serverPyrightLS, serverBasedPyrightLS,
-		"typescript-language-server", "omnisharp", "OmniSharp", "kotlin-lsp", "kotlin-language-server":
+		"typescript-language-server", "omnisharp", "OmniSharp", "kotlin-lsp":
 	default:
 		return ""
 	}
@@ -78,7 +78,6 @@ func (m *LSPManager) resolveCustomLanguageMap(command string) string {
 		"omnisharp":                  "csharp",
 		"OmniSharp":                  "csharp",
 		"kotlin-lsp":                 "kotlin",
-		"kotlin-language-server":     "kotlin",
 	}
 	lang, exists := languageMap[command]
 	if !exists {
@@ -97,16 +96,6 @@ func (m *LSPManager) resolveCustomLanguageMap(command string) string {
 				customPath = exePath
 			} else {
 				customPath = customPath + ".cmd"
-			}
-		case "kotlin-language-server":
-			batPath := common.GetLSPToolPath("kotlin", "kotlin-language-server.bat")
-			if common.FileExists(batPath) {
-				customPath = batPath
-			} else {
-				exePath := common.GetLSPToolPath("kotlin", "kotlin-language-server.exe")
-				if common.FileExists(exePath) {
-					customPath = exePath
-				}
 			}
 		}
 	}

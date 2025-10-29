@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,32 +23,12 @@ import (
 )
 
 func getKotlinCommand() string {
-	// Use platform-specific command
-	if runtime.GOOS == "windows" {
-		// Check for installed kotlin-language-server first
-		homeDir, _ := os.UserHomeDir()
-		if homeDir != "" {
-			installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server.bat")
-			if _, err := os.Stat(installedPath); err == nil {
-				return installedPath
-			}
-			// Try without .bat extension
-			installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server")
-			if _, err := os.Stat(installedPath); err == nil {
-				return installedPath
-			}
-		}
-		return "kotlin-language-server"
-	}
-
-	// Unix-like systems
 	homeDir, _ := os.UserHomeDir()
 	if homeDir != "" {
 		installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "kotlin-lsp")
 		if _, err := os.Stat(installedPath); err == nil {
 			return installedPath
 		}
-		// Try bin directory
 		installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-lsp")
 		if _, err := os.Stat(installedPath); err == nil {
 			return installedPath
@@ -338,7 +317,7 @@ suspend fun main() {
 			},
 			"kotlin": {
 				Command: getKotlinCommand(),
-				Args:    []string{},
+				Args:    []string{"--stdio"},
 			},
 		},
 	}

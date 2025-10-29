@@ -25,12 +25,12 @@ servers:
 # =============================================================================
 # servers:
 #   python:
-#     command: "jedi-language-server"
-#     args: []
+#     command: "basedpyright-langserver"
+#     args: ["--stdio"]
 #     working_dir: ""
 #     initialization_options: {}
 
-# Prerequisites: pip install jedi-language-server
+# Prerequisites: pip install basedpyright
 # File types: .py, .pyi
 # Usage: lsp-gateway server --config config.yaml
 
@@ -112,7 +112,7 @@ servers:
 # servers:
 #   kotlin:
 #     command: "kotlin-lsp"
-#     args: []
+#     args: ["--stdio"]
 #     working_dir: ""
 #     initialization_options: {}
 
