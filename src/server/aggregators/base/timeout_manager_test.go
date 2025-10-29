@@ -158,136 +158,136 @@ func TestTimeoutManager_WithGlobalMultiplier(t *testing.T) {
 }
 
 func TestTimeoutManager_GetTimeout_SupportedLanguages(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().ForOperation(OperationRequest)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
-        testCases := []struct {
-            language        string
-            expectedTimeout time.Duration
-        }{
-            {"go", 15 * time.Second},
-            {"javascript", 15 * time.Second},
-            {"typescript", 15 * time.Second},
-            {"rust", 15 * time.Second},
-            {"python", 30 * time.Second},
-            {"java", 90 * time.Second},
-        }
+		testCases := []struct {
+			language        string
+			expectedTimeout time.Duration
+		}{
+			{"go", 15 * time.Second},
+			{"javascript", 15 * time.Second},
+			{"typescript", 15 * time.Second},
+			{"rust", 15 * time.Second},
+			{"python", 30 * time.Second},
+			{"java", 90 * time.Second},
+		}
 
-        for _, tc := range testCases {
-            timeout := tm.GetTimeout(tc.language)
-            if timeout != tc.expectedTimeout {
-                t.Errorf("Expected %v timeout for %s, got %v", tc.expectedTimeout, tc.language, timeout)
-            }
-        }
-    })
+		for _, tc := range testCases {
+			timeout := tm.GetTimeout(tc.language)
+			if timeout != tc.expectedTimeout {
+				t.Errorf("Expected %v timeout for %s, got %v", tc.expectedTimeout, tc.language, timeout)
+			}
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_OperationTypes(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        testCases := []struct {
-            operation OperationType
-            language  string
-            expected  time.Duration
-        }{
-		{OperationInitialize, "go", 15 * time.Second},
-		{OperationInitialize, "python", 45 * time.Second}, // basedpyright has 45s init timeout
-		{OperationInitialize, "java", 90 * time.Second},
-		{OperationRequest, "go", 15 * time.Second},
-		{OperationRequest, "python", 30 * time.Second},
-		{OperationRequest, "java", 90 * time.Second},
-		{OperationShutdown, "go", constants.ProcessShutdownTimeout},
-		{OperationShutdown, "python", constants.ProcessShutdownTimeout},
-		{OperationShutdown, "java", constants.ProcessShutdownTimeout},
-	}
+	withCIEnvironment(t, ciTypeNone, func() {
+		testCases := []struct {
+			operation OperationType
+			language  string
+			expected  time.Duration
+		}{
+			{OperationInitialize, "go", 15 * time.Second},
+			{OperationInitialize, "python", 45 * time.Second}, // basedpyright has 45s init timeout
+			{OperationInitialize, "java", 90 * time.Second},
+			{OperationRequest, "go", 15 * time.Second},
+			{OperationRequest, "python", 30 * time.Second},
+			{OperationRequest, "java", 90 * time.Second},
+			{OperationShutdown, "go", constants.ProcessShutdownTimeout},
+			{OperationShutdown, "python", constants.ProcessShutdownTimeout},
+			{OperationShutdown, "java", constants.ProcessShutdownTimeout},
+		}
 
-    for _, tc := range testCases {
-        tm := NewTimeoutManager().ForOperation(tc.operation)
-        timeout := tm.GetTimeout(tc.language)
-        if timeout != tc.expected {
-            t.Errorf("Expected %v timeout for %s/%s, got %v", tc.expected, tc.operation, tc.language, timeout)
-        }
-    }
-    })
+		for _, tc := range testCases {
+			tm := NewTimeoutManager().ForOperation(tc.operation)
+			timeout := tm.GetTimeout(tc.language)
+			if timeout != tc.expected {
+				t.Errorf("Expected %v timeout for %s/%s, got %v", tc.expected, tc.operation, tc.language, timeout)
+			}
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_UnknownOperation(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager()
-        tm.operationType = OperationType("unknown")
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager()
+		tm.operationType = OperationType("unknown")
 
-        // Should fall back to request timeout for unknown operation
-        timeout := tm.GetTimeout("go")
-        expected := 15 * time.Second // Go request timeout
-        if timeout != expected {
-            t.Errorf("Expected fallback to request timeout %v for unknown operation, got %v", expected, timeout)
-        }
-    })
+		// Should fall back to request timeout for unknown operation
+		timeout := tm.GetTimeout("go")
+		expected := 15 * time.Second // Go request timeout
+		if timeout != expected {
+			t.Errorf("Expected fallback to request timeout %v for unknown operation, got %v", expected, timeout)
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_UnknownLanguage(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().ForOperation(OperationRequest)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
-        // Should fall back to default timeout for unknown language
-        timeout := tm.GetTimeout("unknown")
-        expected := constants.DefaultRequestTimeout
-        if timeout != expected {
-            t.Errorf("Expected default request timeout %v for unknown language, got %v", expected, timeout)
-        }
+		// Should fall back to default timeout for unknown language
+		timeout := tm.GetTimeout("unknown")
+		expected := constants.DefaultRequestTimeout
+		if timeout != expected {
+			t.Errorf("Expected default request timeout %v for unknown language, got %v", expected, timeout)
+		}
 
-        // Test with initialize operation
-        tm.ForOperation(OperationInitialize)
-        timeout = tm.GetTimeout("unknown")
-        expected = constants.DefaultInitializeTimeout
-        if timeout != expected {
-            t.Errorf("Expected default initialize timeout %v for unknown language, got %v", expected, timeout)
-        }
-    })
+		// Test with initialize operation
+		tm.ForOperation(OperationInitialize)
+		timeout = tm.GetTimeout("unknown")
+		expected = constants.DefaultInitializeTimeout
+		if timeout != expected {
+			t.Errorf("Expected default initialize timeout %v for unknown language, got %v", expected, timeout)
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_CustomTimeouts(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().
-            WithCustomTimeout("go", 25*time.Second).
-            WithCustomTimeout("python", 45*time.Second)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().
+			WithCustomTimeout("go", 25*time.Second).
+			WithCustomTimeout("python", 45*time.Second)
 
-        // Custom timeouts should override language defaults
-        if timeout := tm.GetTimeout("go"); timeout != 25*time.Second {
-            t.Errorf("Expected custom timeout 25s for go, got %v", timeout)
-        }
+		// Custom timeouts should override language defaults
+		if timeout := tm.GetTimeout("go"); timeout != 25*time.Second {
+			t.Errorf("Expected custom timeout 25s for go, got %v", timeout)
+		}
 
-        if timeout := tm.GetTimeout("python"); timeout != 45*time.Second {
-            t.Errorf("Expected custom timeout 45s for python, got %v", timeout)
-        }
+		if timeout := tm.GetTimeout("python"); timeout != 45*time.Second {
+			t.Errorf("Expected custom timeout 45s for python, got %v", timeout)
+		}
 
-        // Non-custom language should use default
-        if timeout := tm.GetTimeout("java"); timeout != 90*time.Second {
-            t.Errorf("Expected default timeout 90s for java, got %v", timeout)
-        }
-    })
+		// Non-custom language should use default
+		if timeout := tm.GetTimeout("java"); timeout != 90*time.Second {
+			t.Errorf("Expected default timeout 90s for java, got %v", timeout)
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_GlobalMultiplier(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        testCases := []struct {
-            multiplier  float64
-            language    string
-            baseTimeout time.Duration
-        }{
-            {0.5, "go", 15 * time.Second},
-            {2.0, "python", 30 * time.Second},
-            {1.5, "java", 90 * time.Second},
-        }
+	withCIEnvironment(t, ciTypeNone, func() {
+		testCases := []struct {
+			multiplier  float64
+			language    string
+			baseTimeout time.Duration
+		}{
+			{0.5, "go", 15 * time.Second},
+			{2.0, "python", 30 * time.Second},
+			{1.5, "java", 90 * time.Second},
+		}
 
-        for _, tc := range testCases {
-            tm := NewTimeoutManager().WithGlobalMultiplier(tc.multiplier)
-            timeout := tm.GetTimeout(tc.language)
-            expected := time.Duration(float64(tc.baseTimeout) * tc.multiplier)
-            if timeout != expected {
-                t.Errorf("Expected timeout %v with multiplier %f for %s, got %v", expected, tc.multiplier, tc.language, timeout)
-            }
-        }
-    })
+		for _, tc := range testCases {
+			tm := NewTimeoutManager().WithGlobalMultiplier(tc.multiplier)
+			timeout := tm.GetTimeout(tc.language)
+			expected := time.Duration(float64(tc.baseTimeout) * tc.multiplier)
+			if timeout != expected {
+				t.Errorf("Expected timeout %v with multiplier %f for %s, got %v", expected, tc.multiplier, tc.language, timeout)
+			}
+		}
+	})
 }
 
 func TestTimeoutManager_GetTimeout_CustomTimeoutWithMultiplier(t *testing.T) {
@@ -312,141 +312,141 @@ func TestTimeoutManager_GetTimeout_ZeroMultiplier(t *testing.T) {
 }
 
 func TestTimeoutManager_CreateContext(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager()
-        parent := context.Background()
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager()
+		parent := context.Background()
 
-        ctx, cancel := tm.CreateContext(parent, "go")
-        defer cancel()
+		ctx, cancel := tm.CreateContext(parent, "go")
+		defer cancel()
 
-        if ctx == nil {
-            t.Error("Expected non-nil context")
-        }
+		if ctx == nil {
+			t.Error("Expected non-nil context")
+		}
 
-        // Verify the context has the correct timeout
-        deadline, ok := ctx.Deadline()
-        if !ok {
-            t.Error("Expected context to have deadline")
-        }
+		// Verify the context has the correct timeout
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Error("Expected context to have deadline")
+		}
 
-        expectedTimeout := tm.GetTimeout("go")
-        actualDuration := time.Until(deadline)
+		expectedTimeout := tm.GetTimeout("go")
+		actualDuration := time.Until(deadline)
 
-        // Allow small tolerance for execution time
-        tolerance := 100 * time.Millisecond
-        if actualDuration < expectedTimeout-tolerance || actualDuration > expectedTimeout+tolerance {
-            t.Errorf("Expected timeout around %v, got %v", expectedTimeout, actualDuration)
-        }
-    })
+		// Allow small tolerance for execution time
+		tolerance := 100 * time.Millisecond
+		if actualDuration < expectedTimeout-tolerance || actualDuration > expectedTimeout+tolerance {
+			t.Errorf("Expected timeout around %v, got %v", expectedTimeout, actualDuration)
+		}
+	})
 }
 
 func TestTimeoutManager_CreateContext_NilParent(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager()
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager()
 
-        ctx, cancel := tm.CreateContext(context.TODO(), "go")
-        defer cancel()
+		ctx, cancel := tm.CreateContext(context.TODO(), "go")
+		defer cancel()
 
-        if ctx == nil {
-            t.Error("Expected non-nil context even with nil parent")
-        }
+		if ctx == nil {
+			t.Error("Expected non-nil context even with nil parent")
+		}
 
-        _, ok := ctx.Deadline()
-        if !ok {
-            t.Error("Expected context to have deadline")
-        }
-    })
+		_, ok := ctx.Deadline()
+		if !ok {
+			t.Error("Expected context to have deadline")
+		}
+	})
 }
 
 func TestTimeoutManager_GetOverallTimeout(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().ForOperation(OperationRequest)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
-        testCases := []struct {
-            name      string
-            languages []string
-            expected  time.Duration
-        }{
-            {
-                name:      "single language",
-                languages: []string{"go"},
-                expected:  15 * time.Second,
-            },
-            {
-                name:      "multiple languages - max timeout",
-                languages: []string{"go", "python", "java"},
-                expected:  90 * time.Second, // Java has the highest timeout
-            },
-            {
-                name:      "mixed fast languages",
-                languages: []string{"go", "typescript", "rust"},
-                expected:  15 * time.Second,
-            },
-            {
-                name:      "python and java",
-                languages: []string{"python", "java"},
-                expected:  90 * time.Second, // Java wins
-            },
-        }
+		testCases := []struct {
+			name      string
+			languages []string
+			expected  time.Duration
+		}{
+			{
+				name:      "single language",
+				languages: []string{"go"},
+				expected:  15 * time.Second,
+			},
+			{
+				name:      "multiple languages - max timeout",
+				languages: []string{"go", "python", "java"},
+				expected:  90 * time.Second, // Java has the highest timeout
+			},
+			{
+				name:      "mixed fast languages",
+				languages: []string{"go", "typescript", "rust"},
+				expected:  15 * time.Second,
+			},
+			{
+				name:      "python and java",
+				languages: []string{"python", "java"},
+				expected:  90 * time.Second, // Java wins
+			},
+		}
 
-        for _, tc := range testCases {
-            t.Run(tc.name, func(t *testing.T) {
-                timeout := tm.GetOverallTimeout(tc.languages)
-                if timeout != tc.expected {
-                    t.Errorf("Expected overall timeout %v for languages %v, got %v", tc.expected, tc.languages, timeout)
-                }
-            })
-        }
-    })
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				timeout := tm.GetOverallTimeout(tc.languages)
+				if timeout != tc.expected {
+					t.Errorf("Expected overall timeout %v for languages %v, got %v", tc.expected, tc.languages, timeout)
+				}
+			})
+		}
+	})
 }
 
 func TestTimeoutManager_GetOverallTimeout_EmptyLanguages(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        testCases := []struct {
-            operation OperationType
-            expected  time.Duration
-        }{
-            {OperationRequest, constants.DefaultRequestTimeout},
-            {OperationInitialize, constants.DefaultInitializeTimeout},
-            {OperationShutdown, constants.ProcessShutdownTimeout},
-        }
+	withCIEnvironment(t, ciTypeNone, func() {
+		testCases := []struct {
+			operation OperationType
+			expected  time.Duration
+		}{
+			{OperationRequest, constants.DefaultRequestTimeout},
+			{OperationInitialize, constants.DefaultInitializeTimeout},
+			{OperationShutdown, constants.ProcessShutdownTimeout},
+		}
 
-        for _, tc := range testCases {
-            tm := NewTimeoutManager().ForOperation(tc.operation)
-            timeout := tm.GetOverallTimeout([]string{})
-            if timeout != tc.expected {
-                t.Errorf("Expected default timeout %v for empty languages with %s operation, got %v", tc.expected, tc.operation, timeout)
-            }
-        }
-    })
+		for _, tc := range testCases {
+			tm := NewTimeoutManager().ForOperation(tc.operation)
+			timeout := tm.GetOverallTimeout([]string{})
+			if timeout != tc.expected {
+				t.Errorf("Expected default timeout %v for empty languages with %s operation, got %v", tc.expected, tc.operation, timeout)
+			}
+		}
+	})
 }
 
 func TestTimeoutManager_GetOverallTimeout_UnknownLanguages(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().ForOperation(OperationRequest)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().ForOperation(OperationRequest)
 
-        // All unknown languages should fall back to default
-        timeout := tm.GetOverallTimeout([]string{"unknown1", "unknown2"})
-        expected := constants.DefaultRequestTimeout
-        if timeout != expected {
-            t.Errorf("Expected default timeout %v for unknown languages, got %v", expected, timeout)
-        }
-    })
+		// All unknown languages should fall back to default
+		timeout := tm.GetOverallTimeout([]string{"unknown1", "unknown2"})
+		expected := constants.DefaultRequestTimeout
+		if timeout != expected {
+			t.Errorf("Expected default timeout %v for unknown languages, got %v", expected, timeout)
+		}
+	})
 }
 
 func TestTimeoutManager_GetOverallTimeout_WithMultiplier(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        tm := NewTimeoutManager().
-            ForOperation(OperationRequest).
-            WithGlobalMultiplier(2.0)
+	withCIEnvironment(t, ciTypeNone, func() {
+		tm := NewTimeoutManager().
+			ForOperation(OperationRequest).
+			WithGlobalMultiplier(2.0)
 
-        languages := []string{"go", "java"}
-        timeout := tm.GetOverallTimeout(languages)
-        expected := 180 * time.Second // Java 90s * 2.0 multiplier
-        if timeout != expected {
-            t.Errorf("Expected overall timeout with multiplier %v, got %v", expected, timeout)
-        }
-    })
+		languages := []string{"go", "java"}
+		timeout := tm.GetOverallTimeout(languages)
+		expected := 180 * time.Second // Java 90s * 2.0 multiplier
+		if timeout != expected {
+			t.Errorf("Expected overall timeout with multiplier %v, got %v", expected, timeout)
+		}
+	})
 }
 
 func TestTimeoutManager_CreateOverallContext(t *testing.T) {
@@ -511,34 +511,34 @@ func TestTimeoutManager_GetSupportedLanguages(t *testing.T) {
 }
 
 func TestTimeoutManager_EdgeCases(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        t.Run("negative multiplier", func(t *testing.T) {
-            tm := NewTimeoutManager().WithGlobalMultiplier(-1.0)
-            timeout := tm.GetTimeout("go")
-            // Negative multiplier should result in negative duration
-            if timeout >= 0 {
-                t.Errorf("Expected negative timeout with negative multiplier, got %v", timeout)
-            }
-        })
+	withCIEnvironment(t, ciTypeNone, func() {
+		t.Run("negative multiplier", func(t *testing.T) {
+			tm := NewTimeoutManager().WithGlobalMultiplier(-1.0)
+			timeout := tm.GetTimeout("go")
+			// Negative multiplier should result in negative duration
+			if timeout >= 0 {
+				t.Errorf("Expected negative timeout with negative multiplier, got %v", timeout)
+			}
+		})
 
-        t.Run("very large multiplier", func(t *testing.T) {
-            tm := NewTimeoutManager().WithGlobalMultiplier(1000.0)
-            timeout := tm.GetTimeout("go")
-            expected := 15000 * time.Second // 15s * 1000
-            if timeout != expected {
-                t.Errorf("Expected very large timeout %v, got %v", expected, timeout)
-            }
-        })
+		t.Run("very large multiplier", func(t *testing.T) {
+			tm := NewTimeoutManager().WithGlobalMultiplier(1000.0)
+			timeout := tm.GetTimeout("go")
+			expected := 15000 * time.Second // 15s * 1000
+			if timeout != expected {
+				t.Errorf("Expected very large timeout %v, got %v", expected, timeout)
+			}
+		})
 
-        t.Run("empty string language", func(t *testing.T) {
-            tm := NewTimeoutManager()
-            timeout := tm.GetTimeout("")
-            // Should fall back to default
-            if timeout != constants.DefaultRequestTimeout {
-                t.Errorf("Expected default timeout for empty language, got %v", timeout)
-            }
-        })
-    })
+		t.Run("empty string language", func(t *testing.T) {
+			tm := NewTimeoutManager()
+			timeout := tm.GetTimeout("")
+			// Should fall back to default
+			if timeout != constants.DefaultRequestTimeout {
+				t.Errorf("Expected default timeout for empty language, got %v", timeout)
+			}
+		})
+	})
 }
 
 func TestTimeoutManager_OperationConstants(t *testing.T) {
@@ -555,17 +555,17 @@ func TestTimeoutManager_OperationConstants(t *testing.T) {
 }
 
 func TestTimeoutManager_IntegrationWithConstants(t *testing.T) {
-    withCIEnvironment(t, ciTypeNone, func() {
-        // Test that TimeoutManager properly integrates with constants package (baseline, non-CI)
-        tm := NewTimeoutManager().ForOperation(OperationRequest)
-        for _, lang := range []string{"go", "python", "java", "javascript", "typescript", "rust"} {
-            tmTimeout := tm.GetTimeout(lang)
-            constantsTimeoutNonCI := constants.GetRequestTimeout(lang)
-            if tmTimeout != constantsTimeoutNonCI {
-                t.Errorf("TimeoutManager timeout %v doesn't match constants timeout %v for language %s", tmTimeout, constantsTimeoutNonCI, lang)
-            }
-        }
-    })
+	withCIEnvironment(t, ciTypeNone, func() {
+		// Test that TimeoutManager properly integrates with constants package (baseline, non-CI)
+		tm := NewTimeoutManager().ForOperation(OperationRequest)
+		for _, lang := range []string{"go", "python", "java", "javascript", "typescript", "rust"} {
+			tmTimeout := tm.GetTimeout(lang)
+			constantsTimeoutNonCI := constants.GetRequestTimeout(lang)
+			if tmTimeout != constantsTimeoutNonCI {
+				t.Errorf("TimeoutManager timeout %v doesn't match constants timeout %v for language %s", tmTimeout, constantsTimeoutNonCI, lang)
+			}
+		}
+	})
 }
 
 func TestTimeoutManager_ConcurrentAccess(t *testing.T) {
