@@ -4,6 +4,7 @@ import (
 	"context"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache/search"
 )
 
 // LSPFallback interface for fallback to actual LSP servers
@@ -30,7 +31,7 @@ type SimpleCache interface {
 
 	// SCIP indexing capabilities - integrated as core functionality
 	IndexDocument(ctx context.Context, uri string, language string, symbols []types.SymbolInformation) error
-	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
+	QueryIndex(ctx context.Context, query *IndexQuery) (*search.SearchResponse, error)
 	GetIndexStats() *IndexStats
 	UpdateIndex(ctx context.Context, files []string) error
 

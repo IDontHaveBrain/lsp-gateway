@@ -79,7 +79,7 @@ func (s *Struct%d) Method%d() string {
 			TTLHours:           1,
 			BackgroundIndex:    false,
 			HealthCheckMinutes: 1, // Fast health checks for testing
-			EvictionPolicy:     "lru",
+
 		},
 		Servers: map[string]*config.ServerConfig{
 			"go": {

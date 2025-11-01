@@ -9,18 +9,7 @@ import (
 	"lsp-gateway/src/internal/types"
 )
 
-type ErrorTranslator interface {
-	TranslateAndLogError(serverName, line string, context []string) bool
-	GetMethodSuggestion(serverName, method string) string
-}
-
-type LSPErrorTranslator struct{}
-
-func NewLSPErrorTranslator() *LSPErrorTranslator {
-	return &LSPErrorTranslator{}
-}
-
-func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, context []string) bool {
+func TranslateAndLogError(serverName, line string, context []string) bool {
 	if strings.Contains(line, "KeyError") {
 		hasWorkspaceSymbol := strings.Contains(strings.Join(context, " "), "workspace") ||
 			strings.Contains(strings.Join(context, " "), "symbol")
@@ -28,18 +17,18 @@ func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, conte
 		if hasWorkspaceSymbol || serverName == "pylsp" {
 			common.LSPLogger.Warn("LSP %s: Server doesn't support workspace/symbol feature. %s",
 				serverName,
-				t.GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol))
+				GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol))
 			return true
 		}
 	}
 
 	if strings.Contains(line, "Method not found") || strings.Contains(line, "MethodNotFound") {
-		method := t.extractMethodFromError(line)
+		method := extractMethodFromError(line)
 		if method != "" {
 			common.LSPLogger.Warn("LSP %s: Method '%s' not supported. %s",
 				serverName,
 				method,
-				t.GetMethodSuggestion(serverName, method))
+				GetMethodSuggestion(serverName, method))
 			return true
 		}
 	}
@@ -52,7 +41,7 @@ func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, conte
 	return false
 }
 
-func (t *LSPErrorTranslator) GetMethodSuggestion(serverName, method string) string {
+func GetMethodSuggestion(serverName, method string) string {
 	// Try to get language by server name, fallback to treating serverName as language name
 	langInfo, exists := registry.GetLanguageByName(serverName)
 	if !exists {
@@ -78,7 +67,7 @@ func (t *LSPErrorTranslator) GetMethodSuggestion(serverName, method string) stri
 	return "Check your LSP server documentation for supported features or consider alternative servers."
 }
 
-func (t *LSPErrorTranslator) extractMethodFromError(errorLine string) string {
+func extractMethodFromError(errorLine string) string {
 	patterns := []string{
 		types.MethodWorkspaceSymbol,
 		types.MethodTextDocumentDefinition,
@@ -98,21 +87,21 @@ func (t *LSPErrorTranslator) extractMethodFromError(errorLine string) string {
 }
 
 // CreateUnifiedError creates a unified error from LSP error translation
-func (t *LSPErrorTranslator) CreateUnifiedError(serverName, line string, context []string) error {
+func CreateUnifiedError(serverName, line string, context []string) error {
 	if strings.Contains(line, "KeyError") {
 		hasWorkspaceSymbol := strings.Contains(strings.Join(context, " "), "workspace") ||
 			strings.Contains(strings.Join(context, " "), "symbol")
 
 		if hasWorkspaceSymbol || serverName == "pylsp" {
-			suggestion := t.GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol)
+			suggestion := GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol)
 			return errors.NewMethodNotSupportedError(serverName, types.MethodWorkspaceSymbol, suggestion)
 		}
 	}
 
 	if strings.Contains(line, "Method not found") || strings.Contains(line, "MethodNotFound") {
-		method := t.extractMethodFromError(line)
+		method := extractMethodFromError(line)
 		if method != "" {
-			suggestion := t.GetMethodSuggestion(serverName, method)
+			suggestion := GetMethodSuggestion(serverName, method)
 			return errors.NewMethodNotSupportedError(serverName, method, suggestion)
 		}
 		return errors.NewLSPError(errors.MethodNotFound, "Method not found", map[string]string{
@@ -135,7 +124,7 @@ func (t *LSPErrorTranslator) CreateUnifiedError(serverName, line string, context
 }
 
 // TranslateToUnifiedError translates any error to the appropriate unified error type
-func (t *LSPErrorTranslator) TranslateToUnifiedError(serverName string, err error) error {
+func TranslateToUnifiedError(serverName string, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -164,8 +153,8 @@ func (t *LSPErrorTranslator) TranslateToUnifiedError(serverName string, err erro
 		if errors.IsMethodNotSupportedError(err) {
 			return err
 		}
-		method := t.extractMethodFromError(err.Error())
-		suggestion := t.GetMethodSuggestion(serverName, method)
+		method := extractMethodFromError(err.Error())
+		suggestion := GetMethodSuggestion(serverName, method)
 		return errors.NewMethodNotSupportedError(serverName, method, suggestion)
 
 	case errors.ClassValidation:

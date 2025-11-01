@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -19,30 +20,34 @@ func (m *SCIPCacheManager) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.started {
+	currentState := m.getState()
+
+	if currentState == CacheRunning {
 		return fmt.Errorf("cache manager already started")
 	}
 
-	if !m.enabled {
+	if currentState == CacheDisabled {
 		common.LSPLogger.Debug("Cache is disabled, skipping start")
 		return nil
 	}
 
 	if err := m.scipStorage.Start(ctx); err != nil && err.Error() != errStorageAlreadyStarted {
-		common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
+		return fmt.Errorf("failed to start SCIP storage: %w", err)
 	}
 
 	// Load index from disk if available
-	if m.config.DiskCache && m.config.StoragePath != "" {
-		_ = m.LoadIndexFromDisk()
+	if m.config.StoragePath != "" {
+		if err := m.LoadIndexFromDisk(); err != nil {
+			common.LSPLogger.Warn("Failed to load index from disk, starting with empty cache: %v", err)
+		}
 		// Load file tracker metadata
 		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
 		if err := m.fileTracker.LoadFromFile(metadataPath); err != nil {
-			common.LSPLogger.Warn("Failed to load file metadata: %v", err)
+			common.LSPLogger.Warn("Failed to load file metadata, continuing with empty tracker: %v", err)
 		}
 	}
 
-	m.started = true
+	m.setState(CacheRunning)
 	return nil
 }
 
@@ -51,23 +56,29 @@ func (m *SCIPCacheManager) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !m.started {
+	if m.getState() != CacheRunning {
 		return nil
 	}
 
+	var errs []error
+
 	// Save file tracker metadata before stopping
-	if m.config.DiskCache && m.config.StoragePath != "" {
+	if m.config.StoragePath != "" {
 		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
 		if err := m.fileTracker.SaveToFile(metadataPath); err != nil {
-			common.LSPLogger.Warn("Failed to save file metadata: %v", err)
+			errs = append(errs, fmt.Errorf("save metadata: %w", err))
 		}
 	}
 
 	if err := m.scipStorage.Stop(context.Background()); err != nil {
-		common.LSPLogger.Warn("Failed to stop SCIP storage: %v", err)
+		errs = append(errs, fmt.Errorf("stop storage: %w", err))
 	}
 
-	m.started = false
+	m.setState(CacheEnabled)
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 
@@ -76,7 +87,7 @@ func (m *SCIPCacheManager) HealthCheck() (*CacheMetrics, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if !m.enabled {
+	if m.isDisabled() {
 		return &CacheMetrics{}, nil
 	}
 
@@ -98,7 +109,7 @@ func (m *SCIPCacheManager) GetMetrics() *CacheMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if !m.enabled {
+	if m.isDisabled() {
 		return &CacheMetrics{}
 	}
 
@@ -115,12 +126,7 @@ func (m *SCIPCacheManager) GetMetrics() *CacheMetrics {
 	return metrics
 }
 
-// isEnabled checks if cache is enabled and properly initialized
-func (m *SCIPCacheManager) isEnabled() bool {
-	return m.enabled && m.started
-}
-
 // IsEnabled returns simple enabled/disabled status of the cache
 func (m *SCIPCacheManager) IsEnabled() bool {
-	return m.isEnabled()
+	return m.isRunning()
 }

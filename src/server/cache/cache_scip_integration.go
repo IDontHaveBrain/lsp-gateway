@@ -11,6 +11,14 @@ import (
 	"lsp-gateway/src/server/scip"
 )
 
+type CacheState int
+
+const (
+	CacheDisabled CacheState = iota
+	CacheEnabled
+	CacheRunning
+)
+
 // SCIP Integration Module
 // This module handles SCIP-specific operations, storage integration,
 // and the main cache manager construction with SCIP storage setup.
@@ -67,8 +75,8 @@ type SCIPCacheManager struct {
 	config        *config.CacheConfig
 	stats         *SimpleCacheStats
 	mu            sync.RWMutex
-	enabled       bool
-	started       bool
+	state         CacheState
+	stateMu       sync.RWMutex
 	scipStorage   scip.SCIPDocumentStorage
 	indexStats    *IndexStats
 	indexMu       sync.RWMutex
@@ -96,11 +104,16 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 		return nil, fmt.Errorf("failed to create SCIP storage: %w", err)
 	}
 
+	initialState := CacheDisabled
+	if configParam.Enabled {
+		initialState = CacheEnabled
+	}
+
 	manager := &SCIPCacheManager{
 		entries:     make(map[string]*CacheEntry),
 		config:      configParam,
 		stats:       &SimpleCacheStats{},
-		enabled:     configParam.Enabled,
+		state:       initialState,
 		scipStorage: scipStorage,
 		indexStats: &IndexStats{
 			DocumentCount:    0,
@@ -131,7 +144,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 	}
 	manager.searchService = search.NewSearchService(searchConfig)
 
-	if manager.enabled {
+	if manager.getState() != CacheDisabled {
 		if err := manager.scipStorage.Start(context.Background()); err != nil && err.Error() != "storage already started" {
 			return nil, fmt.Errorf("failed to start SCIP storage: %w", err)
 		}
@@ -140,9 +153,29 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 	return manager, nil
 }
 
+func (m *SCIPCacheManager) getState() CacheState {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+	return m.state
+}
+
+func (m *SCIPCacheManager) setState(newState CacheState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state = newState
+}
+
+func (m *SCIPCacheManager) isDisabled() bool {
+	return m.getState() == CacheDisabled
+}
+
+func (m *SCIPCacheManager) isRunning() bool {
+	return m.getState() == CacheRunning
+}
+
 // GetSCIPStorage returns the underlying SCIP storage for direct access
 func (m *SCIPCacheManager) GetSCIPStorage() scip.SCIPDocumentStorage {
-	if m == nil || !m.enabled {
+	if m == nil || m.isDisabled() {
 		return nil
 	}
 	return m.scipStorage

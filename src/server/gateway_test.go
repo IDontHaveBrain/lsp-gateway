@@ -16,6 +16,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
+	cachesearch "lsp-gateway/src/server/cache/search"
 	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/server/scip"
 )
@@ -85,12 +86,12 @@ func (m *MockSCIPCache) IndexDocument(ctx context.Context, uri string, language 
 	return args.Error(0)
 }
 
-func (m *MockSCIPCache) QueryIndex(ctx context.Context, query *cache.IndexQuery) (*cache.IndexResult, error) {
+func (m *MockSCIPCache) QueryIndex(ctx context.Context, query *cache.IndexQuery) (*cachesearch.SearchResponse, error) {
 	args := m.Called(ctx, query)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*cache.IndexResult), args.Error(1)
+	return args.Get(0).(*cachesearch.SearchResponse), args.Error(1)
 }
 
 func (m *MockSCIPCache) GetIndexStats() *cache.IndexStats {
@@ -159,8 +160,6 @@ func createTestGatewayConfig() *config.Config {
 			StoragePath:     "/tmp/test-cache",
 			Languages:       []string{"go"},
 			BackgroundIndex: false,
-			EvictionPolicy:  "lru",
-			DiskCache:       false,
 		},
 	}
 }
@@ -210,7 +209,7 @@ func TestNewHTTPGateway(t *testing.T) {
 			addr: ":8084",
 			config: &config.Config{
 				Servers: map[string]*config.ServerConfig{"go": {Command: "gopls"}},
-				Cache:   &config.CacheConfig{Enabled: true, StoragePath: "/tmp/test", MaxMemoryMB: 64, TTLHours: 1, HealthCheckMinutes: 1, EvictionPolicy: "lru", Languages: []string{"go"}},
+				Cache:   &config.CacheConfig{Enabled: true, StoragePath: "/tmp/test", MaxMemoryMB: 64, TTLHours: 1, HealthCheckMinutes: 1, Languages: []string{"go"}},
 			},
 			lspOnly:     false,
 			expectError: false,

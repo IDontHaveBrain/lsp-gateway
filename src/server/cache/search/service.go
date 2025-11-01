@@ -28,7 +28,7 @@ type StorageAccess interface {
 // SearchService provides unified search capabilities with consolidated patterns
 type SearchService struct {
 	storage StorageAccess
-	guard   *SearchGuard
+	enabled bool
 	indexMu *sync.RWMutex
 
 	// Helper functions from cache manager
@@ -41,7 +41,7 @@ type SearchService struct {
 func NewSearchService(config *SearchServiceConfig) *SearchService {
 	return &SearchService{
 		storage:               config.Storage,
-		guard:                 NewSearchGuard(config.Enabled),
+		enabled:               config.Enabled,
 		indexMu:               config.IndexMutex.(*sync.RWMutex),
 		matchFilePatternFn:    config.MatchFilePatternFn,
 		buildOccurrenceInfoFn: config.BuildOccurrenceInfoFn,
@@ -66,7 +66,7 @@ func (s *SearchService) ExecuteSearch(request *SearchRequest) (*SearchResponse, 
 			Results:   []interface{}{},
 			Total:     0,
 			Truncated: false,
-			Metadata:  &SearchMetadata{CacheEnabled: s.guard.enabled, SCIPEnabled: s.guard.enabled},
+			Metadata:  &SearchMetadata{CacheEnabled: s.enabled, SCIPEnabled: s.enabled},
 			Timestamp: time.Now(),
 			Success:   false,
 			Error:     fmt.Sprintf("unsupported search type: %s", request.Type),
@@ -76,41 +76,49 @@ func (s *SearchService) ExecuteSearch(request *SearchRequest) (*SearchResponse, 
 
 // ExecuteDefinitionSearch consolidates definition search logic
 func (s *SearchService) ExecuteDefinitionSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeDefinition, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			h := &DefinitionSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-			return h.Handle(request)
-		})
+	if !s.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(SearchTypeDefinition), nil
+	}
+	return s.withIndexReadLock(func() (*SearchResponse, error) {
+		h := &DefinitionSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+		return h.Handle(request)
 	})
 }
 
 // ExecuteReferenceSearch consolidates reference search logic
 func (s *SearchService) ExecuteReferenceSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeReference, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			h := &ReferenceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-			return h.Handle(request)
-		})
+	if !s.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(SearchTypeReference), nil
+	}
+	return s.withIndexReadLock(func() (*SearchResponse, error) {
+		h := &ReferenceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+		return h.Handle(request)
 	})
 }
 
 // ExecuteSymbolSearch consolidates symbol search logic
 func (s *SearchService) ExecuteSymbolSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeSymbol, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			h := &SymbolSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-			return h.Handle(request)
-		})
+	if !s.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(SearchTypeSymbol), nil
+	}
+	return s.withIndexReadLock(func() (*SearchResponse, error) {
+		h := &SymbolSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+		return h.Handle(request)
 	})
 }
 
 // ExecuteWorkspaceSearch consolidates workspace search logic
 func (s *SearchService) ExecuteWorkspaceSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeWorkspace, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			h := &WorkspaceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-			return h.Handle(request)
-		})
+	if !s.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(SearchTypeWorkspace), nil
+	}
+	return s.withIndexReadLock(func() (*SearchResponse, error) {
+		h := &WorkspaceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+		return h.Handle(request)
 	})
 }
 
@@ -118,15 +126,23 @@ func (s *SearchService) ExecuteWorkspaceSearch(request *SearchRequest) (*SearchR
 
 // ExecuteEnhancedSymbolSearch provides enhanced symbol search with detailed metadata
 func (s *SearchService) ExecuteEnhancedSymbolSearch(query *EnhancedSymbolQuery) (*EnhancedSymbolSearchResponse, error) {
-	return s.guard.WithEnhancedSymbolResult(query, func() (*EnhancedSymbolSearchResponse, error) {
-		result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
-			return s.executeEnhancedSymbolSearchInternal(query)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return result.(*EnhancedSymbolSearchResponse), nil
+	if !s.enabled {
+		return &EnhancedSymbolSearchResponse{
+			Symbols:   []EnhancedSymbolResult{},
+			Total:     0,
+			Truncated: false,
+			Query:     query,
+			Metadata:  &SearchMetadata{CacheEnabled: false},
+			Timestamp: time.Now(),
+		}, nil
+	}
+	result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
+		return s.executeEnhancedSymbolSearchInternal(query)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*EnhancedSymbolSearchResponse), nil
 }
 
 // executeEnhancedSymbolSearchInternal contains the actual enhanced symbol search logic
@@ -205,15 +221,24 @@ func (s *SearchService) executeEnhancedSymbolSearchInternal(query *EnhancedSymbo
 
 // ExecuteReferenceSearchEnhanced provides enhanced reference search
 func (s *SearchService) ExecuteReferenceSearchEnhanced(symbolName, filePattern string, options *ReferenceSearchOptions) (*ReferenceSearchResponse, error) {
-	return s.guard.WithReferenceResult(symbolName, options, func() (*ReferenceSearchResponse, error) {
-		result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
-			return s.executeReferenceSearchEnhancedInternal(symbolName, filePattern, options)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return result.(*ReferenceSearchResponse), nil
+	if !s.enabled {
+		return &ReferenceSearchResponse{
+			SymbolName: symbolName,
+			References: []SCIPOccurrenceInfo{},
+			TotalCount: 0,
+			FileCount:  0,
+			Options:    options,
+			Metadata:   &SearchMetadata{CacheEnabled: false},
+			Timestamp:  time.Now(),
+		}, nil
+	}
+	result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
+		return s.executeReferenceSearchEnhancedInternal(symbolName, filePattern, options)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*ReferenceSearchResponse), nil
 }
 
 // executeReferenceSearchEnhancedInternal contains the actual enhanced reference search logic
@@ -326,17 +351,12 @@ func (s *SearchService) withIndexReadLockTyped(fn func() (interface{}, error)) (
 
 // IsEnabled returns whether the search service is enabled
 func (s *SearchService) IsEnabled() bool {
-	return s.guard.enabled
+	return s.enabled
 }
 
 // SetEnabled updates the enabled state of the search service
 func (s *SearchService) SetEnabled(enabled bool) {
-	s.guard.enabled = enabled
-}
-
-// GetGuard returns the search guard for direct access if needed
-func (s *SearchService) GetGuard() *SearchGuard {
-	return s.guard
+	s.enabled = enabled
 }
 
 // GetStorage returns the storage interface for direct access if needed
@@ -352,7 +372,11 @@ func (s *SearchService) GetIndexMutex() *sync.RWMutex {
 // WithEnabledGuard executes the provided function only if the service is enabled
 // This method implements the GuardExecutor interface
 func (s *SearchService) WithEnabledGuard(fn func() (*SearchResponse, error)) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeSymbol, fn)
+	if !s.enabled {
+		builder := &DefaultResultBuilder{}
+		return builder.BuildDisabledResponse(SearchTypeSymbol), nil
+	}
+	return fn()
 }
 
 // WithIndexReadLock executes a function while holding a read lock on the index mutex
@@ -363,15 +387,27 @@ func (s *SearchService) WithIndexReadLock(fn func() (*SearchResponse, error)) (*
 
 // ExecuteSymbolInfoSearch provides detailed symbol information retrieval
 func (s *SearchService) ExecuteSymbolInfoSearch(symbolName, filePattern string) (*SymbolInfoResponse, error) {
-	return s.guard.WithSymbolInfoResult(symbolName, func() (*SymbolInfoResponse, error) {
-		result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
-			return s.executeSymbolInfoSearchInternal(symbolName, filePattern)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return result.(*SymbolInfoResponse), nil
+	if !s.enabled {
+		return &SymbolInfoResponse{
+			SymbolName:      symbolName,
+			Kind:            scip.SCIPSymbolKindUnknown,
+			Documentation:   []string{},
+			Occurrences:     []SCIPOccurrenceInfo{},
+			OccurrenceCount: 0,
+			DefinitionCount: 0,
+			ReferenceCount:  0,
+			FileCount:       0,
+			Metadata:        &SearchMetadata{CacheEnabled: false},
+			Timestamp:       time.Now(),
+		}, nil
+	}
+	result, err := s.withIndexReadLockTyped(func() (interface{}, error) {
+		return s.executeSymbolInfoSearchInternal(symbolName, filePattern)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*SymbolInfoResponse), nil
 }
 
 // executeSymbolInfoSearchInternal contains the actual symbol info search logic

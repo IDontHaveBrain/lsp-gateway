@@ -33,12 +33,10 @@ type LSPClient struct {
 	transport             Transport
 	stateMgr              *ClientStateManager
 	documentManager       *documents.DocumentManager
-	processManager        process.ProcessManager
+	processManager        *process.LSPProcessManager
 	processInfo           *process.ProcessInfo
 	capabilities          capabilities.ServerCapabilities
-	errorTranslator       lsp.ErrorTranslator
-	capDetector           capabilities.CapabilityDetector
-	jsonrpcProtocol       protocol.JSONRPCProtocol
+	jsonrpcProtocol       *protocol.LSPJSONRPCProtocol
 	initializationOptions interface{}
 }
 
@@ -49,8 +47,6 @@ func newBaseClient(config types.ClientConfig, language string, documentManager *
 		stateMgr:              NewClientStateManager(),
 		documentManager:       documentManager,
 		processManager:        process.NewLSPProcessManager(),
-		errorTranslator:       lsp.NewLSPErrorTranslator(),
-		capDetector:           capabilities.NewLSPCapabilityDetector(),
 		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
 		initializationOptions: config.InitializationOptions,
 	}
@@ -271,7 +267,7 @@ func (c *LSPClient) IsActive() bool {
 func (c *LSPClient) Supports(method string) bool {
 	c.stateMgr.mu.RLock()
 	defer c.stateMgr.mu.RUnlock()
-	return c.capDetector.SupportsMethod(c.capabilities, method)
+	return capabilities.SupportsMethod(c.capabilities, method)
 }
 
 func (c *LSPClient) SendShutdownRequest(ctx context.Context) error {
@@ -380,93 +376,8 @@ func (c *LSPClient) initializeLSP(ctx context.Context) error {
 			},
 		},
 		"initializationOptions": initOptions,
-		"capabilities": map[string]interface{}{
-			"workspace": map[string]interface{}{
-				"applyEdit":              true,
-				"workspaceEdit":          map[string]interface{}{"documentChanges": true},
-				"didChangeConfiguration": map[string]interface{}{"dynamicRegistration": true},
-				"didChangeWatchedFiles":  map[string]interface{}{"dynamicRegistration": true},
-				"symbol":                 map[string]interface{}{"dynamicRegistration": true},
-				"executeCommand":         map[string]interface{}{"dynamicRegistration": true},
-				"configuration":          true,
-				"workspaceFolders":       true,
-			},
-			"textDocument": map[string]interface{}{
-				"publishDiagnostics": map[string]interface{}{
-					"relatedInformation": true,
-					"versionSupport":     false,
-					"tagSupport":         map[string]interface{}{"valueSet": []int{1, 2}},
-				},
-				"synchronization": map[string]interface{}{
-					"dynamicRegistration": true,
-					"willSave":            true,
-					"willSaveWaitUntil":   true,
-					"didSave":             true,
-				},
-				"completion": map[string]interface{}{
-					"dynamicRegistration": true,
-					"contextSupport":      true,
-					"completionItem": map[string]interface{}{
-						"snippetSupport":          true,
-						"commitCharactersSupport": true,
-						"documentationFormat":     []string{"markdown", "plaintext"},
-						"preselectSupport":        true,
-					},
-					"completionItemKind": map[string]interface{}{
-						"valueSet": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25},
-					},
-				},
-				"hover": map[string]interface{}{
-					"dynamicRegistration": true,
-					"contentFormat":       []string{"markdown", "plaintext"},
-				},
-				"signatureHelp": map[string]interface{}{
-					"dynamicRegistration": true,
-					"signatureInformation": map[string]interface{}{
-						"documentationFormat": []string{"markdown", "plaintext"},
-					},
-				},
-				"definition": map[string]interface{}{
-					"dynamicRegistration": true,
-					"linkSupport":         true,
-				},
-				"references": map[string]interface{}{
-					"dynamicRegistration": true,
-				},
-				"documentHighlight": map[string]interface{}{
-					"dynamicRegistration": true,
-				},
-				"documentSymbol": map[string]interface{}{
-					"dynamicRegistration":               true,
-					"hierarchicalDocumentSymbolSupport": true,
-					"symbolKind": map[string]interface{}{
-						"valueSet": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26},
-					},
-				},
-				"codeAction": map[string]interface{}{
-					"dynamicRegistration": true,
-					"codeActionLiteralSupport": map[string]interface{}{
-						"codeActionKind": map[string]interface{}{
-							"valueSet": []string{"", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"},
-						},
-					},
-				},
-				"formatting": map[string]interface{}{
-					"dynamicRegistration": true,
-				},
-				"rangeFormatting": map[string]interface{}{
-					"dynamicRegistration": true,
-				},
-				"onTypeFormatting": map[string]interface{}{
-					"dynamicRegistration": true,
-				},
-				"rename": map[string]interface{}{
-					"dynamicRegistration": true,
-					"prepareSupport":      true,
-				},
-			},
-		},
-		"trace": "off",
+		"capabilities":          registry.GetClientCapabilities(),
+		"trace":                 "off",
 	}
 
 	result, err := c.SendRequest(ctx, types.MethodInitialize, initParams)
@@ -564,7 +475,7 @@ func (c *LSPClient) getInitializationOptions() map[string]interface{} {
 }
 
 func (c *LSPClient) parseServerCapabilities(result json.RawMessage) error {
-	caps, err := c.capDetector.ParseCapabilities(result, c.config.Command)
+	caps, err := capabilities.ParseCapabilities(result, c.config.Command)
 	if err != nil {
 		return err
 	}
@@ -601,7 +512,7 @@ func (c *LSPClient) logStderr() {
 				continue
 			}
 
-			if c.errorTranslator.TranslateAndLogError(c.config.Command, line, errorContext) {
+			if lsp.TranslateAndLogError(c.config.Command, line, errorContext) {
 				errorContext = nil
 				continue
 			}

@@ -65,15 +65,13 @@ func (u *User) Validate() bool {
 		require.NoError(t, err)
 	}
 
-	cfg := config.NewTestConfigBuilder().
-		WithCachePath(cacheDir).
-		WithCacheMemory(64).
-		WithCacheTTL(1).
-		WithLanguages("go").
-		WithBackgroundIndexing(true).
-		WithDiskCache(true).
-		WithEvictionPolicy("lru").
-		MustBuild()
+	cfg := config.NewTestConfig(
+		config.WithCachePath(cacheDir),
+		config.WithCacheMemory(64),
+		config.WithCacheTTL(1),
+		config.WithLanguages("go"),
+		config.WithBackgroundIndexing(true),
+	)
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
@@ -216,15 +214,13 @@ func Process` + file[:len(file)-3] + `() error {
 		require.NoError(t, err)
 	}
 
-	cfg := config.NewTestConfigBuilder().
-		WithCachePath(cacheDir).
-		WithCacheMemory(64).
-		WithCacheTTL(1).
-		WithLanguages("go").
-		WithBackgroundIndexing(true).
-		WithDiskCache(true).
-		WithEvictionPolicy("lru").
-		MustBuild()
+	cfg := config.NewTestConfig(
+		config.WithCachePath(cacheDir),
+		config.WithCacheMemory(64),
+		config.WithCacheTTL(1),
+		config.WithLanguages("go"),
+		config.WithBackgroundIndexing(true),
+	)
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)

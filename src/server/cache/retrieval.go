@@ -11,7 +11,7 @@ import (
 
 // GetCachedDefinition retrieves definition occurrences for a symbol using SCIP storage
 func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]types.Location, bool) {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, false
 	}
 
@@ -34,7 +34,7 @@ func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]types.Locatio
 
 // GetCachedReferences retrieves reference occurrences for a symbol using SCIP storage
 func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]types.Location, bool) {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, false
 	}
 
@@ -60,7 +60,7 @@ func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]types.Locatio
 
 // GetCachedHover retrieves hover information using symbol information from SCIP storage
 func (m *SCIPCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, false
 	}
 
@@ -81,7 +81,7 @@ func (m *SCIPCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) {
 
 // GetCachedDocumentSymbols retrieves document symbols using SCIP storage
 func (m *SCIPCacheManager) GetCachedDocumentSymbols(uri string) ([]types.SymbolInformation, bool) {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, false
 	}
 
@@ -121,7 +121,7 @@ func (m *SCIPCacheManager) GetCachedDocumentSymbols(uri string) ([]types.SymbolI
 
 // GetCachedWorkspaceSymbols retrieves workspace symbols using SCIP storage
 func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]types.SymbolInformation, bool) {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, false
 	}
 
@@ -157,7 +157,7 @@ func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]types.Symb
 
 // GetCachedCompletion retrieves completion items using symbol information from SCIP storage
 func (m *SCIPCacheManager) GetCachedCompletion(uri string, position types.Position) ([]lsp.CompletionItem, bool) {
-	if !m.enabled || m.scipStorage == nil {
+	if m.isDisabled() || m.scipStorage == nil {
 		return nil, false
 	}
 

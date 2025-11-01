@@ -50,7 +50,7 @@ func World() string {
 		Enabled:     true,
 		MaxMemoryMB: 100,
 		TTLHours:    1,
-		DiskCache:   true,
+
 		StoragePath: cacheDir,
 	}
 

@@ -33,12 +33,10 @@ const (
 // Cache configuration constants
 const (
 	// Production cache settings
-	DefaultCacheMemoryMB        = 512
-	DefaultCacheTTLHours        = 24
-	DefaultHealthCheckMinutes   = 5
-	DefaultEvictionPolicy       = "lru"
-	DefaultBackgroundIndexing   = true
-	DefaultDiskCachePersistence = true
+	DefaultCacheMemoryMB      = 512
+	DefaultCacheTTLHours      = 24
+	DefaultHealthCheckMinutes = 5
+	DefaultBackgroundIndexing = true
 
 	// Test cache settings (smaller, faster for tests)
 	TestCacheMemoryMB        = 64

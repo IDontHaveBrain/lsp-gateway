@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,16 +21,13 @@ import (
 
 // Lookup retrieves a cached response if available
 func (m *SCIPCacheManager) Lookup(method string, params interface{}) (interface{}, bool, error) {
-	return m.WithManagerGuard(func() (interface{}, bool, error) {
-		resultMap := m.WithCacheWriteLock(func() interface{} {
-			result, found := m.lookupInternal(method, params)
-			return map[string]interface{}{
-				"result": result,
-				"found":  found,
-			}
-		}).(map[string]interface{})
-		return resultMap["result"], resultMap["found"].(bool), nil
-	})
+	if !m.isRunning() {
+		return nil, false, nil
+	}
+	m.mu.Lock()
+	result, found := m.lookupInternal(method, params)
+	m.mu.Unlock()
+	return result, found, nil
 }
 
 // lookupInternal contains the actual lookup logic without guards or locks
@@ -68,13 +66,13 @@ func (m *SCIPCacheManager) lookupInternal(method string, params interface{}) (in
 
 // Store caches an LSP response
 func (m *SCIPCacheManager) Store(method string, params interface{}, response interface{}) error {
-	if !m.isEnabledAndStarted() {
+	if !m.isRunning() {
 		return nil
 	}
 
-	m.WithCacheWriteLockVoid(func() {
-		m.storeInternal(method, params, response)
-	})
+	m.mu.Lock()
+	m.storeInternal(method, params, response)
+	m.mu.Unlock()
 	return nil
 }
 
@@ -123,7 +121,7 @@ func (m *SCIPCacheManager) storeInternal(method string, params interface{}, resp
 
 // Clear removes all cache entries
 func (m *SCIPCacheManager) Clear() error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -132,47 +130,37 @@ func (m *SCIPCacheManager) Clear() error {
 
 	m.entries = make(map[string]*CacheEntry)
 
-	// Clear file tracker
 	if m.fileTracker != nil {
 		m.fileTracker.Clear()
 	}
 
+	var errs []error
+
 	if err := m.scipStorage.Stop(context.Background()); err != nil {
-		common.LSPLogger.Debug("Failed to stop SCIP storage: %v", err)
+		errs = append(errs, fmt.Errorf("stop SCIP storage: %w", err))
 	}
 
-	// Delete all cache files in the storage path
 	if m.config.StoragePath != "" {
-		// Delete the main cache file
 		cacheFile := filepath.Join(m.config.StoragePath, "simple_cache.json")
 		if _, err := os.Stat(cacheFile); err == nil {
 			if err := os.Remove(cacheFile); err != nil {
-				common.LSPLogger.Error("Failed to remove persisted SCIP cache: %v", err)
-			} else {
-				common.LSPLogger.Debug("Successfully removed persisted SCIP cache file: %s", cacheFile)
+				errs = append(errs, fmt.Errorf("remove cache file: %w", err))
 			}
 		}
 
-		// Delete the entire storage directory and all its contents
 		if err := os.RemoveAll(m.config.StoragePath); err != nil {
-			common.LSPLogger.Error("Failed to remove SCIP cache directory: %v", err)
-		} else {
-			common.LSPLogger.Debug("Successfully removed SCIP cache directory: %s", m.config.StoragePath)
+			errs = append(errs, fmt.Errorf("remove cache directory: %w", err))
 		}
 	}
 
-	// Create new SCIP storage but don't start it to avoid recreating directories
-	// The storage will be started when the cache is used again
 	scipConfig := scip.SCIPStorageConfig{
 		DiskCacheDir: m.config.StoragePath,
 		MemoryLimit:  int64(m.config.MaxMemoryMB) * 1024 * 1024,
 	}
 	if newStorage, err := scip.NewSimpleSCIPStorage(scipConfig); err == nil {
 		m.scipStorage = newStorage
-		// Don't start it here - this would recreate the directory
-		// It will be started when needed
 	} else {
-		common.LSPLogger.Warn("Failed to recreate SCIP storage: %v", err)
+		errs = append(errs, fmt.Errorf("recreate SCIP storage: %w", err))
 	}
 
 	m.indexStats = &IndexStats{
@@ -185,6 +173,10 @@ func (m *SCIPCacheManager) Clear() error {
 	}
 
 	m.updateStats()
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 

@@ -16,8 +16,6 @@ const (
 	SearchTypeReference  SearchType = "reference"
 	SearchTypeSymbol     SearchType = "symbol"
 	SearchTypeWorkspace  SearchType = "workspace"
-	SearchTypeHover      SearchType = "hover"
-	SearchTypeCompletion SearchType = "completion"
 )
 
 // SearchRequest represents a unified search request with type-specific options
@@ -144,35 +142,6 @@ type SearchMetadata struct {
 
 // IndexStats unified to scip.IndexStats
 
-// DefinitionSearchRequest contains definition-specific search parameters
-type DefinitionSearchRequest struct {
-	SymbolName  string          `json:"symbol_name" validate:"required"`
-	FilePattern string          `json:"file_pattern,omitempty"`
-	MaxResults  int             `json:"max_results,omitempty" validate:"min=0,max=10000"`
-	Options     *SearchOptions  `json:"options,omitempty"`
-	Context     context.Context `json:"-"`
-}
-
-// DefinitionSearchResponse contains definition search results
-type DefinitionSearchResponse struct {
-	SymbolName  string               `json:"symbol_name"`
-	Definitions []SCIPOccurrenceInfo `json:"definitions"`
-	TotalCount  int                  `json:"total_count"`
-	FileCount   int                  `json:"file_count"`
-	Metadata    *SearchMetadata      `json:"metadata"`
-	Timestamp   time.Time            `json:"timestamp"`
-}
-
-// ReferenceSearchRequest contains reference-specific search parameters
-type ReferenceSearchRequest struct {
-	SymbolName        string                  `json:"symbol_name" validate:"required"`
-	FilePattern       string                  `json:"file_pattern,omitempty"`
-	MaxResults        int                     `json:"max_results,omitempty" validate:"min=0,max=10000"`
-	IncludeDefinition bool                    `json:"include_definition"`
-	Options           *ReferenceSearchOptions `json:"options,omitempty"`
-	Context           context.Context         `json:"-"`
-}
-
 // ReferenceSearchOptions represents options for reference searching
 type ReferenceSearchOptions struct {
 	MaxResults  int                   `json:"max_results,omitempty" validate:"min=0,max=10000"`
@@ -193,18 +162,6 @@ type ReferenceSearchResponse struct {
 	Options    *ReferenceSearchOptions `json:"options,omitempty"`
 	Metadata   *SearchMetadata         `json:"metadata"`
 	Timestamp  time.Time               `json:"timestamp"`
-}
-
-// SymbolSearchRequest contains symbol-specific search parameters
-type SymbolSearchRequest struct {
-	Pattern     string               `json:"pattern" validate:"required"`
-	FilePattern string               `json:"file_pattern,omitempty"`
-	Language    string               `json:"language,omitempty"`
-	MaxResults  int                  `json:"max_results,omitempty" validate:"min=0,max=10000"`
-	Enhanced    bool                 `json:"enhanced"`
-	Query       *EnhancedSymbolQuery `json:"query,omitempty"`
-	Options     *SearchOptions       `json:"options,omitempty"`
-	Context     context.Context      `json:"-"`
 }
 
 // EnhancedSymbolQuery contains enhanced symbol search parameters
@@ -238,20 +195,7 @@ const (
 	OccurrenceQueryTypeAll        OccurrenceQueryType = "all"
 	OccurrenceQueryTypeDefinition OccurrenceQueryType = "definition"
 	OccurrenceQueryTypeReference  OccurrenceQueryType = "reference"
-	OccurrenceQueryTypeWrite      OccurrenceQueryType = "write"
-	OccurrenceQueryTypeRead       OccurrenceQueryType = "read"
 )
-
-// SymbolSearchResponse contains symbol search results
-type SymbolSearchResponse struct {
-	Pattern    string          `json:"pattern"`
-	Symbols    []interface{}   `json:"symbols"`
-	TotalCount int             `json:"total_count"`
-	Truncated  bool            `json:"truncated"`
-	Enhanced   bool            `json:"enhanced"`
-	Metadata   *SearchMetadata `json:"metadata"`
-	Timestamp  time.Time       `json:"timestamp"`
-}
 
 // EnhancedSymbolSearchResponse contains enhanced symbol search results
 type EnhancedSymbolSearchResponse struct {
@@ -306,15 +250,6 @@ type SCIPOccurrenceInfo struct {
 	Score       float64             `json:"score,omitempty"` // Relevance score
 }
 
-// SymbolInfoRequest contains symbol information request parameters
-type SymbolInfoRequest struct {
-	SymbolName  string          `json:"symbol_name" validate:"required"`
-	FilePattern string          `json:"file_pattern,omitempty"`
-	Detailed    bool            `json:"detailed"`
-	Options     *SearchOptions  `json:"options,omitempty"`
-	Context     context.Context `json:"-"`
-}
-
 // SymbolInfoResponse contains comprehensive symbol information
 type SymbolInfoResponse struct {
 	SymbolName      string                      `json:"symbol_name"`
@@ -331,25 +266,6 @@ type SymbolInfoResponse struct {
 	FileCount       int                         `json:"file_count"`
 	Metadata        *SearchMetadata             `json:"metadata"`
 	Timestamp       time.Time                   `json:"timestamp"`
-}
-
-// WorkspaceSearchRequest contains workspace-specific search parameters
-type WorkspaceSearchRequest struct {
-	Pattern    string          `json:"pattern" validate:"required"`
-	Language   string          `json:"language,omitempty"`
-	MaxResults int             `json:"max_results,omitempty" validate:"min=0,max=10000"`
-	Options    *SearchOptions  `json:"options,omitempty"`
-	Context    context.Context `json:"-"`
-}
-
-// WorkspaceSearchResponse contains workspace symbol search results
-type WorkspaceSearchResponse struct {
-	Pattern   string          `json:"pattern"`
-	Symbols   []interface{}   `json:"symbols"`
-	Total     int             `json:"total"`
-	Truncated bool            `json:"truncated"`
-	Metadata  *SearchMetadata `json:"metadata"`
-	Timestamp time.Time       `json:"timestamp"`
 }
 
 // SearchServiceConfig holds configuration for creating a SearchService
@@ -406,17 +322,4 @@ type SearchError struct {
 // Error implements the error interface
 func (s SearchError) Error() string {
 	return s.Message
-}
-
-// SearchStats represents search performance statistics
-type SearchStats struct {
-	TotalRequests       int64                `json:"total_requests"`
-	SuccessfulRequests  int64                `json:"successful_requests"`
-	FailedRequests      int64                `json:"failed_requests"`
-	AverageResponseTime time.Duration        `json:"average_response_time"`
-	CacheHitRate        float64              `json:"cache_hit_rate"`
-	IndexUtilization    float64              `json:"index_utilization"`
-	LastRequestTime     time.Time            `json:"last_request_time"`
-	RequestsByType      map[SearchType]int64 `json:"requests_by_type"`
-	ErrorsByType        map[string]int64     `json:"errors_by_type"`
 }

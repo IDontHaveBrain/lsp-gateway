@@ -198,26 +198,20 @@ func (w *WorkspaceIndexer) isBuiltinSymbol(symbol string) bool {
 
 // GetAllDocuments returns all documents in the cache
 func (m *SCIPCacheManager) GetAllDocuments() map[string]*scip.SCIPDocument {
-	return m.WithIndexReadLock(func() interface{} {
-		if storage, ok := m.scipStorage.(*scip.SimpleSCIPStorage); ok {
-			return storage.GetAllDocuments()
-		}
-		return nil
-	}).(map[string]*scip.SCIPDocument)
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+	if storage, ok := m.scipStorage.(*scip.SimpleSCIPStorage); ok {
+		return storage.GetAllDocuments()
+	}
+	return nil
 }
 
 // AddOccurrences efficiently adds occurrences to a document using batch operations
 func (m *SCIPCacheManager) AddOccurrences(ctx context.Context, uri string, occurrences []scip.SCIPOccurrence) error {
-	result := m.WithIndexWriteLock(func() interface{} {
-		return m.addOccurrencesInternal(ctx, uri, occurrences)
-	})
-	if result == nil {
-		return nil
-	}
-	if err, ok := result.(error); ok {
-		return err
-	}
-	return nil
+	m.indexMu.Lock()
+	err := m.addOccurrencesInternal(ctx, uri, occurrences)
+	m.indexMu.Unlock()
+	return err
 }
 
 // addOccurrencesInternal contains the actual logic without locks

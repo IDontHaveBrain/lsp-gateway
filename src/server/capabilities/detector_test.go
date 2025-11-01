@@ -8,54 +8,51 @@ import (
 )
 
 func TestLSPCapabilityDetector_ParseAndSupports_Standard(t *testing.T) {
-	det := NewLSPCapabilityDetector()
 	init := map[string]interface{}{"capabilities": map[string]interface{}{"workspaceSymbolProvider": true, "completionProvider": map[string]interface{}{"triggerCharacters": []string{"."}}, "definitionProvider": true, "referencesProvider": false}}
 	raw, _ := json.Marshal(init)
-	caps, err := det.ParseCapabilities(raw, "jedi-language-server")
+	caps, err := ParseCapabilities(raw, "jedi-language-server")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if !det.SupportsMethod(caps, types.MethodWorkspaceSymbol) {
+	if !SupportsMethod(caps, types.MethodWorkspaceSymbol) {
 		t.Fatalf("workspace/symbol supported")
 	}
-	if !det.SupportsMethod(caps, types.MethodTextDocumentCompletion) {
+	if !SupportsMethod(caps, types.MethodTextDocumentCompletion) {
 		t.Fatalf("completion supported when object")
 	}
-	if !det.SupportsMethod(caps, types.MethodTextDocumentDefinition) {
+	if !SupportsMethod(caps, types.MethodTextDocumentDefinition) {
 		t.Fatalf("definition supported")
 	}
-	if det.SupportsMethod(caps, types.MethodTextDocumentReferences) {
+	if SupportsMethod(caps, types.MethodTextDocumentReferences) {
 		t.Fatalf("references not supported")
 	}
 }
 
 func TestLSPCapabilityDetector_JDTLSOverrides(t *testing.T) {
-	det := NewLSPCapabilityDetector()
 	init := map[string]interface{}{"capabilities": map[string]interface{}{}}
 	raw, _ := json.Marshal(init)
-	caps, err := det.ParseCapabilities(raw, "jdtls")
+	caps, err := ParseCapabilities(raw, "jdtls")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 	methods := []string{types.MethodTextDocumentDefinition, types.MethodTextDocumentReferences, types.MethodTextDocumentHover, types.MethodTextDocumentDocumentSymbol, types.MethodTextDocumentCompletion}
 	for _, m := range methods {
-		if !det.SupportsMethod(caps, m) {
+		if !SupportsMethod(caps, m) {
 			t.Fatalf("jdtls should support %s", m)
 		}
 	}
 }
 
 func TestLSPCapabilityDetector_OmniSharpOverrides(t *testing.T) {
-	det := NewLSPCapabilityDetector()
 	init := map[string]interface{}{"capabilities": map[string]interface{}{}}
 	raw, _ := json.Marshal(init)
-	caps, err := det.ParseCapabilities(raw, "omnisharp")
+	caps, err := ParseCapabilities(raw, "omnisharp")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 	methods := []string{types.MethodTextDocumentDefinition, types.MethodTextDocumentReferences, types.MethodTextDocumentHover, types.MethodTextDocumentDocumentSymbol, types.MethodTextDocumentCompletion}
 	for _, m := range methods {
-		if !det.SupportsMethod(caps, m) {
+		if !SupportsMethod(caps, m) {
 			t.Fatalf("omnisharp should support %s", m)
 		}
 	}

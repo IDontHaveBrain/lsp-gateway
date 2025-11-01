@@ -28,10 +28,10 @@ type LSPManagerSetup struct {
 
 // CreateBasicConfig creates a basic LSP configuration
 func CreateBasicConfig() *config.Config {
-	return config.NewTestConfigBuilder().
-		WithLanguages("go").
-		WithCachePath("/tmp/test-cache").
-		MustBuild()
+	return config.NewTestConfig(
+		config.WithLanguages("go"),
+		config.WithCachePath("/tmp/test-cache"),
+	)
 }
 
 // CreateBasicCacheConfig creates a basic cache configuration for testing
@@ -44,8 +44,6 @@ func CreateBasicCacheConfig(storagePath string) *config.CacheConfig {
 		Languages:          []string{"*"},
 		BackgroundIndex:    false,
 		HealthCheckMinutes: 60,
-		EvictionPolicy:     "lru",
-		DiskCache:          false,
 	}
 }
 
@@ -66,7 +64,6 @@ func CreateAndStartSimpleCache(t *testing.T, memoryMB int) cache.SCIPCache {
 		MaxMemoryMB: memoryMB,
 		TTLHours:    1,
 		StoragePath: t.TempDir(),
-		DiskCache:   false,
 	}
 	cacheManager, err := cache.NewSCIPCacheManager(cacheConfig)
 	require.NoError(t, err)
@@ -95,10 +92,10 @@ func CreateConfigWithCache(cacheConfig *config.CacheConfig) *config.Config {
 
 // CreateMultiLangConfig creates a configuration for multiple languages
 func CreateMultiLangConfig() *config.Config {
-	return config.NewTestConfigBuilder().
-		WithLanguages("go", "python", "typescript").
-		WithCachePath("/tmp/test-cache").
-		MustBuild()
+	return config.NewTestConfig(
+		config.WithLanguages("go", "python", "typescript"),
+		config.WithCachePath("/tmp/test-cache"),
+	)
 }
 
 // CreateLSPManagerSetup creates and initializes an LSP manager setup

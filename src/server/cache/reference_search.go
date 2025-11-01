@@ -25,8 +25,8 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 }
 
 // SearchReferencesEnhanced performs direct SCIP reference search with enhanced results
-func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolName, filePattern string, options *ReferenceSearchOptions) (*search.ReferenceSearchResponse, error) {
-	// Convert cache.ReferenceSearchOptions to search.ReferenceSearchOptions
+func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolName, filePattern string, options *search.ReferenceSearchOptions) (*search.ReferenceSearchResponse, error) {
+	// Use search.ReferenceSearchOptions directly
 	var searchOptions *search.ReferenceSearchOptions
 	if options != nil {
 		searchOptions = &search.ReferenceSearchOptions{

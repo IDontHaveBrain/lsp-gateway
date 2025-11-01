@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
@@ -14,28 +15,39 @@ import (
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
 
 // QueryIndex queries the SCIP storage for symbols and relationships
-func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
-	return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
-		request := &search.SearchRequest{
-			Context:    ctx,
-			Type:       search.SearchType(query.Type),
-			SymbolName: query.Symbol,
-			MaxResults: constants.DefaultMaxResults,
-		}
+func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*search.SearchResponse, error) {
+	if m.isDisabled() {
+		return &search.SearchResponse{
+			Type:      query.Type,
+			Results:   []interface{}{},
+			Total:     0,
+			Truncated: false,
+			Metadata:  &search.SearchMetadata{CacheEnabled: false, SCIPEnabled: false, IndexStatus: "disabled"},
+			Timestamp: time.Now(),
+			Success:   false,
+			Error:     "cache disabled or SCIP storage unavailable",
+		}, nil
+	}
 
-		response, err := m.searchService.ExecuteSearch(request)
-		if err != nil {
-			return nil, err
-		}
-		if response.Metadata != nil && query.Language != "" {
-			response.Metadata.Language = query.Language
-		}
-		return response, nil
-	})
+	request := &search.SearchRequest{
+		Context:    ctx,
+		Type:       search.SearchType(query.Type),
+		SymbolName: query.Symbol,
+		MaxResults: constants.DefaultMaxResults,
+	}
+
+	response, err := m.searchService.ExecuteSearch(request)
+	if err != nil {
+		return nil, err
+	}
+	if response.Metadata != nil && query.Language != "" {
+		response.Metadata.Language = query.Language
+	}
+	return response, nil
 }
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
-func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*search.EnhancedSymbolSearchResponse, error) {
+func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *search.EnhancedSymbolQuery) (*search.EnhancedSymbolSearchResponse, error) {
 	return m.searchService.ExecuteEnhancedSymbolSearch(query)
 }
 
@@ -110,7 +122,7 @@ func (m *SCIPCacheManager) tryFallbackScan(ctx context.Context, symbolInfo scip.
 func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, error) {
 	common.LSPLogger.Debug("[SearchSymbols] Called with pattern='%s', filePattern='%s', maxResults=%d", pattern, filePattern, maxResults)
 
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
 	}
 

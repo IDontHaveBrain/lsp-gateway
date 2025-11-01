@@ -45,10 +45,10 @@ type LSPManagerBuilder struct {
 
 // NewLSPManagerBuilder creates a new builder for LSP manager configuration
 func NewLSPManagerBuilder() *LSPManagerBuilder {
-	cfg := config.NewTestConfigBuilder().
-		WithLanguages("go").
-		WithCachePath("/tmp/test-cache").
-		MustBuild()
+	cfg := config.NewTestConfig(
+		config.WithLanguages("go"),
+		config.WithCachePath("/tmp/test-cache"),
+	)
 	return &LSPManagerBuilder{
 		config:  cfg,
 		timeout: 30 * time.Second,
@@ -106,18 +106,18 @@ func (b *LSPManagerBuilder) BuildAndStart(t *testing.T) *LSPManagerTestSetup {
 func (b *LSPManagerBuilder) createSetup(t *testing.T, autoStart bool) *LSPManagerTestSetup {
 	cfg := b.config
 	if cfg == nil {
-		cfg = config.NewTestConfigBuilder().
-			WithLanguages("go").
-			WithCachePath("/tmp/test-cache").
-			MustBuild()
+		cfg = config.NewTestConfig(
+			config.WithLanguages("go"),
+			config.WithCachePath("/tmp/test-cache"),
+		)
 	}
 
 	// Handle multi-language configuration
 	if len(b.languages) > 0 {
-		cfg = config.NewTestConfigBuilder().
-			WithLanguages(b.languages...).
-			WithCachePath("/tmp/test-cache").
-			MustBuild()
+		cfg = config.NewTestConfig(
+			config.WithLanguages(b.languages...),
+			config.WithCachePath("/tmp/test-cache"),
+		)
 	}
 
 	// Setup temporary directory
@@ -653,8 +653,6 @@ func createDefaultCacheConfig(tempDir string) *config.CacheConfig {
 		TTLHours:        1,
 		Languages:       []string{"go", "python", "typescript", "javascript", "kotlin"},
 		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
 	}
 }
 

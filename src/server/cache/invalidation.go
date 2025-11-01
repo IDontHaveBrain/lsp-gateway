@@ -10,7 +10,7 @@ import (
 
 // InvalidateDocument removes all cached entries for a specific document and its dependencies
 func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
-	if !m.isEnabled() {
+	if m.isDisabled() {
 		return nil
 	}
 

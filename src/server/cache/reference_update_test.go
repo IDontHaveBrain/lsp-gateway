@@ -70,7 +70,7 @@ func FunctionC() string {
 		Enabled:     true,
 		MaxMemoryMB: 100,
 		TTLHours:    1,
-		DiskCache:   true,
+
 		StoragePath: filepath.Join(tempDir, ".cache"),
 	}
 

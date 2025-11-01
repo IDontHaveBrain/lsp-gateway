@@ -74,16 +74,14 @@ func handleError(err error) {
 	// Create proper URI for HTTP requests
 	testFileURI := utils.FilePathToURI(testFile)
 
-	cfg := config.NewTestConfigBuilder().
-		WithCachePath(t.TempDir()).
-		WithCacheMemory(128).
-		WithCacheTTL(1).
-		WithLanguages("go", "python", "typescript").
-		WithBackgroundIndexing(false).
-		WithHealthCheckInterval(5).
-		WithEvictionPolicy("lru").
-		WithDiskCache(false).
-		MustBuild()
+	cfg := config.NewTestConfig(
+		config.WithCachePath(t.TempDir()),
+		config.WithCacheMemory(128),
+		config.WithCacheTTL(1),
+		config.WithLanguages("go", "python", "typescript"),
+		config.WithBackgroundIndexing(false),
+		config.WithHealthCheckInterval(5),
+	)
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)
@@ -252,12 +250,12 @@ func TestDualProtocolResourceContention(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	cfg := config.NewTestConfigBuilder().
-		WithLanguages("go").
-		WithCachePath(t.TempDir()).
-		WithCacheMemory(8).
-		WithCacheTTL(1).
-		MustBuild()
+	cfg := config.NewTestConfig(
+		config.WithLanguages("go"),
+		config.WithCachePath(t.TempDir()),
+		config.WithCacheMemory(8),
+		config.WithCacheTTL(1),
+	)
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)

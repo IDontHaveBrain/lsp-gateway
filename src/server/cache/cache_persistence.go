@@ -97,7 +97,7 @@ func (m *SCIPCacheManager) LoadIndexFromDisk() error {
 
 // PerformWorkspaceIndexing performs initial workspace indexing
 func (m *SCIPCacheManager) PerformWorkspaceIndexing(ctx context.Context, workingDir string, lspFallback LSPFallback) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -116,7 +116,7 @@ func (m *SCIPCacheManager) PerformWorkspaceIndexing(ctx context.Context, working
 // PerformFullIndexing performs both basic and enhanced reference indexing
 // This is the common indexing logic used by both CLI and MCP server
 func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -137,7 +137,7 @@ func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir s
 		common.LSPLogger.Debug("Enhanced reference indexing complete")
 	}
 
-	if m.config.DiskCache && m.config.StoragePath != "" {
+	if m.config.StoragePath != "" {
 		if err := m.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
@@ -147,7 +147,7 @@ func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir s
 }
 
 func (m *SCIPCacheManager) PerformWorkspaceIndexingWithProgress(ctx context.Context, workingDir string, lspFallback LSPFallback, progress IndexProgressFunc) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 	detectedLanguages, err := project.DetectLanguages(workingDir)
@@ -160,7 +160,7 @@ func (m *SCIPCacheManager) PerformWorkspaceIndexingWithProgress(ctx context.Cont
 }
 
 func (m *SCIPCacheManager) PerformFullIndexingWithProgress(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback, progress IndexProgressFunc) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 	indexer := NewWorkspaceIndexer(lspFallback)
@@ -176,7 +176,7 @@ func (m *SCIPCacheManager) PerformFullIndexingWithProgress(ctx context.Context, 
 	} else {
 		common.LSPLogger.Debug("Enhanced reference indexing complete")
 	}
-	if m.config.DiskCache && m.config.StoragePath != "" {
+	if m.config.StoragePath != "" {
 		if err := m.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
@@ -192,7 +192,7 @@ func (m *SCIPCacheManager) PerformIncrementalIndexing(ctx context.Context, worki
 
 // PerformIncrementalIndexingWithProgress performs incremental indexing with progress callback
 func (m *SCIPCacheManager) PerformIncrementalIndexingWithProgress(ctx context.Context, workingDir string, lspFallback LSPFallback, progress IndexProgressFunc) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -209,7 +209,7 @@ func (m *SCIPCacheManager) PerformIncrementalIndexingWithProgress(ctx context.Co
 
 // performIncrementalIndexingCore performs incremental indexing with all parameters
 func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback, progress IndexProgressFunc) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -288,7 +288,7 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 	}
 
 	// Save file tracker metadata
-	if m.config.DiskCache && m.config.StoragePath != "" {
+	if m.config.StoragePath != "" {
 		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
 		if err := m.fileTracker.SaveToFile(metadataPath); err != nil {
 			common.LSPLogger.Warn("Failed to save file metadata: %v", err)

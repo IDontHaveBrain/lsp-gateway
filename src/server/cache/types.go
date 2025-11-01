@@ -20,9 +20,6 @@ type IndexQuery struct {
 	MaxDepth int                    `json:"max_depth,omitempty"`
 }
 
-// IndexResult unified with search.SearchResponse
-type IndexResult = search.SearchResponse
-
 // IndexStats represents statistics about the SCIP index
 type IndexStats struct {
 	DocumentCount    int64            `json:"document_count"`
@@ -100,7 +97,7 @@ type SCIPCache interface {
 
 	// SCIP indexing capabilities - integrated as core functionality
 	IndexDocument(ctx context.Context, uri string, language string, symbols []types.SymbolInformation) error
-	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
+	QueryIndex(ctx context.Context, query *IndexQuery) (*search.SearchResponse, error)
 	GetIndexStats() *IndexStats
 	UpdateIndex(ctx context.Context, files []string) error
 

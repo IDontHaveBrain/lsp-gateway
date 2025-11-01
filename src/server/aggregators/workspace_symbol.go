@@ -17,13 +17,10 @@ type WorkspaceSymbolAggregator interface {
 }
 
 type LSPWorkspaceSymbolAggregator struct {
-	errorTranslator lsp.ErrorTranslator
 }
 
 func NewWorkspaceSymbolAggregator() *LSPWorkspaceSymbolAggregator {
-	return &LSPWorkspaceSymbolAggregator{
-		errorTranslator: lsp.NewLSPErrorTranslator(),
-	}
+	return &LSPWorkspaceSymbolAggregator{}
 }
 
 // ProcessWorkspaceSymbol processes types.MethodWorkspaceSymbol requests across all clients
@@ -55,7 +52,7 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 			return nil, fmt.Errorf("no LSP servers support %s. Unsupported servers: %v. %s",
 				types.MethodWorkspaceSymbol,
 				unsupportedClients,
-				w.errorTranslator.GetMethodSuggestion(unsupportedClients[0], types.MethodWorkspaceSymbol))
+				lsp.GetMethodSuggestion(unsupportedClients[0], types.MethodWorkspaceSymbol))
 		}
 		return nil, fmt.Errorf("no active LSP clients available")
 	}

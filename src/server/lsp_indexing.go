@@ -14,6 +14,7 @@ import (
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
+	cachesearch "lsp-gateway/src/server/cache/search"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/server/watcher"
 	"lsp-gateway/src/utils"
@@ -192,7 +193,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		if err == nil && len(scipRefs) > 0 {
 			for _, r := range scipRefs {
 				switch v := r.(type) {
-				case cache.SCIPOccurrenceInfo:
+				case cachesearch.SCIPOccurrenceInfo:
 					ref := ReferenceInfo{
 						FilePath:      utils.URIToFilePathCached(v.DocumentURI),
 						LineNumber:    int(v.Occurrence.Range.Start.Line),
@@ -242,7 +243,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		if len(references) == 0 || fallbackDefRef == nil {
 			if defs, derr := m.scipCache.SearchDefinitions(ctx, query.Pattern, query.FilePattern, 1); derr == nil && len(defs) > 0 {
 				switch d := defs[0].(type) {
-				case cache.SCIPOccurrenceInfo:
+				case cachesearch.SCIPOccurrenceInfo:
 					fallbackDefRef = &ReferenceInfo{
 						FilePath:   utils.URIToFilePathCached(d.DocumentURI),
 						LineNumber: int(d.Occurrence.Range.Start.Line),
@@ -438,7 +439,8 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			"query": query.Pattern,
 		}
 
-		if wsResult, wsErr := m.ProcessRequest(ctx, types.MethodWorkspaceSymbol, wsParams); wsErr == nil && wsResult != nil {
+		wsResult, wsErr := m.ProcessRequest(ctx, types.MethodWorkspaceSymbol, wsParams)
+		if wsErr == nil && wsResult != nil {
 			symbolInfos := lspconv.ParseWorkspaceSymbols(wsResult)
 
 			// For each symbol found, try to get references from its location

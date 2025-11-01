@@ -91,8 +91,6 @@ func createCacheTestConfig() *config.Config {
 		StoragePath:     "/tmp/test-cache",
 		Languages:       []string{"go"},
 		BackgroundIndex: false,
-		EvictionPolicy:  "lru",
-		DiskCache:       false,
 	}
 	return cfg
 }

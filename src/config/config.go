@@ -23,8 +23,6 @@ type Config struct {
 
 // MCPConfig contains MCP server specific configuration
 type MCPConfig struct {
-	// Currently no MCP-specific configuration fields
-	// Enhanced mode is always used
 }
 
 // ServerConfig contains configuration for a single LSP server
@@ -341,8 +339,24 @@ func detectAvailableLanguages(dir string) ([]string, error) {
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
-	cfg, _ := NewConfigBuilder().Build()
-	return cfg
+	return &Config{
+		Servers: getDefaultServerConfigs(),
+		Cache:   GetDefaultCacheConfig(),
+		MCP:     &MCPConfig{},
+	}
+}
+
+// getDefaultServerConfigs generates server configurations from the language registry
+func getDefaultServerConfigs() map[string]*ServerConfig {
+	langs := registry.GetSupportedLanguages()
+	servers := make(map[string]*ServerConfig, len(langs))
+	for _, lang := range langs {
+		servers[lang.Name] = &ServerConfig{
+			Command: lang.DefaultCommand,
+			Args:    append([]string{}, lang.DefaultArgs...),
+		}
+	}
+	return servers
 }
 
 // GetDefaultCacheConfig returns a default cache configuration with simple units (enabled by default)
@@ -356,8 +370,6 @@ func GetDefaultCacheConfig() *CacheConfig {
 		Languages:          []string{"*"},
 		BackgroundIndex:    constants.DefaultBackgroundIndexing,
 		HealthCheckMinutes: constants.DefaultHealthCheckMinutes,
-		EvictionPolicy:     constants.DefaultEvictionPolicy,
-		DiskCache:          constants.DefaultDiskCachePersistence,
 	}
 }
 

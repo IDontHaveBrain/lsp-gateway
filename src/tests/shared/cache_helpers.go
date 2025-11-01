@@ -24,8 +24,6 @@ func DefaultCacheConfigOptions(tempDir string) *CacheConfigOptions {
 		TTLHours:        1,
 		Languages:       []string{"go"},
 		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
 	}
 }
 
@@ -42,8 +40,6 @@ func CreateCacheConfig(opts *CacheConfigOptions) *config.CacheConfig {
 		TTLHours:        opts.TTLHours,
 		Languages:       opts.Languages,
 		BackgroundIndex: opts.BackgroundIndex,
-		DiskCache:       opts.DiskCache,
-		EvictionPolicy:  opts.EvictionPolicy,
 	}
 }
 

@@ -101,6 +101,23 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		}
 		return nil, fmt.Errorf("failed to extract URI from params: %w", err)
 	}
+
+	if method == types.MethodWorkspaceSymbol && uri == "" {
+		m.mu.RLock()
+		clients := make(map[string]interface{})
+		for k, v := range m.clients {
+			clients[k] = v
+		}
+		m.mu.RUnlock()
+		result, err := m.workspaceAggregator.ProcessWorkspaceSymbol(ctx, clients, params)
+		if err == nil && m.scipCache != nil {
+			if m.isCacheableMethod(method) {
+				_ = m.scipCache.Store(method, params, result)
+			}
+		}
+		return result, err
+	}
+
 	language := m.documentManager.DetectLanguage(uri)
 	if language == "" {
 		return nil, fmt.Errorf("unsupported file type: %s", uri)
@@ -110,8 +127,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		return nil, fmt.Errorf("no LSP client for language %s: %w", language, err)
 	}
 	if !client.Supports(method) {
-		errorTranslator := lsp.NewLSPErrorTranslator()
-		return nil, errorspkg.NewMethodNotSupportedError(language, method, errorTranslator.GetMethodSuggestion(language, method))
+		return nil, errorspkg.NewMethodNotSupportedError(language, method, lsp.GetMethodSuggestion(language, method))
 	}
 	if method != types.MethodWorkspaceSymbol {
 		m.ensureDocumentOpen(client, uri, language, params)

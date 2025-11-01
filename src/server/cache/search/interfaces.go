@@ -40,12 +40,6 @@ type SearchHandler interface {
 	Handle(request *SearchRequest) (*SearchResponse, error)
 }
 
-// SearchMiddleware defines the interface for search middleware
-type SearchMiddleware interface {
-	// Process applies middleware logic to the search request/response
-	Process(request *SearchRequest, next func(*SearchRequest) (*SearchResponse, error)) (*SearchResponse, error)
-}
-
 // ResultBuilder defines the interface for building search results
 type ResultBuilder interface {
 	// BuildSearchResponse creates a SearchResponse from raw data
@@ -58,24 +52,6 @@ type ResultBuilder interface {
 	BuildDisabledResponse(searchType SearchType) *SearchResponse
 }
 
-// PatternMatcher defines the interface for file pattern matching
-type PatternMatcher interface {
-	// MatchFilePattern checks if a URI matches the given pattern
-	MatchFilePattern(uri, pattern string) bool
-}
-
-// OccurrenceBuilder defines the interface for building occurrence information
-type OccurrenceBuilder interface {
-	// BuildOccurrenceInfo creates occurrence information from SCIP data
-	BuildOccurrenceInfo(occ interface{}, docURI string) interface{}
-}
-
-// SymbolFormatter defines the interface for formatting symbol details
-type SymbolFormatter interface {
-	// FormatSymbolDetail formats symbol information for display
-	FormatSymbolDetail(symbolInfo interface{}) string
-}
-
 // SearchFactory defines the interface for creating search services
 type SearchFactory interface {
 	// CreateSearchService creates a new search service with the given configuration
@@ -86,49 +62,4 @@ type SearchFactory interface {
 
 	// CreateResultBuilder creates a result builder
 	CreateResultBuilder() ResultBuilder
-}
-
-// SearchServiceManager defines the interface for managing search services
-type SearchServiceManager interface {
-	// GetSearchService returns the search service instance
-	GetSearchService() SearchServiceInterface
-
-	// RefreshSearchService recreates the search service with updated configuration
-	RefreshSearchService(config *SearchServiceConfig) error
-
-	// GetSupportedSearchTypes returns the list of supported search types
-	GetSupportedSearchTypes() []SearchType
-}
-
-// SearchMetrics defines the interface for search metrics collection
-type SearchMetrics interface {
-	// RecordSearchRequest records a search request metric
-	RecordSearchRequest(searchType SearchType, duration int64, resultCount int)
-
-	// RecordSearchError records a search error metric
-	RecordSearchError(searchType SearchType, errorType string)
-
-	// GetSearchStats returns current search statistics
-	GetSearchStats() map[string]interface{}
-}
-
-// ValidationRules defines the interface for search request validation
-type ValidationRules interface {
-	// ValidateSearchRequest validates a search request
-	ValidateSearchRequest(request *SearchRequest) error
-
-	// SanitizeSearchRequest sanitizes and normalizes a search request
-	SanitizeSearchRequest(request *SearchRequest) *SearchRequest
-}
-
-// ConfigurationProvider defines the interface for search configuration
-type ConfigurationProvider interface {
-	// GetSearchConfig returns the current search configuration
-	GetSearchConfig() *SearchServiceConfig
-
-	// UpdateSearchConfig updates the search configuration
-	UpdateSearchConfig(config *SearchServiceConfig) error
-
-	// IsSearchEnabled returns whether search is enabled
-	IsSearchEnabled() bool
 }

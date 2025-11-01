@@ -70,29 +70,6 @@ request := &SearchRequest{
 result, err := searchService.Search(request)
 ```
 
-### Using Builder Pattern
-
-```go
-// Build search service
-searchService, err := NewSearchServiceBuilder().
-    WithStorage(scipStorage).
-    WithEnabled(true).
-    WithIndexMutex(&indexMutex).
-    WithMatchFilePatternFn(manager.matchFilePattern).
-    WithBuildOccurrenceInfoFn(manager.buildOccurrenceInfo).
-    WithFormatSymbolDetailFn(manager.formatSymbolDetail).
-    Build()
-
-// Build search request
-request, err := NewSearchRequestBuilder().
-    WithType(SearchTypeReference).
-    WithSymbolName("myVariable").
-    WithFilePattern("src/**/*.ts").
-    WithMaxResults(50).
-    WithContext(ctx).
-    Build()
-```
-
 ### Using Factory
 
 ```go
@@ -156,17 +133,12 @@ Centralized creation of search services and handlers:
 - `DefaultSearchFactory` implementation
 - `SearchServiceFactory` singleton
 
-### 3. Builder Pattern
-Fluent interfaces for configuration:
-- `SearchServiceBuilder`
-- `SearchRequestBuilder`
-
-### 4. Template Method Pattern
+### 3. Template Method Pattern
 Common search execution flow with type-specific implementations:
 - `SearchService.Search()` orchestrates
 - Individual handlers implement specific logic
 
-### 5. Guard Pattern
+### 4. Guard Pattern
 Consolidated guard checks:
 - Enabled state validation
 - Lock management

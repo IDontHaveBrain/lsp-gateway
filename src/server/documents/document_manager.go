@@ -7,23 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/errors"
-	lsp "lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/jsonutil"
 )
 
 type DocumentState struct {
-	URI        string
-	Language   string
-	Version    int
-	OpenedBy   map[string]bool
-	Content    string
-	LastAccess time.Time
+	URI      string
+	Language string
+	OpenedBy map[string]bool
 }
 
 func (ds *DocumentState) IsOpenForLanguage(language string) bool {
@@ -35,12 +31,10 @@ func (ds *DocumentState) OpenForLanguage(language string) {
 		ds.OpenedBy = make(map[string]bool)
 	}
 	ds.OpenedBy[language] = true
-	ds.LastAccess = time.Now()
 }
 
 func (ds *DocumentState) CloseForLanguage(language string) {
 	delete(ds.OpenedBy, language)
-	ds.LastAccess = time.Now()
 }
 
 func (ds *DocumentState) IsClosed() bool {
@@ -72,56 +66,16 @@ func (dm *DocumentManager) ExtractURI(params interface{}) (string, error) {
 		return "", errors.NewValidationError("params", "no parameters provided")
 	}
 
-	switch p := params.(type) {
-	case *protocol.DefinitionParams:
-		return string(p.TextDocument.URI), nil
-	case protocol.DefinitionParams:
-		return string(p.TextDocument.URI), nil
-	case *protocol.ReferenceParams:
-		return string(p.TextDocument.URI), nil
-	case protocol.ReferenceParams:
-		return string(p.TextDocument.URI), nil
-	case *protocol.HoverParams:
-		return string(p.TextDocument.URI), nil
-	case protocol.HoverParams:
-		return string(p.TextDocument.URI), nil
-	case *protocol.DocumentSymbolParams:
-		return string(p.TextDocument.URI), nil
-	case protocol.DocumentSymbolParams:
-		return string(p.TextDocument.URI), nil
-	case *protocol.CompletionParams:
-		return string(p.TextDocument.URI), nil
-	case protocol.CompletionParams:
-		return string(p.TextDocument.URI), nil
-	case *protocol.WorkspaceSymbolParams:
-		return "", nil
-	case protocol.WorkspaceSymbolParams:
-		return "", nil
-	case *lsp.DocumentSymbolParams:
-		return p.TextDocument.URI, nil
-	case lsp.DocumentSymbolParams:
-		return p.TextDocument.URI, nil
-	case *lsp.ReferenceParams:
-		return p.TextDocument.URI, nil
-	case lsp.ReferenceParams:
-		return p.TextDocument.URI, nil
-	case *lsp.HoverParams:
-		return p.TextDocument.URI, nil
-	case lsp.HoverParams:
-		return p.TextDocument.URI, nil
-	case *lsp.CompletionParams:
-		return p.TextDocument.URI, nil
-	case lsp.CompletionParams:
-		return p.TextDocument.URI, nil
-	case *lsp.DefinitionParams:
-		return p.TextDocument.URI, nil
-	case lsp.DefinitionParams:
-		return p.TextDocument.URI, nil
-	}
+	var paramsMap map[string]interface{}
 
-	paramsMap, err := errors.ValidateParamMap(params)
-	if err != nil {
-		return "", errors.WrapWithContext("failed to validate params", err)
+	if m, ok := params.(map[string]interface{}); ok {
+		paramsMap = m
+	} else {
+		converted, err := jsonutil.Convert[map[string]interface{}](params)
+		if err != nil {
+			return "", errors.WrapWithContext("failed to convert params to map", err)
+		}
+		paramsMap = converted
 	}
 
 	if textDoc, ok := paramsMap["textDocument"].(map[string]interface{}); ok {
@@ -132,6 +86,10 @@ func (dm *DocumentManager) ExtractURI(params interface{}) (string, error) {
 
 	if uri, ok := paramsMap["uri"].(string); ok {
 		return uri, nil
+	}
+
+	if _, isWorkspaceSymbol := paramsMap["query"]; isWorkspaceSymbol {
+		return "", nil
 	}
 
 	return "", errors.NewValidationError("parameter", "no URI found in parameters")
@@ -193,8 +151,6 @@ func (dm *DocumentManager) MarkOpen(uri string, language string, content string,
 		doc = &DocumentState{
 			URI:      uri,
 			Language: language,
-			Version:  version,
-			Content:  content,
 			OpenedBy: make(map[string]bool),
 		}
 		dm.documents[uri] = doc
@@ -213,37 +169,6 @@ func (dm *DocumentManager) MarkClosed(uri string, language string) {
 			delete(dm.documents, uri)
 		}
 	}
-}
-
-func (dm *DocumentManager) UpdateContent(uri string, content string, version int) {
-	dm.mu.Lock()
-	defer dm.mu.Unlock()
-
-	doc, exists := dm.documents[uri]
-	if exists {
-		doc.Content = content
-		doc.Version = version
-		doc.LastAccess = time.Now()
-	}
-}
-
-func (dm *DocumentManager) GetDocument(uri string) (*DocumentState, bool) {
-	dm.mu.RLock()
-	defer dm.mu.RUnlock()
-
-	doc, exists := dm.documents[uri]
-	return doc, exists
-}
-
-func (dm *DocumentManager) GetAllDocuments() []*DocumentState {
-	dm.mu.RLock()
-	defer dm.mu.RUnlock()
-
-	docs := make([]*DocumentState, 0, len(dm.documents))
-	for _, doc := range dm.documents {
-		docs = append(docs, doc)
-	}
-	return docs
 }
 
 func (dm *DocumentManager) Clear() {

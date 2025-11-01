@@ -1,61 +1,12 @@
 package cache
 
-import (
-	"fmt"
-	"time"
-
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/server/cache/search"
-)
-
-// WithEnabledGuard executes the provided function only if the cache is enabled.
-// Returns the function result if cache is enabled, otherwise returns nil and no error.
-func (m *SCIPCacheManager) WithEnabledGuard(fn func() (interface{}, error)) (interface{}, error) {
-	return common.WithEnabledGuard(m.enabled, fn)
-}
-
-// NOTE: Base guard behavior is delegated to internal/common.WithEnabledGuard to keep semantics consistent.
+import "fmt"
 
 // MustBeEnabled returns an error if the cache is disabled.
 // Use this for operations that require the cache to be enabled.
 func (m *SCIPCacheManager) MustBeEnabled() error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return fmt.Errorf("cache disabled or SCIP storage unavailable")
 	}
 	return nil
-}
-
-// WithIndexResult executes the function if cache is enabled, otherwise returns a default IndexResult
-// with cache_disabled metadata.
-func (m *SCIPCacheManager) WithIndexResult(queryType string, fn func() (*IndexResult, error)) (*IndexResult, error) {
-	defaultResult := &search.SearchResponse{
-		Type:      queryType,
-		Results:   []interface{}{},
-		Total:     0,
-		Truncated: false,
-		Metadata:  &search.SearchMetadata{CacheEnabled: false, SCIPEnabled: false, IndexStatus: "disabled"},
-		Timestamp: time.Now(),
-		Success:   false,
-		Error:     "cache disabled or SCIP storage unavailable",
-	}
-	return common.WithEnabledGuardDefault(m.enabled, fn, defaultResult)
-}
-
-// Removed: Enhanced/Symbol/Reference typed guard wrappers; search service guard handles disabled cases.
-
-// WithSliceResult executes the function if cache is enabled, otherwise returns an empty slice.
-// Useful for methods that return []interface{} when cache is disabled.
-func (m *SCIPCacheManager) WithSliceResult(fn func() ([]interface{}, error)) ([]interface{}, error) {
-	return common.WithEnabledGuardDefault(m.enabled, fn, []interface{}{})
-}
-
-// isEnabledAndStarted checks if cache is enabled and properly initialized
-func (m *SCIPCacheManager) isEnabledAndStarted() bool {
-	return m.enabled && m.started
-}
-
-// WithManagerGuard executes the function only if the cache manager is enabled and started.
-// Returns nil values if the cache is not ready.
-func (m *SCIPCacheManager) WithManagerGuard(fn func() (interface{}, bool, error)) (interface{}, bool, error) {
-	return common.WithEnabledGuard3(m.isEnabledAndStarted(), fn)
 }

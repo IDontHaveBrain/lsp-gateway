@@ -118,7 +118,6 @@ func (s *MCPServer) handleFindReferences(ctx context.Context, _ *mcp.CallToolReq
 	if err != nil {
 		return nil, nil, err
 	}
-
 	payload := formatReferenceSearchResult(result)
 	return nil, payload, nil
 }

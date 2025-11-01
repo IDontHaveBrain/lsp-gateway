@@ -19,18 +19,7 @@ type ServerCapabilities struct {
 	SemanticTokensProvider  interface{} `json:"semanticTokensProvider,omitempty"`
 }
 
-type CapabilityDetector interface {
-	ParseCapabilities(response json.RawMessage, serverCommand string) (ServerCapabilities, error)
-	SupportsMethod(caps ServerCapabilities, method string) bool
-}
-
-type LSPCapabilityDetector struct{}
-
-func NewLSPCapabilityDetector() *LSPCapabilityDetector {
-	return &LSPCapabilityDetector{}
-}
-
-func (d *LSPCapabilityDetector) ParseCapabilities(response json.RawMessage, serverCommand string) (ServerCapabilities, error) {
+func ParseCapabilities(response json.RawMessage, serverCommand string) (ServerCapabilities, error) {
 	var initResponse struct {
 		Capabilities ServerCapabilities `json:"capabilities"`
 	}
@@ -73,28 +62,28 @@ func (d *LSPCapabilityDetector) ParseCapabilities(response json.RawMessage, serv
 	return initResponse.Capabilities, nil
 }
 
-func (d *LSPCapabilityDetector) SupportsMethod(caps ServerCapabilities, method string) bool {
+func SupportsMethod(caps ServerCapabilities, method string) bool {
 	switch method {
 	case types.MethodInitialize, types.MethodShutdown, types.MethodExit:
 		return true
 	case types.MethodWorkspaceSymbol:
-		return d.isCapabilitySupported(caps.WorkspaceSymbolProvider)
+		return isCapabilitySupported(caps.WorkspaceSymbolProvider)
 	case types.MethodTextDocumentDefinition:
-		return d.isCapabilitySupported(caps.DefinitionProvider)
+		return isCapabilitySupported(caps.DefinitionProvider)
 	case types.MethodTextDocumentReferences:
-		return d.isCapabilitySupported(caps.ReferencesProvider)
+		return isCapabilitySupported(caps.ReferencesProvider)
 	case types.MethodTextDocumentHover:
-		return d.isCapabilitySupported(caps.HoverProvider)
+		return isCapabilitySupported(caps.HoverProvider)
 	case types.MethodTextDocumentDocumentSymbol:
-		return d.isCapabilitySupported(caps.DocumentSymbolProvider)
+		return isCapabilitySupported(caps.DocumentSymbolProvider)
 	case types.MethodTextDocumentCompletion:
-		return d.isCapabilitySupported(caps.CompletionProvider)
+		return isCapabilitySupported(caps.CompletionProvider)
 	default:
 		return true
 	}
 }
 
-func (d *LSPCapabilityDetector) isCapabilitySupported(capability interface{}) bool {
+func isCapabilitySupported(capability interface{}) bool {
 	if capability == nil {
 		return false
 	}

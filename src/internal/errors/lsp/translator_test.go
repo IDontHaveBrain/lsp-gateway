@@ -8,28 +8,25 @@ import (
 )
 
 func TestLSPErrorTranslator_MethodNotSupported_FromKeyError(t *testing.T) {
-	tr := NewLSPErrorTranslator()
-	uerr := tr.CreateUnifiedError("pylsp", "KeyError: x", []string{"workspace", "symbol"})
+	uerr := CreateUnifiedError("pylsp", "KeyError: x", []string{"workspace", "symbol"})
 	if !errors.IsMethodNotSupportedError(uerr) {
 		t.Fatalf("expected method-not-supported")
 	}
 }
 
 func TestLSPErrorTranslator_MethodNotFound_Text(t *testing.T) {
-	tr := NewLSPErrorTranslator()
-	uerr := tr.CreateUnifiedError("go", "Method not found: textDocument/references", nil)
+	uerr := CreateUnifiedError("go", "Method not found: textDocument/references", nil)
 	if !errors.IsMethodNotSupportedError(uerr) {
 		t.Fatalf("expected method-not-supported")
 	}
 }
 
 func TestLSPErrorTranslator_TranslateToUnified(t *testing.T) {
-	tr := NewLSPErrorTranslator()
-	e := tr.TranslateToUnifiedError("go", errors.NewTimeoutError("op", "go", 0, nil))
+	e := TranslateToUnifiedError("go", errors.NewTimeoutError("op", "go", 0, nil))
 	if !errors.IsTimeoutError(e) {
 		t.Fatalf("expected timeout")
 	}
-	e2 := tr.TranslateToUnifiedError("go", stderrors.New("connection refused"))
+	e2 := TranslateToUnifiedError("go", stderrors.New("connection refused"))
 	if !errors.IsConnectionError(e2) {
 		t.Fatalf("expected connection")
 	}

@@ -1,12 +1,15 @@
 package cache
 
-import "lsp-gateway/src/server/scip"
+import (
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
+)
 
 // Result building utilities - creates enhanced symbol results and occurrence info from SCIP data
 
 // buildOccurrenceInfo creates occurrence info with context
-func (m *SCIPCacheManager) buildOccurrenceInfo(occ *scip.SCIPOccurrence, docURI string) SCIPOccurrenceInfo {
-	return SCIPOccurrenceInfo{
+func (m *SCIPCacheManager) buildOccurrenceInfo(occ *scip.SCIPOccurrence, docURI string) search.SCIPOccurrenceInfo {
+	return search.SCIPOccurrenceInfo{
 		Occurrence:  *occ,
 		DocumentURI: docURI,
 		SymbolRoles: occ.SymbolRoles,

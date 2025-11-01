@@ -15,7 +15,7 @@ import (
 
 // StoreMethodResult stores LSP method results as SCIP occurrences with proper roles
 func (m *SCIPCacheManager) StoreMethodResult(method string, params interface{}, response interface{}) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 

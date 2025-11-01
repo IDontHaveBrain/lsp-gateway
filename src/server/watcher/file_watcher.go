@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,7 +87,7 @@ func (fw *FileWatcher) AddPath(path string) error {
 
 	// If it's a directory, walk and add subdirectories
 	if err := fw.addSubdirectories(absPath); err != nil {
-		common.LSPLogger.Warn("Failed to add subdirectories for %s: %v", absPath, err)
+		return fmt.Errorf("failed to add subdirectories for %s: %w", absPath, err)
 	}
 
 	return nil
@@ -96,7 +97,8 @@ func (fw *FileWatcher) AddPath(path string) error {
 func (fw *FileWatcher) addSubdirectories(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // Skip errors
+			common.LSPLogger.Warn("Walk error at %s: %v", path, err)
+			return err
 		}
 
 		// Use gitignore manager to check if path should be ignored
@@ -120,7 +122,7 @@ func (fw *FileWatcher) addSubdirectories(root string) error {
 		// Add directories to watcher
 		if info.IsDir() && path != root {
 			if err := fw.watcher.Add(path); err != nil {
-				common.LSPLogger.Warn("Failed to watch directory %s: %v", path, err)
+				return fmt.Errorf("failed to watch directory %s: %w", path, err)
 			}
 		}
 
@@ -175,7 +177,7 @@ func (fw *FileWatcher) shouldProcess(path string) bool {
 	if info, err := os.Stat(path); err == nil && info.IsDir() {
 		// Handle new directories
 		if err := fw.addSubdirectories(path); err != nil {
-			common.LSPLogger.Warn("Failed to add new directory %s: %v", path, err)
+			common.LSPLogger.Error("Failed to add new directory %s: %v", path, err)
 		}
 		return false
 	}

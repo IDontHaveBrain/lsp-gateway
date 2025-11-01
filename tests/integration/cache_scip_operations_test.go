@@ -83,8 +83,6 @@ func NewHandler(s *Server) *Handler {
 		TTLHours:        2,
 		Languages:       []string{"go"},
 		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
 	}
 
 	cfg := &config.Config{
@@ -469,8 +467,6 @@ func NewHandler(s *Server) *Handler {
 			TTLHours:        1,
 			Languages:       []string{"go"},
 			BackgroundIndex: false,
-			DiskCache:       false,
-			EvictionPolicy:  "lru",
 		}
 
 		smallCache, err := cache.NewSCIPCacheManager(smallCacheConfig)

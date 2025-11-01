@@ -14,7 +14,7 @@ import (
 
 // IndexDocument indexes LSP symbols using occurrence-centric SCIP storage
 func (m *SCIPCacheManager) IndexDocument(ctx context.Context, uri, language string, symbols []types.SymbolInformation) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -36,7 +36,7 @@ func (m *SCIPCacheManager) IndexDocument(ctx context.Context, uri, language stri
 
 // UpdateSymbolIndex converts LSP symbols to SCIP occurrences with enhanced range information
 func (m *SCIPCacheManager) UpdateSymbolIndex(uri string, symbols []*types.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 
@@ -99,7 +99,7 @@ func (m *SCIPCacheManager) convertLSPSymbolsToSCIPDocument(uri, language string,
 
 // GetIndexStats returns current index statistics
 func (m *SCIPCacheManager) GetIndexStats() *IndexStats {
-	if !m.enabled {
+	if m.isDisabled() {
 		return &IndexStats{Status: "disabled"}
 	}
 
@@ -119,7 +119,7 @@ func (m *SCIPCacheManager) GetIndexStats() *IndexStats {
 
 // UpdateIndex updates the index with the given files
 func (m *SCIPCacheManager) UpdateIndex(ctx context.Context, files []string) error {
-	if !m.enabled {
+	if m.isDisabled() {
 		return nil
 	}
 	// Handle deletions: remove documents that no longer exist on disk

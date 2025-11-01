@@ -73,8 +73,6 @@ func helperFunction() {
 			TTLHours:        1,
 			Languages:       []string{"go"},
 			BackgroundIndex: false,
-			DiskCache:       true,
-			EvictionPolicy:  "lru",
 		},
 		Servers: map[string]*config.ServerConfig{
 			"go": {

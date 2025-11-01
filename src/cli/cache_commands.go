@@ -261,7 +261,7 @@ func ShowCacheInfo(configPath string) error {
 		// Storage details and index hit rate
 		if cmdCtx.Config != nil && cmdCtx.Config.Cache != nil {
 			disk := "disabled"
-			if cmdCtx.Config.Cache.DiskCache {
+			if cmdCtx.Config.Cache.StoragePath != "" {
 				disk = "enabled"
 			}
 			if cmdCtx.Config.Cache.StoragePath != "" {

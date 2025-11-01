@@ -188,7 +188,6 @@ func testFunction(param string) string {
 			MaxMemoryMB: 64,
 			TTLHours:    1,
 			Languages:   []string{"go"},
-			DiskCache:   true,
 		}
 
 		_, err := cache.NewSCIPCacheManager(cacheConfig)

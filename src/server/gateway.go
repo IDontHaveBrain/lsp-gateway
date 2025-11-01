@@ -42,6 +42,29 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 		return nil, fmt.Errorf("configuration required for HTTP gateway")
 	}
 
+	// HTTP Gateway requires cache for performance - ensure it's always enabled
+	if cfg.Cache == nil || !cfg.Cache.Enabled {
+		common.GatewayLogger.Debug("HTTP Gateway automatically enabling cache for performance")
+		if cfg.Cache == nil {
+			cfg.Cache = config.GetDefaultCacheConfig()
+		} else {
+			cfg.Cache.Enabled = true
+			// Ensure other cache settings are properly initialized
+			if cfg.Cache.MaxMemoryMB == 0 {
+				cfg.Cache.MaxMemoryMB = config.GetDefaultCacheConfig().MaxMemoryMB
+			}
+			if cfg.Cache.TTLHours == 0 {
+				cfg.Cache.TTLHours = config.GetDefaultCacheConfig().TTLHours
+			}
+			if cfg.Cache.StoragePath == "" {
+				cfg.Cache.StoragePath = config.GetDefaultCacheConfig().StoragePath
+			}
+			if len(cfg.Cache.Languages) == 0 {
+				cfg.Cache.Languages = []string{"*"}
+			}
+		}
+	}
+
 	// Create LSP manager - cache configuration already applied by config.Load()
 	lspManager, err := NewLSPManager(cfg)
 	if err != nil {
