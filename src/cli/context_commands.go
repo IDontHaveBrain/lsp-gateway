@@ -619,45 +619,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		return b.String()
 	}
 
-	// Fallback LSP scan: walk tokens and resolve definitions when storage misses
-	// No token refinement; keep full ranges
-
-	_ = func(path, name string, r types.Range) {
-		if path == "" || path == absPath {
-			return
-		}
-		if isSkippablePath(path) {
-			return
-		}
-		if workspaceRoot != "" {
-			rp, _ := filepath.Abs(path)
-			rr, _ := filepath.Abs(workspaceRoot)
-			if !strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr {
-				return
-			}
-		}
-		// Expand to full symbol range when possible
-		r = expandRangeToSymbol(path, r, name)
-		if shouldDropTrivialHeader(path, r, name) {
-			return
-		}
-
-		key := path + "::" + name + fmt.Sprintf("@%d:%d-%d:%d", r.Start.Line, r.Start.Character, r.End.Line, r.End.Character)
-		if seen[key] {
-			return
-		}
-		seen[key] = true
-		snippetMap[path] = append(snippetMap[path], snippet{
-			file:   path,
-			name:   name,
-			startL: int(r.Start.Line),
-			startC: int(r.Start.Character),
-			endL:   int(r.End.Line),
-			endC:   int(r.End.Character),
-		})
-	}
-
-	// If still empty after LSP fallback, report error
 	if len(snippetMap) == 0 {
 		return fmt.Errorf("no referenced code found for: %s", absPath)
 	}

@@ -217,12 +217,12 @@ func TestConnection(configPath string) error {
 	common.CLILogger.Info("")
 	common.CLILogger.Info("Test Summary:")
 	common.CLILogger.Info("   • Active Servers: %d/%d", len(activeLanguages), len(cmdCtx.Config.Servers))
-	common.CLILogger.Info("   • Multi-Repo Test: %s", func() string {
-		if successCount > 0 {
-			return "Success"
-		}
-		return "Failed"
-	}())
+
+	testResult := "Failed"
+	if successCount > 0 {
+		testResult = "Success"
+	}
+	common.CLILogger.Info("   • Multi-Repo Test: %s", testResult)
 
 	// Display cache performance after testing
 	finalCacheMetrics := cmdCtx.Manager.GetCacheMetrics()
